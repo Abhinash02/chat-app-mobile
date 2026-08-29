@@ -1,0 +1,82 @@
+{
+  "expo": {
+    "name": "Vibe",
+    "slug": "vibe-chat",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "vibe",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF4E88"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.vibechat.mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Vibe uses your location to show you people nearby. You can turn this off at any time in Settings.",
+        "NSMicrophoneUsageDescription": "Vibe uses your microphone so you can talk in voice rooms.",
+        "NSPhotoLibraryUsageDescription": "Vibe needs access to your photos so you can choose a profile picture.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
+    },
+    "android": {
+      "package": "app.vibechat.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#FF4E88",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "RECORD_AUDIO",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-audio",
+      "expo-image",
+      [
+        "expo-notifications",
+        {
+          "color": "#FF4E88",
+          "defaultChannel": "messages"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Vibe uses your location to show you people nearby."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Vibe needs access to your photos so you can choose a profile picture."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2bca91af-be9d-4c99-b068-a9b32f8e627c"
+      }
+    }
+  }
+}

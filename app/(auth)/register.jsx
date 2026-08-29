@@ -1,0 +1,239 @@
+import { useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Field, GradientButton, Input } from '../../src/components/ui.jsx';
+import { useAuth } from '../../src/hooks/useAuth.jsx';
+import { useTheme } from '../../src/theme/ThemeProvider.jsx';
+import { useToast } from '../../src/components/Toast.jsx';
+
+/**
+ * Mirrors the server's rules so a mistake is caught before a round trip.
+ * The server validates the same things again — this is a courtesy, not the
+ * enforcement.
+ */
+function validate({ name, nickname, email, password, gender }) {
+  const errors = {};
+
+  if (name.trim().length < 2) errors.name = 'Enter your name';
+  if (!/^[a-zA-Z0-9_.]{2,24}$/.test(nickname.trim())) {
+    errors.nickname = 'Letters, numbers, dots and underscores only';
+  }
+  if (!/^\S+@\S+\.\S+$/.test(email.trim())) errors.email = 'Enter a valid email address';
+  if (password.length < 8) errors.password = 'At least 8 characters';
+  else if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+    errors.password = 'Needs an uppercase letter, a lowercase letter and a number';
+  }
+  if (!gender) errors.gender = 'Select one to continue';
+
+  return errors;
+}
+
+function GenderOption({ value, label, emoji, selected, onSelect }) {
+  const { colors, radius } = useTheme();
+  const isSelected = selected === value;
+  const accent = value === 'female' ? colors.femaleAccent : colors.maleAccent;
+
+  return (
+    <Pressable
+      onPress={() => onSelect(value)}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: isSelected }}
+      accessibilityLabel={label}
+      className="flex-1 items-center gap-1.5 py-4"
+      style={{
+        backgroundColor: isSelected ? `${accent}1A` : colors.surface,
+        borderRadius: radius,
+        borderWidth: isSelected ? 2 : 1,
+        borderColor: isSelected ? accent : colors.border,
+      }}
+    >
+      <Text className="text-2xl">{emoji}</Text>
+      <Text
+        className="text-sm font-semibold"
+        style={{ color: isSelected ? accent : colors.textSecondary }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+export default function Register() {
+  const { colors } = useTheme();
+  const { register } = useAuth();
+  const toast = useToast();
+  const insets = useSafeAreaInsets();
+
+  const [form, setForm] = useState({
+    name: '',
+    nickname: '',
+    email: '',
+    password: '',
+    gender: '',
+  });
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const set = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }));
+    setErrors((current) => ({ ...current, [key]: undefined }));
+  };
+
+  async function handleSubmit() {
+    const validationErrors = validate(form);
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
+    setIsSubmitting(true);
+
+    try {
+      await register({
+        name: form.name.trim(),
+        nickname: form.nickname.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+        gender: form.gender,
+      });
+
+      toast.success('Check your inbox for the code');
+      router.push({ pathname: '/(auth)/verify', params: { email: form.email.trim().toLowerCase() } });
+    } catch (submitError) {
+      // Field-level conflicts belong next to the field, not in a toast.
+      if (submitError.code === 'EMAIL_TAKEN') setErrors({ email: submitError.message });
+      else if (submitError.code === 'NICKNAME_TAKEN') setErrors({ nickname: submitError.message });
+      else if (submitError.code === 'VALIDATION_ERROR' && Array.isArray(submitError.details)) {
+        setErrors(
+          Object.fromEntries(submitError.details.map((issue) => [issue.field, issue.message])),
+        );
+      } else {
+        toast.error(submitError.message ?? 'Could not create your account');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1"
+      style={{ backgroundColor: colors.background }}
+    >
+      <ScrollView
+        contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        className="px-6"
+      >
+        <Pressable onPress={() => router.back()} className="mb-6 self-start" accessibilityRole="button">
+          <Text className="text-base" style={{ color: colors.textSecondary }}>
+            ← Back
+          </Text>
+        </Pressable>
+
+        <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+          Create your account
+        </Text>
+        <Text className="mb-7 mt-1.5 text-base" style={{ color: colors.textMuted }}>
+          It takes a minute. We will email you a code to confirm it is you.
+        </Text>
+
+        <Field label="Your name" error={errors.name}>
+          <Input
+            value={form.name}
+            onChangeText={(value) => set('name', value)}
+            placeholder="Aarav Sharma"
+            autoCapitalize="words"
+            autoComplete="name"
+            invalid={Boolean(errors.name)}
+          />
+        </Field>
+
+        <Field
+          label="Nickname"
+          error={errors.nickname}
+          hint="This is what everyone else sees. Your real name stays private."
+        >
+          <Input
+            value={form.nickname}
+            onChangeText={(value) => set('nickname', value)}
+            placeholder="aarav"
+            autoCapitalize="none"
+            maxLength={24}
+            invalid={Boolean(errors.nickname)}
+          />
+        </Field>
+
+        <Field label="Email" error={errors.email}>
+          <Input
+            value={form.email}
+            onChangeText={(value) => set('email', value)}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            invalid={Boolean(errors.email)}
+          />
+        </Field>
+
+        <Field
+          label="Password"
+          error={errors.password}
+          hint="At least 8 characters, with an uppercase letter and a number."
+        >
+          <Input
+            value={form.password}
+            onChangeText={(value) => set('password', value)}
+            placeholder="Choose a strong password"
+            secureTextEntry
+            autoCapitalize="none"
+            autoComplete="new-password"
+            invalid={Boolean(errors.password)}
+          />
+        </Field>
+
+        <Field
+          label="I am a"
+          error={errors.gender}
+          hint="This decides who you see and who sees you, and cannot be changed later."
+        >
+          <View className="flex-row gap-3">
+            <GenderOption
+              value="male"
+              label="Boy"
+              emoji="👦"
+              selected={form.gender}
+              onSelect={(value) => set('gender', value)}
+            />
+            <GenderOption
+              value="female"
+              label="Girl"
+              emoji="👧"
+              selected={form.gender}
+              onSelect={(value) => set('gender', value)}
+            />
+          </View>
+        </Field>
+
+        <GradientButton
+          title="Create account"
+          className="mt-2"
+          isLoading={isSubmitting}
+          onPress={handleSubmit}
+        />
+
+        <View className="mt-6 flex-row justify-center">
+          <Text className="text-sm" style={{ color: colors.textMuted }}>
+            Already have an account?{' '}
+          </Text>
+          <Pressable onPress={() => router.replace('/(auth)/login')} accessibilityRole="button">
+            <Text className="text-sm font-semibold" style={{ color: colors.primary }}>
+              Sign in
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
