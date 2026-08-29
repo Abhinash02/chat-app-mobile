@@ -138,6 +138,8 @@ export default function Profile() {
               uri={profile?.avatarUrl}
               name={profile?.nickname}
               gender={profile?.gender}
+              emoji={profile?.avatarEmoji}
+              color={profile?.avatarColor}
               size={96}
             />
             <View

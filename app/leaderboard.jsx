@@ -34,7 +34,14 @@ function LeaderboardRow({ entry }) {
         )}
       </View>
 
-      <Avatar uri={entry.avatarUrl} name={entry.nickname} gender={entry.gender} size={40} />
+      <Avatar
+        uri={entry.avatarUrl}
+        name={entry.nickname}
+        gender={entry.gender}
+        emoji={entry.avatarEmoji}
+        color={entry.avatarColor}
+        size={40}
+      />
 
       <View className="flex-1">
         <Text numberOfLines={1} className="text-base font-semibold" style={{ color: colors.textPrimary }}>

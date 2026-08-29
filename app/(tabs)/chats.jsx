@@ -30,6 +30,8 @@ function ConversationRow({ conversation, presence, onPress }) {
         uri={partner.avatarUrl}
         name={partner.nickname}
         gender={partner.gender}
+        emoji={partner.avatarEmoji}
+        color={partner.avatarColor}
         size={54}
         isOnline={isOnline}
         showPresence

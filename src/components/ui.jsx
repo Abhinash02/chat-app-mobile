@@ -179,8 +179,27 @@ export function Card({ children, className = '', style }) {
   );
 }
 
-/** Initials fallback: a broken photo URL must never render as an empty box. */
-export function Avatar({ uri, name = '', gender, size = 48, isOnline, showPresence = false }) {
+/**
+ * Three states, in priority order:
+ *
+ *   1. the uploaded photo, once there is one
+ *   2. the emoji assigned at signup, which every account has
+ *   3. initials, for accounts that predate the emoji or came from a lean
+ *      payload that did not include it
+ *
+ * The emoji sits underneath the photo rather than beside it, so a URL that
+ * fails to load reveals the emoji instead of leaving an empty circle.
+ */
+export function Avatar({
+  uri,
+  name = '',
+  gender,
+  emoji,
+  color,
+  size = 48,
+  isOnline,
+  showPresence = false,
+}) {
   const { colors } = useTheme();
 
   const initials = name
@@ -190,18 +209,23 @@ export function Avatar({ uri, name = '', gender, size = 48, isOnline, showPresen
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 
-  const tint = gender === 'female' ? colors.femaleAccent : colors.maleAccent;
+  const genderTint = gender === 'female' ? colors.femaleAccent : colors.maleAccent;
+  const background = emoji ? (color ?? genderTint) : `${genderTint}22`;
   const dotSize = Math.max(10, size * 0.24);
 
   return (
     <View style={{ width: size, height: size }}>
       <View
         className="items-center justify-center overflow-hidden"
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${tint}22` }}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: background }}
       >
-        {/* Initials sit underneath, so a photo that fails to load reveals them
-            rather than leaving a blank circle. */}
-        <Text style={{ color: tint, fontSize: size * 0.36, fontWeight: '700' }}>{initials}</Text>
+        {emoji ? (
+          <Text style={{ fontSize: size * 0.52 }}>{emoji}</Text>
+        ) : (
+          <Text style={{ color: genderTint, fontSize: size * 0.36, fontWeight: '700' }}>
+            {initials}
+          </Text>
+        )}
 
         {uri ? (
           <Image

@@ -73,6 +73,8 @@ function PersonCard({ person, presence, onPress, isOpening }) {
           uri={person.avatarUrl}
           name={person.nickname}
           gender={person.gender}
+          emoji={person.avatarEmoji}
+          color={person.avatarColor}
           size={72}
           isOnline={isOnline}
           showPresence

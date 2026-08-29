@@ -318,6 +318,8 @@ export default function ChatScreen() {
           uri={partner?.avatarUrl}
           name={partner?.nickname}
           gender={partner?.gender}
+          emoji={partner?.avatarEmoji}
+          color={partner?.avatarColor}
           size={40}
           isOnline={isOnline}
           showPresence

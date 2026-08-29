@@ -223,7 +223,14 @@ export default function RoomScreen() {
             contentContainerStyle={{ gap: 10, paddingTop: 12 }}
             renderItem={({ item }) => (
               <View className="items-center" style={{ width: 52 }}>
-                <Avatar uri={item.avatarUrl} name={item.nickname} gender={item.gender} size={42} />
+                <Avatar
+                  uri={item.avatarUrl}
+                  name={item.nickname}
+                  gender={item.gender}
+                  emoji={item.avatarEmoji}
+                  color={item.avatarColor}
+                  size={42}
+                />
                 <Text numberOfLines={1} className="mt-1 text-[10px]" style={{ color: colors.textMuted }}>
                   {item.nickname ?? 'Guest'}
                 </Text>
