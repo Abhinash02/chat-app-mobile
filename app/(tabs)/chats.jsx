@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Avatar, EmptyState, Loading } from '../../src/components/ui.jsx';
+import { StatusRow } from '../../src/components/status/StatusRow.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { chatApi } from '../../src/api/endpoints.js';
 import { formatRelativeTime } from '../../src/lib/format.js';
@@ -155,6 +156,10 @@ export default function Chats() {
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={{ paddingBottom: 24, flexGrow: 1 }}
+          // The rings sit above the conversations and stay put when there are
+          // none, because posting a status is worth doing before you have any
+          // chats — often it is what starts one.
+          ListHeaderComponent={<StatusRow />}
           renderSectionHeader={({ section }) =>
             section.data.length > 0 ? (
               <View

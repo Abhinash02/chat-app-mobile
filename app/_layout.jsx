@@ -63,6 +63,9 @@ function AppShell() {
         <Stack.Screen name="browse" />
         <Stack.Screen name="leaderboard" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="status/new" options={{ presentation: 'modal' }} />
+        {/* Full-screen and black: a story should not sit inside the app's chrome. */}
+        <Stack.Screen name="status/[userId]" options={{ animation: 'fade' }} />
       </Stack>
     </View>
   );
