@@ -201,6 +201,39 @@ function RoomCard({ room, onPress }) {
   );
 }
 
+/** Compact tile for a game, used in the discover row. */
+function GameCard({ game, onPress }) {
+  const { colors, radius } = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Play ${game.name}`}
+      className="mr-3 items-center justify-center px-4 py-4"
+      style={{
+        width: 116,
+        backgroundColor: colors.surface,
+        borderRadius: radius + 4,
+        borderWidth: 1,
+        borderColor: colors.border,
+      }}
+    >
+      <Text style={{ fontSize: 30 }}>{game.emoji}</Text>
+      <Text
+        numberOfLines={1}
+        className="mt-2 text-xs font-bold"
+        style={{ color: colors.textPrimary }}
+      >
+        {game.name}
+      </Text>
+      <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+        {game.personalBest > 0 ? `best ${game.personalBest}` : 'not played'}
+      </Text>
+    </Pressable>
+  );
+}
+
 function RowSkeleton({ width, height }) {
   return (
     <View className="flex-row">
@@ -255,6 +288,20 @@ export function OnlineChatRow({ people, isLoading, onChat }) {
       skeleton={{ width: 108, height: 116 }}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => <ChatCard person={item} onPress={() => onChat(item)} />}
+    />
+  );
+}
+
+export function GamesRow({ games, isLoading }) {
+  return (
+    <CardRow
+      data={games}
+      isLoading={isLoading}
+      skeleton={{ width: 116, height: 108 }}
+      keyExtractor={(item) => item.key}
+      renderItem={({ item }) => (
+        <GameCard game={item} onPress={() => router.push('/(tabs)/games')} />
+      )}
     />
   );
 }

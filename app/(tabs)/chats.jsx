@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { Pressable, RefreshControl, SectionList, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -110,6 +110,32 @@ export default function Chats() {
 
   const conversations = data?.items ?? [];
 
+  /*
+   * Split by who is actually online right now, using live presence rather than
+   * the `isOnline` baked into the conversation payload — that value is only as
+   * fresh as the last fetch, and this list is the one place a green dot going
+   * out should be visible immediately.
+   *
+   * Order within each group is preserved, so the most recent conversation is
+   * still first.
+   */
+  const sections = (() => {
+    const active = [];
+    const away = [];
+
+    for (const conversation of conversations) {
+      const partnerId = conversation.partner?.id;
+      const isOnline = presence?.[partnerId]?.isOnline ?? conversation.partner?.isOnline;
+      (isOnline ? active : away).push(conversation);
+    }
+
+    return [
+      { title: 'Active now', isOnline: true, data: active },
+      { title: 'Offline', isOnline: false, data: away },
+    ];
+  })();
+
+
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 pb-3 pt-2">
@@ -124,10 +150,33 @@ export default function Chats() {
       ) : error ? (
         <EmptyState emoji="📡" title="Could not load your chats" description={error.message} />
       ) : (
-        <FlatList
-          data={conversations}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
+          stickySectionHeadersEnabled={false}
           contentContainerStyle={{ paddingBottom: 24, flexGrow: 1 }}
+          renderSectionHeader={({ section }) =>
+            section.data.length > 0 ? (
+              <View
+                className="flex-row items-center gap-2 px-4 pb-2 pt-4"
+                style={{ backgroundColor: colors.background }}
+              >
+                <View
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: section.isOnline ? colors.onlineDot : colors.offlineDot }}
+                />
+                <Text
+                  className="text-xs font-bold uppercase"
+                  style={{ color: colors.textSecondary, letterSpacing: 0.8 }}
+                >
+                  {section.title}
+                </Text>
+                <Text className="text-xs" style={{ color: colors.textMuted }}>
+                  {section.data.length}
+                </Text>
+              </View>
+            ) : null
+          }
           ItemSeparatorComponent={() => (
             <View className="ml-[74px] h-px" style={{ backgroundColor: colors.border }} />
           )}

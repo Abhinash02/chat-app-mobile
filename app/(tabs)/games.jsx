@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { Card, EmptyState, Loading } from '../../src/components/ui.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
+import { EmojiMatch } from '../../src/components/games/EmojiMatch.jsx';
+import { NumberRush } from '../../src/components/games/NumberRush.jsx';
 import { TapGame } from '../../src/components/games/TapGame.jsx';
 import { gamesApi } from '../../src/api/endpoints.js';
 import { formatCoins } from '../../src/lib/format.js';
@@ -81,14 +83,23 @@ export default function Games() {
   });
 
   /**
-   * Only Quick Tap is playable in this build. The others are listed because the
-   * server already scores them and they appear on the leaderboard — showing
-   * them greyed out is honest, hiding them would make the leaderboard confusing.
+   * Three of the five games are playable. The remaining two need a word list
+   * and a question bank, so they are listed greyed out rather than hidden —
+   * the server already scores them and they appear on the leaderboard, and a
+   * board with entries for a game you cannot find is more confusing than a
+   * card that says "coming soon".
    */
-  const isPlayable = (key) => key === 'quick-tap';
+  const PLAYABLE = {
+    'quick-tap': TapGame,
+    'number-rush': NumberRush,
+    'emoji-match': EmojiMatch,
+  };
+
+  const isPlayable = (key) => key in PLAYABLE;
 
   if (activeGame) {
-    return <TapGame game={activeGame} onExit={() => setActiveGame(null)} />;
+    const Game = PLAYABLE[activeGame.key];
+    return <Game game={activeGame} onExit={() => setActiveGame(null)} />;
   }
 
   return (

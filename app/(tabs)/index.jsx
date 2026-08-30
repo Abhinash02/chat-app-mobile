@@ -11,12 +11,13 @@ import { DailyCoinsCard } from '../../src/components/DailyCoinsCard.jsx';
 import { VerifyBanner } from '../../src/components/VerifyBanner.jsx';
 import {
   CallableRow,
+  GamesRow,
   LiveRoomsRow,
   OnlineChatRow,
   SectionHeader,
 } from '../../src/components/HomeSections.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
-import { chatApi, roomsApi, usersApi } from '../../src/api/endpoints.js';
+import { chatApi, gamesApi, roomsApi, usersApi } from '../../src/api/endpoints.js';
 import { formatDistance, formatRelativeTime } from '../../src/lib/format.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
@@ -238,6 +239,12 @@ export default function Discover() {
     staleTime: 30_000,
   });
 
+  const { data: games, isLoading: isLoadingGames } = useQuery({
+    queryKey: ['games'],
+    queryFn: gamesApi.list,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const onlinePeople = onlineData?.items ?? [];
   const callable = onlinePeople.slice(0, 8);
   const chattable = [...onlinePeople].reverse().slice(0, 12);
@@ -313,6 +320,17 @@ export default function Discover() {
                     onAction={() => router.push('/(tabs)/rooms')}
                   />
                   <LiveRoomsRow rooms={liveRooms?.items} isLoading={isLoadingRooms} />
+                </View>
+              ) : null}
+
+              {(games?.length ?? 0) > 0 || isLoadingGames ? (
+                <View className="mb-5">
+                  <SectionHeader
+                    title="Play & Win"
+                    action="Leaderboard"
+                    onAction={() => router.push('/leaderboard')}
+                  />
+                  <GamesRow games={games} isLoading={isLoadingGames} />
                 </View>
               ) : null}
 
