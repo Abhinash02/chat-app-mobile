@@ -62,6 +62,40 @@ export const roomsApi = {
   leave: (roomId) => request({ method: 'POST', url: `/rooms/${roomId}/leave` }),
   messages: (roomId, params) => requestList({ method: 'GET', url: `/rooms/${roomId}/messages`, params }),
   send: (roomId, data) => request({ method: 'POST', url: `/rooms/${roomId}/messages`, data }),
+
+  /**
+   * A photo, voice note or short video.
+   *
+   * Media uploads get a longer timeout than everything else: twenty seconds is
+   * generous for JSON and not enough for a 12MB video on a train.
+   */
+  sendMedia: (roomId, formData) =>
+    request({
+      method: 'POST',
+      url: `/rooms/${roomId}/media`,
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 90_000,
+    }),
+};
+
+export const statusApi = {
+  feed: () => request({ method: 'GET', url: '/status' }),
+  postText: (data) => request({ method: 'POST', url: '/status/text', data }),
+
+  postMedia: (formData) =>
+    request({
+      method: 'POST',
+      url: '/status/media',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 90_000,
+    }),
+
+  byUser: (userId) => request({ method: 'GET', url: `/status/user/${userId}` }),
+  markViewed: (statusId) => request({ method: 'POST', url: `/status/${statusId}/view` }),
+  viewers: (statusId) => request({ method: 'GET', url: `/status/${statusId}/viewers` }),
+  remove: (statusId) => request({ method: 'DELETE', url: `/status/${statusId}` }),
 };
 
 export const gamesApi = {

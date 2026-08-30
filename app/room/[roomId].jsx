@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -13,6 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { goBack } from '../../src/components/ScreenHeader.jsx';
+import { ImageBubble, VideoBubble } from '../../src/components/MediaBubble.jsx';
+import { RoomComposer } from '../../src/components/RoomComposer.jsx';
+import { VoiceNote } from '../../src/components/VoiceNote.jsx';
 import { Avatar, Badge, Loading } from '../../src/components/ui.jsx';
 import { roomsApi } from '../../src/api/endpoints.js';
 import { SOCKET_EVENT } from '../../src/constants/events.js';
@@ -21,6 +23,47 @@ import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
+
+/**
+ * What actually sits inside a bubble, chosen by message type.
+ *
+ * Media falls back to its caption if the type is one this build does not know
+ * how to draw — an older app should show something rather than an empty
+ * bubble when the server starts sending a kind it has never heard of.
+ */
+function MessageBody({ message, isMine }) {
+  const { colors } = useTheme();
+
+  if (message.type === 'voice' && message.media?.url) {
+    return (
+      <VoiceNote url={message.media.url} durationSeconds={message.media.durationSeconds} isMine={isMine} />
+    );
+  }
+
+  if (message.type === 'image' && message.media?.url) {
+    return <ImageBubble url={message.media.url} caption={message.text} isMine={isMine} />;
+  }
+
+  if (message.type === 'video' && message.media?.url) {
+    return (
+      <VideoBubble
+        url={message.media.url}
+        caption={message.text}
+        durationSeconds={message.media.durationSeconds}
+        isMine={isMine}
+      />
+    );
+  }
+
+  return (
+    <Text
+      className={message.type === 'emoji' ? 'text-3xl' : 'text-[15px] leading-5'}
+      style={{ color: isMine ? colors.onPrimary : colors.textPrimary }}
+    >
+      {message.text}
+    </Text>
+  );
+}
 
 function RoomMessage({ message, isMine }) {
   const { colors, radius } = useTheme();
@@ -42,12 +85,7 @@ function RoomMessage({ message, isMine }) {
           borderColor: colors.border,
         }}
       >
-        <Text
-          className={message.type === 'emoji' ? 'text-3xl' : 'text-[15px] leading-5'}
-          style={{ color: isMine ? colors.onPrimary : colors.textPrimary }}
-        >
-          {message.text}
-        </Text>
+        <MessageBody message={message} isMine={isMine} />
       </View>
 
       <Text className="mt-0.5 px-1 text-[10px]" style={{ color: colors.textMuted }}>
@@ -59,7 +97,7 @@ function RoomMessage({ message, isMine }) {
 
 export default function RoomScreen() {
   const { roomId } = useLocalSearchParams();
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
   const { user } = useAuth();
   const { emit, on } = useSocket();
   const toast = useToast();
@@ -68,7 +106,6 @@ export default function RoomScreen() {
 
   const [messages, setMessages] = useState([]);
   const [participants, setParticipants] = useState([]);
-  const [draft, setDraft] = useState('');
   const [isMuted, setIsMuted] = useState(true);
 
   const listRef = useRef(null);
@@ -130,19 +167,13 @@ export default function RoomScreen() {
     };
   }, [roomId, emit, on, toast, queryClient]);
 
-  async function send() {
-    const text = draft.trim();
-    if (!text) return;
+  // Rooms are free, so neither path has a billing round trip.
+  async function sendText(text) {
+    await roomsApi.send(roomId, { text });
+  }
 
-    setDraft('');
-
-    try {
-      // Rooms are free, so there is no billing round trip here at all.
-      await roomsApi.send(roomId, { text });
-    } catch (sendError) {
-      setDraft(text);
-      toast.error(sendError.message ?? 'Could not send that');
-    }
+  async function sendMedia(formData) {
+    await roomsApi.sendMedia(roomId, formData);
   }
 
   async function leave() {
@@ -253,39 +284,14 @@ export default function RoomScreen() {
         )}
       />
 
-      <View
-        className="flex-row items-end gap-2 px-3 pt-2"
-        style={{
-          paddingBottom: insets.bottom + 8,
-          backgroundColor: colors.surface,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-        }}
-      >
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Say something…"
-          placeholderTextColor={colors.textMuted}
-          multiline
-          maxLength={2000}
-          className="max-h-24 flex-1 px-4 py-2.5 text-[15px]"
-          style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius, color: colors.textPrimary }}
+      <View style={{ paddingBottom: insets.bottom }}>
+        <RoomComposer
+          onSendText={sendText}
+          onSendMedia={sendMedia}
+          onNotice={(notice) => toast.error(notice)}
         />
-
-        <Pressable
-          onPress={send}
-          disabled={!draft.trim()}
-          accessibilityRole="button"
-          accessibilityLabel="Send"
-          className="h-11 w-11 items-center justify-center rounded-full"
-          style={{ backgroundColor: draft.trim() ? colors.primary : colors.surfaceAlt }}
-        >
-          <Text style={{ color: draft.trim() ? colors.onPrimary : colors.textMuted, fontSize: 18 }}>
-            ➤
-          </Text>
-        </Pressable>
       </View>
+
     </KeyboardAvoidingView>
   );
 }

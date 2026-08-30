@@ -18,11 +18,12 @@
       "bundleIdentifier": "app.vibechat.mobile",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Vibe uses your location to show you people nearby. You can turn this off at any time in Settings.",
-        "NSMicrophoneUsageDescription": "Vibe uses your microphone so you can talk in voice rooms.",
-        "NSPhotoLibraryUsageDescription": "Vibe needs access to your photos so you can choose a profile picture.",
+        "NSMicrophoneUsageDescription": "Vibe uses your microphone so you can talk in voice rooms and send voice notes.",
+        "NSPhotoLibraryUsageDescription": "Vibe needs access to your photos so you can set a profile picture and share photos and videos.",
         "UIBackgroundModes": [
           "remote-notification"
-        ]
+        ],
+        "NSCameraUsageDescription": "Vibe uses your camera so you can take a photo or record a short video to share."
       }
     },
     "android": {
@@ -38,7 +39,8 @@
         "ACCESS_FINE_LOCATION",
         "RECORD_AUDIO",
         "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "CAMERA"
       ]
     },
     "web": {
@@ -66,9 +68,11 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Vibe needs access to your photos so you can choose a profile picture."
+          "photosPermission": "Vibe needs access to your photos so you can set a profile picture and share photos and videos.",
+          "cameraPermission": "Vibe uses your camera so you can take a photo or record a short video to share."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": false
