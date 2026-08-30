@@ -40,6 +40,12 @@ export function TapGame({ game, onExit }) {
   // re-render that repositions the target after layout.
   const [area, setArea] = useState({ width: 300, height: 400 });
 
+  const moveTarget = useCallback(() => {
+    // Kept away from the very edges so the target is never half off-screen or
+    // under a thumb resting on the bezel.
+    setTarget({ top: 0.08 + Math.random() * 0.74, left: 0.06 + Math.random() * 0.72 });
+  }, []);
+
   const startSession = useMutation({
     mutationFn: () => gamesApi.start(game.key),
     onSuccess: (session) => {
@@ -67,12 +73,6 @@ export function TapGame({ game, onExit }) {
       setPhase('finished');
     },
   });
-
-  const moveTarget = useCallback(() => {
-    // Kept away from the very edges so the target is never half off-screen or
-    // under a thumb resting on the bezel.
-    setTarget({ top: 0.08 + Math.random() * 0.74, left: 0.06 + Math.random() * 0.72 });
-  }, []);
 
   useEffect(() => {
     if (phase !== 'playing') return undefined;

@@ -29,6 +29,16 @@ module.exports = [
     plugins: { react, 'react-hooks': reactHooks },
     settings: { react: { version: 'detect' } },
     rules: {
+      /*
+       * Catches a `const` referenced above its declaration.
+       *
+       * That is a runtime crash, not a syntax error, so it compiles and
+       * bundles cleanly and only fails when the screen actually renders —
+       * which is exactly how one reached a device. Functions are exempt
+       * because hoisted function declarations are genuinely fine.
+       */
+      'no-use-before-define': ['error', { functions: false, classes: true, variables: true }],
+
       ...react.configs.flat.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       // The new JSX transform means React need not be in scope.

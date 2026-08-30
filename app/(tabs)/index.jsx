@@ -148,6 +148,15 @@ export default function Discover() {
    * people twice under different headings padded the screen without telling
    * anyone anything new.
    */
+  /*
+   * Only in play while the nearby filter is on, so the rooms row and the
+   * people feed can never disagree about whether location is being used.
+   *
+   * Declared above every query that reads it: `const` is hoisted but stays
+   * unusable until this line runs, so referencing it earlier throws.
+   */
+  const nearbyCoordinates = useNearby ? coordinates : null;
+
   const { data: onlineData, isLoading: isLoadingOnline } = useQuery({
     queryKey: ['discover', 'online'],
     queryFn: () => usersApi.discover({ onlineOnly: true, limit: 20 }),
@@ -168,10 +177,6 @@ export default function Discover() {
       }),
     staleTime: 30_000,
   });
-
-  // Only in play while the nearby filter is on, so the rooms row and the
-  // people feed can never disagree about whether location is being used.
-  const nearbyCoordinates = useNearby ? coordinates : null;
 
   const { data: games, isLoading: isLoadingGames } = useQuery({
     queryKey: ['games'],
