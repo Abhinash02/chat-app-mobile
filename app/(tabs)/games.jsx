@@ -9,6 +9,8 @@ import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { EmojiMatch } from '../../src/components/games/EmojiMatch.jsx';
 import { NumberRush } from '../../src/components/games/NumberRush.jsx';
 import { TapGame } from '../../src/components/games/TapGame.jsx';
+import { TriviaDash } from '../../src/components/games/TriviaDash.jsx';
+import { WordGuess } from '../../src/components/games/WordGuess.jsx';
 import { gamesApi } from '../../src/api/endpoints.js';
 import { formatCoins } from '../../src/lib/format.js';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
@@ -82,17 +84,13 @@ export default function Games() {
     queryFn: gamesApi.list,
   });
 
-  /**
-   * Three of the five games are playable. The remaining two need a word list
-   * and a question bank, so they are listed greyed out rather than hidden —
-   * the server already scores them and they appear on the leaderboard, and a
-   * board with entries for a game you cannot find is more confusing than a
-   * card that says "coming soon".
-   */
+  /** Every game the server scores is now playable. */
   const PLAYABLE = {
     'quick-tap': TapGame,
     'number-rush': NumberRush,
     'emoji-match': EmojiMatch,
+    'word-guess': WordGuess,
+    'trivia-dash': TriviaDash,
   };
 
   const isPlayable = (key) => key in PLAYABLE;

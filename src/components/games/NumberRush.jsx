@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+
+import { Gradient } from '../Gradient.jsx';
 import * as Haptics from 'expo-haptics';
 
 import { GameShell } from './GameShell.jsx';
@@ -144,24 +146,41 @@ export function NumberRush({ game, onExit }) {
       ]}
     >
       <View className="flex-1 justify-center px-6">
+        {/* A draining bar reads faster than a number when the clock is what
+            you are racing — the colour shift is the warning, not the digits. */}
         <View
-          className="mb-8 items-center py-10"
-          style={{
-            backgroundColor:
-              feedback === 'correct'
-                ? `${colors.success}22`
-                : feedback === 'wrong'
-                  ? `${colors.danger}22`
-                  : colors.surface,
-            borderRadius: radius + 8,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
+          className="mb-5 h-2 overflow-hidden rounded-full"
+          style={{ backgroundColor: colors.border }}
         >
-          <Text className="text-5xl font-bold" style={{ color: colors.textPrimary }}>
+          <View
+            className="h-full rounded-full"
+            style={{
+              width: `${(secondsLeft / ROUND_SECONDS) * 100}%`,
+              backgroundColor: secondsLeft <= 10 ? colors.danger : colors.primary,
+            }}
+          />
+        </View>
+
+        <Gradient
+          colors={
+            feedback === 'correct'
+              ? [colors.success, colors.accent]
+              : feedback === 'wrong'
+                ? [colors.danger, colors.warning]
+                : [colors.gradientStart, colors.gradientEnd]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          className="mb-7 items-center justify-center py-12"
+          style={{ borderRadius: radius + 12 }}
+        >
+          <Text className="mb-1 text-xs uppercase" style={{ color: colors.onPrimary, opacity: 0.75 }}>
+            {feedback === 'correct' ? 'Correct' : feedback === 'wrong' ? 'Not quite' : 'Solve it'}
+          </Text>
+          <Text className="text-5xl font-bold" style={{ color: colors.onPrimary }}>
             {question.text}
           </Text>
-        </View>
+        </Gradient>
 
         <View className="flex-row flex-wrap justify-between">
           {question.options.map((option) => (
@@ -174,17 +193,36 @@ export function NumberRush({ game, onExit }) {
               style={{
                 width: '48%',
                 backgroundColor: colors.surface,
-                borderRadius: radius + 4,
+                borderRadius: radius + 6,
                 borderWidth: 2,
                 borderColor: colors.border,
+                // A touch of lift, so the options read as buttons rather than
+                // as boxes printed on the background.
+                shadowColor: colors.textPrimary,
+                shadowOpacity: 0.06,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 3 },
+                elevation: 2,
               }}
             >
-              <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+              <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
                 {option}
               </Text>
             </Pressable>
           ))}
         </View>
+
+        {streak >= 3 ? (
+          <View
+            className="mt-1 flex-row items-center justify-center gap-1.5 py-2"
+            style={{ backgroundColor: `${colors.coinGold}22`, borderRadius: radius }}
+          >
+            <Text style={{ fontSize: 13 }}>🔥</Text>
+            <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>
+              {streak} in a row — each answer is worth more
+            </Text>
+          </View>
+        ) : null}
       </View>
     </GameShell>
   );

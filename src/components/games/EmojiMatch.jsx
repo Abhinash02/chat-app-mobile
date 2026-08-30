@@ -6,8 +6,10 @@ import { GameShell } from './GameShell.jsx';
 import { useGameSession } from '../../hooks/useGameSession.js';
 import { useTheme } from '../../theme/ThemeProvider.jsx';
 
-const ROUND_SECONDS = 90;
-const PAIRS = 8;
+const ROUND_SECONDS = 70;
+// Six pairs, not eight: twelve cards fit three rows on a short phone without
+// the grid running under the tab bar, and the round stays quick.
+const PAIRS = 6;
 
 const FACES = ['🦊', '🐯', '🦁', '🐼', '🐨', '🦄', '🐸', '🐙', '🦋', '🐢', '🦉', '🐬'];
 
@@ -34,6 +36,7 @@ export function EmojiMatch({ game, onExit }) {
   const [matchedCount, setMatchedCount] = useState(0);
   const [moves, setMoves] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(ROUND_SECONDS);
+  const [cardSize, setCardSize] = useState(70);
 
   const { phase, setPhase, result, startGame, isStarting, finish } = useGameSession({
     gameKey: game.key,
@@ -137,7 +140,22 @@ export function EmojiMatch({ game, onExit }) {
         { label: 'moves', value: moves },
       ]}
     >
-      <View className="flex-1 flex-row flex-wrap content-center justify-center px-4">
+      {/*
+        * The grid measures the space it is given and sizes cards to fit, rather
+        * than assuming a percentage width works on every screen. On a short
+        * phone a fixed aspect ratio pushed the last row off the bottom.
+        */}
+      <View
+        className="flex-1 flex-row flex-wrap content-center justify-center px-4"
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          const columns = 4;
+          const rows = Math.ceil((PAIRS * 2) / columns);
+          const byWidth = (width - 32) / columns - 12;
+          const byHeight = (height - 24) / rows - 12;
+          setCardSize(Math.max(52, Math.min(byWidth, byHeight, 88)));
+        }}
+      >
         {deck.map((card, index) => {
           const isFaceUp = card.isMatched || flipped.includes(index);
 
@@ -149,8 +167,8 @@ export function EmojiMatch({ game, onExit }) {
               accessibilityLabel={isFaceUp ? `${card.emoji} card` : 'Face down card'}
               className="m-1.5 items-center justify-center"
               style={{
-                width: '21%',
-                aspectRatio: 0.82,
+                width: cardSize,
+                height: cardSize,
                 borderRadius: radius,
                 backgroundColor: isFaceUp ? colors.surface : colors.primary,
                 borderWidth: 2,
@@ -158,7 +176,7 @@ export function EmojiMatch({ game, onExit }) {
                 opacity: card.isMatched ? 0.55 : 1,
               }}
             >
-              <Text style={{ fontSize: 30 }}>{isFaceUp ? card.emoji : '❓'}</Text>
+              <Text style={{ fontSize: cardSize * 0.46 }}>{isFaceUp ? card.emoji : '❓'}</Text>
             </Pressable>
           );
         })}

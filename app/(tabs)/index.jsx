@@ -124,6 +124,29 @@ function PersonCard({ person, presence, onPress, isOpening }) {
           </View>
         ) : null}
       </View>
+
+      {/*
+        * An explicit Chat button, not just a tappable card.
+        *
+        * The whole card still opens the chat, but a labelled button says what
+        * tapping does — on a grid of faces that is not otherwise obvious, and
+        * it is the difference between browsing and knowing how to start.
+        */}
+      <View
+        className="mt-3 flex-row items-center justify-center gap-1.5 py-2.5"
+        style={{
+          backgroundColor: isOnline ? colors.primary : colors.surfaceAlt,
+          borderRadius: radius - 2,
+        }}
+      >
+        <Text style={{ fontSize: 12 }}>💬</Text>
+        <Text
+          className="text-xs font-bold"
+          style={{ color: isOnline ? colors.onPrimary : colors.textSecondary }}
+        >
+          {isOpening ? 'Opening…' : 'Chat'}
+        </Text>
+      </View>
     </Pressable>
   );
 }
