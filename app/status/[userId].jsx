@@ -167,6 +167,17 @@ export default function StatusViewerScreen() {
   const elapsedRef = useRef(0);
   const viewedRef = useRef(new Set());
 
+  /*
+   * Set once the ring is over and this screen is on its way out.
+   *
+   * Leaving does not stop the timer synchronously — the interval is cleared by
+   * effect cleanup, which runs on unmount, and the next tick lands 50ms later.
+   * Without this latch that tick calls back again and pops a second screen off
+   * the stack, dropping the person somewhere they never navigated to. The same
+   * latch covers an impatient double-tap on the last status.
+   */
+  const isLeavingRef = useRef(false);
+
   const { data: items, isLoading } = useQuery({
     queryKey: ['status-ring', userId],
     queryFn: () => statusApi.byUser(userId),
@@ -199,22 +210,34 @@ export default function StatusViewerScreen() {
     onError: (error) => toast.error(error.message ?? 'Could not delete that'),
   });
 
+  /**
+   * Moves to the next status, or leaves when the ring is finished.
+   *
+   * The end-of-ring check reads `index` directly rather than doing it inside a
+   * `setIndex` updater. Updater functions run during render, so navigating
+   * from one changes the navigator while React is drawing this screen — React
+   * flags it, and the closing story can leave the stack in a state where the
+   * back gesture is the only way out.
+   *
+   * Closing beats wrapping to the first status: a ring that loops has no
+   * natural end, so there is nothing to tell you that you have seen it all.
+   */
   const advance = useCallback(() => {
+    if (isLeavingRef.current) return;
+
+    const total = items?.length ?? 0;
+
+    if (index + 1 >= total) {
+      isLeavingRef.current = true;
+      goBack();
+      return;
+    }
+
     setProgress(0);
     elapsedRef.current = 0;
     durationRef.current = STILL_DURATION_MS;
-
-    setIndex((current_) => {
-      // Past the last one, the ring is over and the screen closes. Falling
-      // back to the first would trap someone in a loop with no way out but
-      // the back gesture.
-      if (current_ + 1 >= (items?.length ?? 0)) {
-        goBack();
-        return current_;
-      }
-      return current_ + 1;
-    });
-  }, [items?.length]);
+    setIndex(index + 1);
+  }, [index, items?.length]);
 
   // Marking a view is fire-and-forget: it must never delay the story, and the
   // server counts each viewer once however many times this is called.
@@ -229,7 +252,7 @@ export default function StatusViewerScreen() {
   }, [current, queryClient]);
 
   useEffect(() => {
-    if (!current || isPaused || isViewerSheetOpen) return undefined;
+    if (!current || isPaused || isViewerSheetOpen || isLeavingRef.current) return undefined;
 
     const timer = setInterval(() => {
       elapsedRef.current += TICK_MS;
@@ -254,7 +277,9 @@ export default function StatusViewerScreen() {
     setProgress(0);
     elapsedRef.current = 0;
     durationRef.current = STILL_DURATION_MS;
-    setIndex((current_) => Math.max(0, current_ - 1));
+    // Tapping back on the first status restarts it rather than leaving, which
+    // is the forgiving reading of a tap that may have been aimed at the photo.
+    setIndex((value) => Math.max(0, value - 1));
   }
 
   function confirmDelete() {
