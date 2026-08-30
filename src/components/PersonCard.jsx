@@ -92,33 +92,33 @@ export function PersonCard({
       </View>
 
       {/*
-        * A compact outlined pill, sized to its label rather than stretched
-        * across the card. A full-width bar reads as the card's footer and
-        * competes with the face above it; a small pill reads as an action.
+        * Filled, not outlined: on a card the eye lands on the face first, and
+        * a tinted outline was quiet enough to be missed. Solid brand colour
+        * makes the action unmissable while the pill stays small enough not to
+        * become the card's footer.
         *
-        * The whole card still opens the chat — this is a signpost for what
-        * tapping does, which on a grid of faces is not otherwise obvious.
+        * Offline uses the ink tone rather than the brand — the action still
+        * works, but it should not compete with the people who are here now.
         */}
       <View className="mt-2.5 items-center">
         <View
           className="flex-row items-center gap-1"
           style={{
-            paddingHorizontal: 14,
-            paddingVertical: 6,
+            paddingHorizontal: 16,
+            paddingVertical: 7,
             borderRadius: 999,
-            backgroundColor: isOnline ? `${colors.primary}14` : colors.surfaceAlt,
-            borderWidth: 1,
-            borderColor: isOnline ? colors.primary : colors.border,
+            backgroundColor: isOnline ? colors.primary : colors.textSecondary,
+            // A little lift, so the pill reads as sitting on the card rather
+            // than printed into it.
+            shadowColor: colors.textPrimary,
+            shadowOpacity: 0.18,
+            shadowRadius: 6,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 3,
           }}
         >
           <Text style={{ fontSize: 10 }}>💬</Text>
-          <Text
-            className="text-[11px] font-bold"
-            // `textSecondary`, not `textMuted`: the offline pill should read
-            // as quieter, not as unreadable — muted grey on the tinted surface
-            // fell below a comfortable contrast.
-            style={{ color: isOnline ? colors.primary : colors.textSecondary }}
-          >
+          <Text className="text-[11px] font-bold" style={{ color: colors.onPrimary }}>
             {isOpening ? 'Opening' : actionLabel}
           </Text>
         </View>

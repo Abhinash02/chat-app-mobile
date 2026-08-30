@@ -154,11 +154,24 @@ export default function Discover() {
     staleTime: 30_000,
   });
 
+  /*
+   * Rooms near the user when a location is already known from the discovery
+   * filter, and the plain list otherwise. Nothing here asks for permission on
+   * its own — that prompt belongs to the control the user actually tapped.
+   */
   const { data: liveRooms, isLoading: isLoadingRooms } = useQuery({
-    queryKey: ['rooms', 'live'],
-    queryFn: () => roomsApi.list({ limit: 10 }),
+    queryKey: ['rooms', 'live', nearbyCoordinates ?? 'all'],
+    queryFn: () =>
+      roomsApi.list({
+        limit: 10,
+        ...(nearbyCoordinates ? { ...nearbyCoordinates, radiusKm: 50 } : {}),
+      }),
     staleTime: 30_000,
   });
+
+  // Only in play while the nearby filter is on, so the rooms row and the
+  // people feed can never disagree about whether location is being used.
+  const nearbyCoordinates = useNearby ? coordinates : null;
 
   const { data: games, isLoading: isLoadingGames } = useQuery({
     queryKey: ['games'],
@@ -266,20 +279,20 @@ export default function Discover() {
             )}
           </View>
 
-          {(liveRooms?.items?.length ?? 0) > 0 || isLoadingRooms ? (
-            <View className="mb-5">
+          {/* Always shown: the create tile is what makes an empty room list
+              useful rather than a dead end. */}
+          <View className="mb-5">
               <View className="px-4">
                 <SectionHeader
-                  title="Voice Rooms"
-                  action="See all"
-                  onAction={() => router.push('/(tabs)/rooms')}
+                  title={nearbyCoordinates ? 'Rooms near you' : 'Voice Rooms'}
+                  action="Start one"
+                  onAction={() => router.push('/(tabs)/rooms?create=true')}
                 />
               </View>
-              <View className="pl-4">
-                <LiveRoomsRow rooms={liveRooms?.items} isLoading={isLoadingRooms} />
-              </View>
+            <View className="pl-4">
+              <LiveRoomsRow rooms={liveRooms?.items} isLoading={isLoadingRooms} />
             </View>
-          ) : null}
+          </View>
 
           {(games?.length ?? 0) > 0 || isLoadingGames ? (
             <View className="mb-5">

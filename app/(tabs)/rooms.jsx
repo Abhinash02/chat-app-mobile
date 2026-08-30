@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Badge, Button, Card, EmptyState, Field, GradientButton, Input, Loading } from '../../src/components/ui.jsx';
 import { roomsApi } from '../../src/api/endpoints.js';
+import { useDeviceLocation } from '../../src/hooks/useDeviceLocation.js';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
 
@@ -115,17 +116,45 @@ function CreateRoomSheet({ onClose }) {
 }
 
 export default function Rooms() {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const [isCreating, setIsCreating] = useState(false);
+  // Opening the sheet straight from a link, so "create a room" on the home
+  // screen lands here ready to type rather than on a list to hunt through.
+  const { create } = useLocalSearchParams();
+  const [isCreating, setIsCreating] = useState(create === 'true');
   const [joiningId, setJoiningId] = useState(null);
+  const [useNearby, setUseNearby] = useState(false);
+
+  const { coords, request: requestLocation, isRequesting, error: locationError } = useDeviceLocation();
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
-    queryKey: ['rooms'],
-    queryFn: () => roomsApi.list({ limit: 30 }),
+    queryKey: ['rooms', useNearby && coords ? coords : 'all'],
+    queryFn: () =>
+      roomsApi.list({
+        limit: 30,
+        ...(useNearby && coords ? { ...coords, radiusKm: 50 } : {}),
+      }),
     refetchInterval: 20_000,
   });
+
+  async function toggleNearby() {
+    if (useNearby) {
+      setUseNearby(false);
+      return;
+    }
+
+    // Permission is asked for here, at the moment it is needed, so the prompt
+    // arrives with a visible reason rather than out of nowhere.
+    const next = coords ?? (await requestLocation());
+
+    if (!next) {
+      if (locationError) toast.info(locationError);
+      return;
+    }
+
+    setUseNearby(true);
+  }
 
   async function joinRoom(room) {
     setJoiningId(room.id);
@@ -168,6 +197,50 @@ export default function Rooms() {
       </View>
 
       {isCreating ? <CreateRoomSheet onClose={() => setIsCreating(false)} /> : null}
+
+      <View className="flex-row gap-2 px-4 pb-3">
+        <Pressable
+          onPress={() => setUseNearby(false)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: !useNearby }}
+          className="px-3.5 py-2"
+          style={{
+            backgroundColor: !useNearby ? colors.primary : colors.surface,
+            borderRadius: radius,
+            borderWidth: 1,
+            borderColor: !useNearby ? colors.primary : colors.border,
+          }}
+        >
+          <Text
+            className="text-xs font-semibold"
+            style={{ color: !useNearby ? colors.onPrimary : colors.textSecondary }}
+          >
+            All rooms
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={toggleNearby}
+          disabled={isRequesting}
+          accessibilityRole="button"
+          accessibilityState={{ selected: useNearby }}
+          className="px-3.5 py-2"
+          style={{
+            backgroundColor: useNearby ? colors.primary : colors.surface,
+            borderRadius: radius,
+            borderWidth: 1,
+            borderColor: useNearby ? colors.primary : colors.border,
+            opacity: isRequesting ? 0.6 : 1,
+          }}
+        >
+          <Text
+            className="text-xs font-semibold"
+            style={{ color: useNearby ? colors.onPrimary : colors.textSecondary }}
+          >
+            {isRequesting ? '📍 Locating…' : '📍 Near me'}
+          </Text>
+        </Pressable>
+      </View>
 
       {isLoading ? (
         <Loading label="Finding live rooms…" />

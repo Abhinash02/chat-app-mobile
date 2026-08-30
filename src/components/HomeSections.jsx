@@ -75,6 +75,11 @@ function RoomCard({ room, onPress }) {
           Live
         </Text>
         <Text className="ml-auto text-[11px]" style={{ color: colors.textMuted }}>
+          {/* Distance only appears on a nearby feed, so its absence is not a
+              gap — it means the list was not location-based. */}
+          {room.distanceKm !== null && room.distanceKm !== undefined
+            ? `📍 ${room.distanceKm} km · `
+            : ''}
           {room.participantCount}/{room.maxParticipants}
         </Text>
       </View>
@@ -187,13 +192,58 @@ export function GamesRow({ games, isLoading }) {
   );
 }
 
-export function LiveRoomsRow({ rooms, isLoading }) {
+/**
+ * The tile that starts a room.
+ *
+ * It sits at the end of the row rather than only in the header, because an
+ * empty or short row is exactly when someone might want to open one — and a
+ * list with nothing in it should not be a dead end.
+ */
+function CreateRoomCard() {
+  const { colors, radius } = useTheme();
+
   return (
-    <CardRow
-      data={rooms}
-      isLoading={isLoading}
-      skeleton={{ width: 210, height: 118 }}
+    <Pressable
+      onPress={() => router.push('/(tabs)/rooms?create=true')}
+      accessibilityRole="button"
+      accessibilityLabel="Start a room"
+      className="items-center justify-center px-4"
+      style={{
+        width: 150,
+        backgroundColor: colors.surface,
+        borderRadius: radius + 4,
+        borderWidth: 2,
+        borderColor: colors.primary,
+        borderStyle: 'dashed',
+      }}
+    >
+      <View
+        className="mb-2 h-11 w-11 items-center justify-center rounded-full"
+        style={{ backgroundColor: colors.primary }}
+      >
+        <Text style={{ color: colors.onPrimary, fontSize: 22, lineHeight: 26 }}>+</Text>
+      </View>
+      <Text className="text-center text-sm font-bold" style={{ color: colors.primary }}>
+        Start a room
+      </Text>
+      <Text className="mt-0.5 text-center text-[11px]" style={{ color: colors.textMuted }}>
+        Free to host
+      </Text>
+    </Pressable>
+  );
+}
+
+export function LiveRoomsRow({ rooms, isLoading }) {
+  if (isLoading) return <RowSkeleton width={210} height={118} />;
+
+  return (
+    <FlatList
+      data={rooms ?? []}
+      horizontal
+      showsHorizontalScrollIndicator={false}
       keyExtractor={(item) => item.id}
+      contentContainerStyle={{ paddingRight: 4 }}
+      ListFooterComponent={<CreateRoomCard />}
       renderItem={({ item }) => (
         <RoomCard room={item} onPress={() => router.push(`/room/${item.id}`)} />
       )}
