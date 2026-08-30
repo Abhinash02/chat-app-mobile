@@ -16,12 +16,12 @@ const CARD_WIDTH = 132;
  * An explicit end tile answers that and gives them somewhere to go — the same
  * job "See more rooms" does in apps like this.
  */
-function SeeMoreCard({ total }) {
+function SeeMoreCard({ total, href }) {
   const { colors, radius } = useTheme();
 
   return (
     <Pressable
-      onPress={() => router.push('/browse')}
+      onPress={() => router.push(href)}
       accessibilityRole="button"
       accessibilityLabel="See everyone"
       className="items-center justify-center px-4"
@@ -56,7 +56,16 @@ function SeeMoreCard({ total }) {
  * horizontal lists are for sampling, and someone who wants to work through
  * everyone is better served by the grid the tile opens.
  */
-export function BrowseRow({ people, total, isLoading, presence, onOpen, openingId }) {
+export function BrowseRow({
+  people,
+  total,
+  isLoading,
+  presence,
+  onOpen,
+  openingId,
+  seeMoreHref = '/browse',
+  actionLabel,
+}) {
   if (isLoading) {
     return (
       <FlatList
@@ -90,7 +99,7 @@ export function BrowseRow({ people, total, isLoading, presence, onOpen, openingI
       ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
       ListFooterComponent={
         <View className="ml-3">
-          <SeeMoreCard total={total ?? people.length} />
+          <SeeMoreCard total={total ?? people.length} href={seeMoreHref} />
         </View>
       }
       renderItem={({ item }) => (
@@ -98,6 +107,7 @@ export function BrowseRow({ people, total, isLoading, presence, onOpen, openingI
           person={item}
           presence={presence}
           width={CARD_WIDTH}
+          actionLabel={actionLabel}
           isOpening={openingId === item.id}
           onPress={() => onOpen(item)}
         />

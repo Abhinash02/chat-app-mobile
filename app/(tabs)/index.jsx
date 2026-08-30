@@ -10,13 +10,7 @@ import { BrowseRow } from '../../src/components/BrowseRow.jsx';
 import { BannerCarousel } from '../../src/components/BannerCarousel.jsx';
 import { DailyCoinsCard } from '../../src/components/DailyCoinsCard.jsx';
 import { VerifyBanner } from '../../src/components/VerifyBanner.jsx';
-import {
-  CallableRow,
-  GamesRow,
-  LiveRoomsRow,
-  OnlineChatRow,
-  SectionHeader,
-} from '../../src/components/HomeSections.jsx';
+import { GamesRow, LiveRoomsRow, SectionHeader } from '../../src/components/HomeSections.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { chatApi, gamesApi, roomsApi, usersApi } from '../../src/api/endpoints.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
@@ -150,9 +144,9 @@ export default function Discover() {
   }
 
   /*
-   * Online people, fetched once and split between the two rows rather than
-   * queried twice. The chat row is reversed so the two rows never open with
-   * the same three faces.
+   * Everyone online right now. One row rather than two: showing the same
+   * people twice under different headings padded the screen without telling
+   * anyone anything new.
    */
   const { data: onlineData, isLoading: isLoadingOnline } = useQuery({
     queryKey: ['discover', 'online'],
@@ -173,8 +167,6 @@ export default function Discover() {
   });
 
   const onlinePeople = onlineData?.items ?? [];
-  const callable = onlinePeople.slice(0, 8);
-  const chattable = [...onlinePeople].reverse().slice(0, 12);
 
   const people = data?.items ?? [];
 
@@ -219,28 +211,27 @@ export default function Discover() {
             <DailyCoinsCard />
           </View>
 
-          {callable.length > 0 || isLoadingOnline ? (
+          {onlinePeople.length > 0 || isLoadingOnline ? (
             <View className="mb-5">
               <View className="px-4">
                 <SectionHeader
-                  title="Say Hi"
-                  action="Shuffle"
-                  onAction={() => queryClient.invalidateQueries({ queryKey: ['discover', 'online'] })}
+                  title="Online now"
+                  badge="LIVE"
+                  action="See all"
+                  onAction={() => router.push('/browse?online=true')}
                 />
               </View>
               <View className="pl-4">
-                <CallableRow people={callable} isLoading={isLoadingOnline} onCall={openChat} />
-              </View>
-            </View>
-          ) : null}
-
-          {chattable.length > 0 || isLoadingOnline ? (
-            <View className="mb-5">
-              <View className="px-4">
-                <SectionHeader title="Online Now" badge="LIVE" />
-              </View>
-              <View className="pl-4">
-                <OnlineChatRow people={chattable} isLoading={isLoadingOnline} onChat={openChat} />
+                <BrowseRow
+                  people={onlinePeople}
+                  total={onlineData?.meta?.total}
+                  isLoading={isLoadingOnline}
+                  presence={presence}
+                  openingId={openingId}
+                  onOpen={openChat}
+                  seeMoreHref="/browse?online=true"
+                  actionLabel="Say hi"
+                />
               </View>
             </View>
           ) : null}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { EmptyState } from '../src/components/ui.jsx';
@@ -20,6 +20,11 @@ import { useToast } from '../src/components/Toast.jsx';
  * pages rather than capping at ten.
  */
 export default function Browse() {
+  // Which row sent us here. The online row and the browse row open the same
+  // screen with a different filter, rather than two near-identical screens.
+  const { online } = useLocalSearchParams();
+  const onlineOnly = online === 'true';
+
   const { colors } = useTheme();
   const { presence } = useSocket();
   const toast = useToast();
@@ -28,8 +33,8 @@ export default function Browse() {
   const [openingId, setOpeningId] = useState(null);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
-    queryKey: ['discover', 'all'],
-    queryFn: () => usersApi.discover({ limit: 50 }),
+    queryKey: ['discover', onlineOnly ? 'online-all' : 'all'],
+    queryFn: () => usersApi.discover({ limit: 50, ...(onlineOnly ? { onlineOnly: true } : {}) }),
   });
 
   async function openChat(person) {
@@ -58,8 +63,12 @@ export default function Browse() {
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <ScreenHeader
-        title="Everyone"
-        subtitle={people.length > 0 ? `${data?.meta?.total ?? people.length} people` : undefined}
+        title={onlineOnly ? 'Online now' : 'Everyone'}
+        subtitle={
+          people.length > 0
+            ? `${data?.meta?.total ?? people.length} ${onlineOnly ? 'online' : 'people'}`
+            : undefined
+        }
       />
 
       {error ? (
@@ -99,9 +108,13 @@ export default function Browse() {
           ListEmptyComponent={
             isLoading ? null : (
               <EmptyState
-                emoji="🔍"
-                title="Nobody here yet"
-                description="Check back in a little while."
+                emoji={onlineOnly ? '🌙' : '🔍'}
+                title={onlineOnly ? 'Nobody is online right now' : 'Nobody here yet'}
+                description={
+                  onlineOnly
+                    ? 'Try again in a little while, or browse everyone instead.'
+                    : 'Check back in a little while.'
+                }
               />
             )
           }

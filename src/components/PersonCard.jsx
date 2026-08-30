@@ -11,7 +11,16 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
  * a card that looks different depending on where you found it undermines the
  * sense that they are the same person.
  */
-export function PersonCard({ person, presence, onPress, isOpening, width = 132 }) {
+export function PersonCard({
+  person,
+  presence,
+  onPress,
+  isOpening,
+  width = 132,
+  // "Say hi" where the row is about starting something, "Chat" where it is
+  // about browsing. Same action, different framing.
+  actionLabel = 'Chat',
+}) {
   const { colors, radius } = useTheme();
 
   // Socket presence overrides the value the list was fetched with, so the dot
@@ -110,7 +119,7 @@ export function PersonCard({ person, presence, onPress, isOpening, width = 132 }
             // fell below a comfortable contrast.
             style={{ color: isOnline ? colors.primary : colors.textSecondary }}
           >
-            {isOpening ? 'Opening' : 'Chat'}
+            {isOpening ? 'Opening' : actionLabel}
           </Text>
         </View>
       </View>
