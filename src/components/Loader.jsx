@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Text, View } from 'react-native';
+import { Animated, Easing, Text, View, Platform } from 'react-native';
+
+/**
+ * react-native-web has no native animated module, so requesting the native
+ * driver there logs a warning for every animation and falls back anyway.
+ * On a real device this stays true, which is where it matters.
+ */
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
@@ -27,13 +34,13 @@ export function DotsLoader({ size = 10, color, gap = 6 }) {
             toValue: 1,
             duration: 320,
             easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
           Animated.timing(value, {
             toValue: 0,
             duration: 320,
             easing: Easing.in(Easing.quad),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
           Animated.delay((2 - index) * 140),
         ]),
@@ -81,14 +88,14 @@ export function PulseLoader({ size = 44 }) {
         toValue: 1,
         duration: 1100,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     );
 
     const breathing = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: USE_NATIVE_DRIVER }),
+        Animated.timing(pulse, { toValue: 0, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: USE_NATIVE_DRIVER }),
       ]),
     );
 
@@ -149,7 +156,7 @@ export function Skeleton({ width = '100%', height = 14, radius = 8, style }) {
         toValue: 1,
         duration: 1200,
         easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     );
 

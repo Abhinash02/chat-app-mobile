@@ -12,6 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { goBack } from '../../src/components/ScreenHeader.jsx';
 import { Avatar, Loading } from '../../src/components/ui.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { chatApi } from '../../src/api/endpoints.js';
@@ -308,7 +309,7 @@ export default function ChatScreen() {
           borderBottomColor: colors.border,
         }}
       >
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" className="px-1">
+        <Pressable onPress={() => goBack()} accessibilityRole="button" accessibilityLabel="Back" className="px-1">
           <Text className="text-2xl" style={{ color: colors.textPrimary }}>
             ‹
           </Text>

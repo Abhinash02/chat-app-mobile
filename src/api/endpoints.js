@@ -41,6 +41,7 @@ export const coinsApi = {
   transactions: (params) => requestList({ method: 'GET', url: '/coins/transactions', params }),
   packages: () => request({ method: 'GET', url: '/coins/packages' }),
   dailyBonus: () => request({ method: 'GET', url: '/coins/daily-bonus' }),
+  getDailyBonus: () => request({ method: 'GET', url: '/coins/daily-bonus' }),
   claimDailyBonus: () => request({ method: 'POST', url: '/coins/daily-bonus/claim' }),
 };
 

@@ -7,8 +7,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Avatar, Badge, EmptyState, Loading } from '../../src/components/ui.jsx';
 import { BannerCarousel } from '../../src/components/BannerCarousel.jsx';
+import { DailyCoinsCard } from '../../src/components/DailyCoinsCard.jsx';
+import {
+  CallableRow,
+  LiveRoomsRow,
+  OnlineChatRow,
+  SectionHeader,
+} from '../../src/components/HomeSections.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
-import { chatApi, usersApi } from '../../src/api/endpoints.js';
+import { chatApi, roomsApi, usersApi } from '../../src/api/endpoints.js';
 import { formatDistance, formatRelativeTime } from '../../src/lib/format.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
@@ -213,6 +220,27 @@ export default function Discover() {
     }
   }
 
+  /*
+   * Online people, fetched once and split between the two rows rather than
+   * queried twice. The chat row is reversed so the two rows never open with
+   * the same three faces.
+   */
+  const { data: onlineData, isLoading: isLoadingOnline } = useQuery({
+    queryKey: ['discover', 'online'],
+    queryFn: () => usersApi.discover({ onlineOnly: true, limit: 20 }),
+    staleTime: 30_000,
+  });
+
+  const { data: liveRooms, isLoading: isLoadingRooms } = useQuery({
+    queryKey: ['rooms', 'live'],
+    queryFn: () => roomsApi.list({ limit: 10 }),
+    staleTime: 30_000,
+  });
+
+  const onlinePeople = onlineData?.items ?? [];
+  const callable = onlinePeople.slice(0, 8);
+  const chattable = [...onlinePeople].reverse().slice(0, 12);
+
   const people = data?.items ?? [];
 
   return (
@@ -255,6 +283,38 @@ export default function Discover() {
           ListHeaderComponent={
             <View className="px-4">
               <BannerCarousel />
+              <DailyCoinsCard />
+
+              {callable.length > 0 || isLoadingOnline ? (
+                <View className="mb-5">
+                  <SectionHeader
+                    title="Say Hi"
+                    action="Shuffle"
+                    onAction={() => queryClient.invalidateQueries({ queryKey: ['discover', 'online'] })}
+                  />
+                  <CallableRow people={callable} isLoading={isLoadingOnline} onCall={openChat} />
+                </View>
+              ) : null}
+
+              {chattable.length > 0 || isLoadingOnline ? (
+                <View className="mb-5">
+                  <SectionHeader title="Online Now" badge="LIVE" />
+                  <OnlineChatRow people={chattable} isLoading={isLoadingOnline} onChat={openChat} />
+                </View>
+              ) : null}
+
+              {(liveRooms?.items?.length ?? 0) > 0 || isLoadingRooms ? (
+                <View className="mb-5">
+                  <SectionHeader
+                    title="Voice Rooms"
+                    action="See all"
+                    onAction={() => router.push('/(tabs)/rooms')}
+                  />
+                  <LiveRoomsRow rooms={liveRooms?.items} isLoading={isLoadingRooms} />
+                </View>
+              ) : null}
+
+              <SectionHeader title="Browse everyone" />
             </View>
           }
           refreshControl={

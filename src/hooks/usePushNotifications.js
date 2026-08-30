@@ -14,14 +14,18 @@ import { request } from '../api/client.js';
  * sound provider when the socket delivers the message, and letting the OS play
  * one as well means every message arrives twice.
  */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: false,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Registering a handler on web makes expo-notifications warn about a listener
+// that can never fire, so the whole call is skipped there.
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: false,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 /**
  * Android 8+ requires a channel before anything can be delivered, and channel
@@ -108,6 +112,14 @@ export function usePushNotifications({ isAuthenticated, onNotificationReceived }
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
+
+    /*
+     * Web has no push support in Expo, and touching the notifications API
+     * there logs a warning for a listener that can never fire. Bailing out
+     * early keeps the browser preview's console clean without pretending the
+     * feature exists.
+     */
+    if (Platform.OS === 'web') return undefined;
 
     let isCancelled = false;
     let registeredToken = null;

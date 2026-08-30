@@ -8,10 +8,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { goBack } from '../../src/components/ScreenHeader.jsx';
 import { Avatar, Badge, Loading } from '../../src/components/ui.jsx';
 import { roomsApi } from '../../src/api/endpoints.js';
 import { SOCKET_EVENT } from '../../src/constants/events.js';
@@ -118,7 +119,7 @@ export default function RoomScreen() {
       if (String(payload.roomId) !== String(roomId)) return;
       toast.info('The host ended this room.');
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      router.back();
+      goBack();
     });
 
     return () => {
@@ -152,7 +153,7 @@ export default function RoomScreen() {
       // whose socket disconnects.
     }
     queryClient.invalidateQueries({ queryKey: ['rooms'] });
-    router.back();
+    goBack();
   }
 
   if (isLoading) {

@@ -1,8 +1,8 @@
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
-import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 
+import { goBack } from '../src/components/ScreenHeader.jsx';
 import { Avatar, Card, EmptyState, Loading } from '../src/components/ui.jsx';
 import { gamesApi } from '../src/api/endpoints.js';
 import { formatCoins } from '../src/lib/format.js';
@@ -73,7 +73,7 @@ export default function Leaderboard() {
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
       <View className="flex-row items-center gap-3 px-4 pb-3 pt-2">
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" className="px-1">
+        <Pressable onPress={() => goBack()} accessibilityRole="button" accessibilityLabel="Back" className="px-1">
           <Text className="text-2xl" style={{ color: colors.textPrimary }}>
             ‹
           </Text>

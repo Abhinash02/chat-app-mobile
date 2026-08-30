@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { goBack } from '../src/components/ScreenHeader.jsx';
 import { Badge, Button, Card, Field, GradientButton, Input, Loading } from '../src/components/ui.jsx';
 import { coinsApi, paymentsApi } from '../src/api/endpoints.js';
 import { formatCoins, formatCountdown, formatRupees } from '../src/lib/format.js';
@@ -290,7 +290,7 @@ export default function Coins() {
         <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
           Get coins
         </Text>
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Close" className="p-2">
+        <Pressable onPress={() => goBack()} accessibilityRole="button" accessibilityLabel="Close" className="p-2">
           <Text className="text-xl" style={{ color: colors.textSecondary }}>
             ✕
           </Text>
@@ -336,7 +336,7 @@ export default function Coins() {
             upi={activeOrder.upi}
             onDone={() => {
               setActiveOrder(null);
-              router.back();
+              goBack();
             }}
           />
         ) : (

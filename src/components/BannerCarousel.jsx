@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Easing, Linking, Pressable, View } from 'react-native';
+import { Animated, Dimensions, Easing, Linking, Pressable, View, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+
+/**
+ * react-native-web has no native animated module, so requesting the native
+ * driver there logs a warning for every animation and falls back anyway.
+ * On a real device this stays true, which is where it matters.
+ */
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 import { bannersApi } from '../api/endpoints.js';
 import { useTheme } from '../theme/ThemeProvider.jsx';
@@ -32,17 +39,17 @@ function AnimatedBanner({ banner, width }) {
           toValue: 1,
           duration,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         // Shimmer restarts from the left rather than sweeping back, which would
         // read as the light moving the wrong way.
         banner.animation === 'shimmer'
-          ? Animated.timing(motion, { toValue: 0, duration: 0, useNativeDriver: true })
+          ? Animated.timing(motion, { toValue: 0, duration: 0, useNativeDriver: USE_NATIVE_DRIVER })
           : Animated.timing(motion, {
               toValue: 0,
               duration,
               easing: Easing.inOut(Easing.quad),
-              useNativeDriver: true,
+              useNativeDriver: USE_NATIVE_DRIVER,
             }),
       ]),
     );
@@ -82,8 +89,10 @@ function AnimatedBanner({ banner, width }) {
 
       {banner.animation === 'shimmer' ? (
         <Animated.View
-          pointerEvents="none"
           style={{
+            // In style rather than as a prop: the prop form is deprecated, and
+            // the sweep must not swallow taps meant for the banner beneath it.
+            pointerEvents: 'none',
             position: 'absolute',
             top: 0,
             bottom: 0,

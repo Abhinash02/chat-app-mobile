@@ -1,6 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, Pressable, Text, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+/**
+ * react-native-web has no native animated module, so requesting the native
+ * driver there logs a warning for every animation and falls back anyway.
+ * On a real device this stays true, which is where it matters.
+ */
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
@@ -19,13 +26,13 @@ function ToastItem({ toast, onDismiss }) {
   useEffect(() => {
     Animated.spring(progress, {
       toValue: 1,
-      useNativeDriver: true,
+      useNativeDriver: USE_NATIVE_DRIVER,
       damping: 18,
       stiffness: 220,
     }).start();
 
     const timer = setTimeout(() => {
-      Animated.timing(progress, { toValue: 0, duration: 180, useNativeDriver: true }).start(() =>
+      Animated.timing(progress, { toValue: 0, duration: 180, useNativeDriver: USE_NATIVE_DRIVER }).start(() =>
         onDismiss(toast.id),
       );
       // Errors stay longer: they usually ask the reader to do something.
@@ -126,9 +133,13 @@ export function ToastProvider({ children }) {
       {children}
 
       <View
-        pointerEvents="box-none"
         className="absolute left-0 right-0 px-4"
-        style={{ top: insets.top + 8 }}
+        style={{
+          top: insets.top + 8,
+          // `box-none` lets taps pass through the container to whatever is
+          // underneath, while the toasts themselves stay tappable.
+          pointerEvents: 'box-none',
+        }}
       >
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} />
