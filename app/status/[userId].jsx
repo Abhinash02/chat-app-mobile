@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -284,7 +284,36 @@ export default function StatusViewerScreen() {
     <View className="flex-1 bg-black">
       <View className="flex-1">
         {current.type === 'image' ? (
-          <Image source={{ uri: current.media.url }} style={{ flex: 1 }} contentFit="contain" transition={120} />
+          /*
+           * A status is whatever shape the camera produced — a portrait
+           * selfie, a landscape view, a square crop, a screenshot. The image
+           * is always shown whole rather than cropped to fill, because
+           * cropping a status silently throws away the part the person was
+           * pointing at.
+           *
+           * Showing it whole leaves bars on any photo that is not exactly the
+           * screen's shape, so the same image is stretched behind it and
+           * blurred. The bars become an out-of-focus wash of the photo's own
+           * colours instead of dead black, and portrait and landscape both
+           * look deliberate.
+           */
+          <View className="flex-1">
+            <Image
+              source={{ uri: current.media.url }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              blurRadius={40}
+              // Dimmed so the sharp image in front always wins the eye.
+              accessible={false}
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#00000066' }]} />
+            <Image
+              source={{ uri: current.media.url }}
+              style={{ flex: 1 }}
+              contentFit="contain"
+              transition={120}
+            />
+          </View>
         ) : null}
 
         {current.type === 'video' ? (

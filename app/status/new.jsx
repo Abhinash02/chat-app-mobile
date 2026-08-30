@@ -1,16 +1,44 @@
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Image } from 'expo-image';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Gradient } from '../../src/components/Gradient.jsx';
 import { goBack } from '../../src/components/ScreenHeader.jsx';
 import { MAX_STATUS_TEXT_LENGTH, MAX_STATUS_VIDEO_SECONDS, STATUS_BACKGROUNDS } from '../../src/constants/status.js';
-import { SIZE_LIMITS, captureWithCamera, isWithinLimit, pickFromLibrary, toFormFile } from '../../src/lib/media.js';
+import { SIZE_LIMITS, appendFile, captureWithCamera, isWithinLimit, pickFromLibrary } from '../../src/lib/media.js';
 import { statusApi } from '../../src/api/endpoints.js';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
+
+/**
+ * Plays back the chosen clip before it is posted.
+ *
+ * Worth the player: the only way to know a fifteen-second cut caught the right
+ * moment is to watch it, and an emoji standing in for the video tells you
+ * nothing about what you are about to publish.
+ */
+function VideoPreview({ uri }) {
+  const player = useVideoPlayer({ uri }, (instance) => {
+    instance.loop = true;
+    instance.muted = true;
+    instance.play();
+  });
+
+  return <VideoView player={player} style={{ flex: 1 }} contentFit="contain" nativeControls={false} />;
+}
 
 /**
  * Posting a status: type something, or pick a photo or a short video.
@@ -24,6 +52,7 @@ export default function NewStatusScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { width } = useWindowDimensions();
 
   const [text, setText] = useState('');
   const [background, setBackground] = useState(STATUS_BACKGROUNDS[0].id);
@@ -33,7 +62,7 @@ export default function NewStatusScreen() {
     mutationFn: async () => {
       if (asset) {
         const formData = new FormData();
-        toFormFile(formData, { uri: asset.uri, mimeType: asset.mimeType });
+        await appendFile(formData, { uri: asset.uri, mimeType: asset.mimeType });
         if (text.trim()) formData.append('caption', text.trim());
         return statusApi.postMedia(formData);
       }
@@ -75,6 +104,16 @@ export default function NewStatusScreen() {
   const gradient =
     STATUS_BACKGROUNDS.find((entry) => entry.id === background)?.colors ?? STATUS_BACKGROUNDS[0].colors;
 
+  /*
+   * The preview takes the shape of what was actually picked, so a landscape
+   * photo previews wide and a portrait one tall. A fixed box would letterbox
+   * both into the same square and give no sense of how the status will look.
+   * Clamped at either end so a panorama does not collapse to a sliver and a
+   * very tall crop does not push the Post button off the screen.
+   */
+  const aspectRatio = asset?.width && asset?.height ? asset.width / asset.height : 3 / 4;
+  const previewHeight = Math.round(Math.min(440, Math.max(200, (width - 32) / aspectRatio)));
+
   const canPost = asset ? true : text.trim().length > 0;
 
   return (
@@ -115,14 +154,9 @@ export default function NewStatusScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
         {asset ? (
           <View className="px-4 pt-2">
-            <View style={{ borderRadius: radius, overflow: 'hidden', backgroundColor: '#000', height: 380 }}>
+            <View style={{ borderRadius: radius, overflow: 'hidden', backgroundColor: '#000', height: previewHeight }}>
               {asset.kind === 'video' ? (
-                <View className="flex-1 items-center justify-center">
-                  <Text className="text-5xl">🎬</Text>
-                  <Text className="mt-2 text-[13px] text-white/80">
-                    {asset.durationSeconds ? `${asset.durationSeconds}s video ready` : 'Video ready'}
-                  </Text>
-                </View>
+                <VideoPreview uri={asset.uri} />
               ) : (
                 <Image source={{ uri: asset.uri }} style={{ flex: 1 }} contentFit="contain" />
               )}

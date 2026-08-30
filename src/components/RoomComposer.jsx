@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from 'reac
 import * as Haptics from 'expo-haptics';
 
 import { EmojiPicker } from './EmojiPicker.jsx';
-import { SIZE_LIMITS, captureWithCamera, formatDuration, isWithinLimit, pickFromLibrary, toFormFile } from '../lib/media.js';
+import { SIZE_LIMITS, appendFile, captureWithCamera, formatDuration, isWithinLimit, pickFromLibrary } from '../lib/media.js';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder.js';
 
@@ -134,7 +134,7 @@ export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
 
     try {
       const formData = new FormData();
-      toFormFile(formData, { uri, mimeType });
+      await appendFile(formData, { uri, mimeType });
       // A caption rides along with the file, so a photo can be sent with a
       // line of text as one message rather than two.
       if (caption && kind !== 'audio') formData.append('caption', caption);

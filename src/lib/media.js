@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 /** Mirrors what the server accepts, so a rejection happens before the upload. */
@@ -29,17 +30,39 @@ export function guessMimeType(uri, declared) {
 }
 
 /**
- * Wraps a local file for upload.
+ * Attaches a local file to a FormData, by whatever means the platform needs.
  *
- * React Native's FormData takes `{ uri, name, type }` rather than a Blob — the
- * file is never read into JavaScript, which is the only reason a 12MB video
- * can be sent from a phone without running the heap out.
+ * These are genuinely two different APIs wearing one name:
+ *
+ * On native, React Native's FormData accepts `{ uri, name, type }` and streams
+ * the file straight from disk. Nothing is read into JavaScript, which is the
+ * only reason a 12MB video uploads from a phone without exhausting the heap.
+ *
+ * On web that same object is not a file — the browser's FormData stringifies
+ * it to "[object Object]" and sends a 150-byte text field. The request looks
+ * plausible and arrives with no file at all, which is exactly how this failed:
+ * multer found nothing to parse and the stray text part tripped validation, so
+ * the error pointed at a form field rather than the missing upload. A browser
+ * needs a real Blob, so the uri is fetched (it is a blob: or data: url the
+ * picker already produced locally, not a network round trip) and appended with
+ * an explicit filename.
  */
-export function toFormFile(formData, { uri, mimeType, fieldName = 'file' }) {
+export async function appendFile(formData, { uri, mimeType, fieldName = 'file' }) {
   const type = guessMimeType(uri, mimeType);
   const extension = type.split('/')[1]?.replace('quicktime', 'mov') ?? 'bin';
+  const name = `upload.${extension}`;
 
-  formData.append(fieldName, { uri, name: `upload.${extension}`, type });
+  if (Platform.OS === 'web') {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    // The picker's blob sometimes carries no type; the server refuses what it
+    // cannot name, so the detected one is reapplied.
+    formData.append(fieldName, blob.type ? blob : new Blob([blob], { type }), name);
+    return formData;
+  }
+
+  formData.append(fieldName, { uri, name, type });
   return formData;
 }
 
