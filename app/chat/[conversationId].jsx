@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   Text,
@@ -13,6 +14,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { goBack } from '../../src/components/ScreenHeader.jsx';
+import { useActionSheet } from '../../src/components/ActionSheet.jsx';
+import { MessageTicks } from '../../src/components/chat/MessageTicks.jsx';
+import { ReactionChips, ReactionPicker } from '../../src/components/chat/ReactionBar.jsx';
 import { Avatar } from '../../src/components/ui.jsx';
 import { Skeleton } from '../../src/components/Loader.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
@@ -21,27 +25,40 @@ import { SOCKET_EVENT } from '../../src/constants/events.js';
 import { formatMessageTime, formatRelativeTime } from '../../src/lib/format.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
+import { useIsForeground } from '../../src/hooks/useIsForeground.js';
 import { useSounds } from '../../src/hooks/useSounds.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
 
 const EMOJI_ROW = ['😊', '😂', '❤️', '😍', '👍', '🙌', '🔥', '😅', '🥰', '😎', '🤔', '👋'];
 
-function MessageBubble({ message, isMine, showTime }) {
+function MessageBubble({ message, isMine, showTime, onLongPress }) {
   const { colors, radius } = useTheme();
 
   // A message that is only emoji is rendered big and bare, the way every
   // messaging app people already use does it.
   const isEmojiOnly = message.type === 'emoji';
 
-  if (isEmojiOnly) {
+  if (isEmojiOnly && !message.isDeleted) {
     return (
       <View className={`mb-1.5 px-4 ${isMine ? 'items-end' : 'items-start'}`}>
-        <Text className="text-5xl">{message.text}</Text>
+        <Pressable onLongPress={() => onLongPress(message)} delayLongPress={280}>
+          <Text className="text-5xl">{message.text}</Text>
+        </Pressable>
+
+        <ReactionChips
+          reactions={message.reactions}
+          isMine={isMine}
+          onPress={() => onLongPress(message)}
+        />
+
         {showTime ? (
-          <Text className="mt-1 text-[10px]" style={{ color: colors.textMuted }}>
-            {formatMessageTime(message.createdAt)}
-          </Text>
+          <View className="mt-1 flex-row items-center gap-1">
+            <Text className="text-[10px]" style={{ color: colors.textMuted }}>
+              {formatMessageTime(message.createdAt)}
+            </Text>
+            {isMine ? <MessageTicks state={message.deliveryState} /> : null}
+          </View>
         ) : null}
       </View>
     );
@@ -49,7 +66,12 @@ function MessageBubble({ message, isMine, showTime }) {
 
   return (
     <View className={`mb-1.5 px-4 ${isMine ? 'items-end' : 'items-start'}`}>
-      <View
+      <Pressable
+        // A withdrawn message has nothing left to react to or delete twice.
+        onLongPress={message.isDeleted ? undefined : () => onLongPress(message)}
+        delayLongPress={280}
+        accessibilityRole={message.isDeleted ? 'text' : 'button'}
+        accessibilityHint={message.isDeleted ? undefined : 'Long press for reactions and delete'}
         className="max-w-[80%] px-3.5 py-2.5"
         style={{
           backgroundColor: isMine ? colors.primary : colors.surface,
@@ -58,26 +80,29 @@ function MessageBubble({ message, isMine, showTime }) {
           borderBottomLeftRadius: isMine ? radius : 4,
           borderWidth: isMine ? 0 : 1,
           borderColor: colors.border,
+          opacity: message.isDeleted ? 0.7 : 1,
         }}
       >
         <Text
-          className="text-[15px] leading-5"
+          className={`text-[15px] leading-5 ${message.isDeleted ? 'italic' : ''}`}
           style={{ color: isMine ? colors.onPrimary : colors.textPrimary }}
         >
           {message.isDeleted ? 'This message was deleted' : message.text}
         </Text>
-      </View>
+      </Pressable>
+
+      <ReactionChips
+        reactions={message.reactions}
+        isMine={isMine}
+        onPress={() => onLongPress(message)}
+      />
 
       {showTime ? (
         <View className="mt-0.5 flex-row items-center gap-1 px-1">
           <Text className="text-[10px]" style={{ color: colors.textMuted }}>
             {formatMessageTime(message.createdAt)}
           </Text>
-          {isMine ? (
-            <Text className="text-[10px]" style={{ color: message.readAt ? colors.info : colors.textMuted }}>
-              {message.readAt ? 'Read' : 'Sent'}
-            </Text>
-          ) : null}
+          {isMine && !message.isDeleted ? <MessageTicks state={message.deliveryState} /> : null}
         </View>
       ) : null}
     </View>
@@ -100,7 +125,8 @@ export default function ChatScreen() {
   const { conversationId } = useLocalSearchParams();
   const { colors, radius } = useTheme();
   const { user } = useAuth();
-  const { emit, on, presence, wallet, setUnreadCount } = useSocket();
+  const { emit, on, presence, wallet, setUnreadCount, setFreeTalkRunning } = useSocket();
+  const actionSheet = useActionSheet();
   const { playSent } = useSounds();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -182,8 +208,31 @@ export default function ChatScreen() {
       setMessages((current) =>
         current.map((message) =>
           String(message.senderId) === String(user?.id) && !message.readAt
-            ? { ...message, readAt: payload.readAt }
+            ? { ...message, readAt: payload.readAt, deliveryState: 'read' }
             : message,
+        ),
+      );
+    });
+
+    /*
+     * A withdrawal replaces the message in place rather than removing it. The
+     * other person watched something arrive; leaving a note where it was is
+     * honest, and a bubble that silently vanishes reads as a glitch.
+     */
+    const offDeleted = on(SOCKET_EVENT.MESSAGE_DELETED, (deleted) => {
+      if (String(deleted.conversationId) !== String(conversationId)) return;
+
+      setMessages((current) =>
+        current.map((message) => (message.id === deleted.id ? { ...message, ...deleted } : message)),
+      );
+    });
+
+    const offReaction = on(SOCKET_EVENT.MESSAGE_REACTION, (updated) => {
+      if (String(updated.conversationId) !== String(conversationId)) return;
+
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === updated.id ? { ...message, reactions: updated.reactions } : message,
         ),
       );
     });
@@ -192,6 +241,8 @@ export default function ChatScreen() {
       emit(SOCKET_EVENT.CONVERSATION_LEAVE, { conversationId });
       offMessage?.();
       offTyping?.();
+      offDeleted?.();
+      offReaction?.();
       offReceipt?.();
     };
   }, [conversationId, emit, on, user?.id]);
@@ -215,21 +266,133 @@ export default function ChatScreen() {
   /**
    * The free-time heartbeat.
    *
-   * Sent only while this screen is open, which is what makes the introductory
-   * allowance measure time actually spent chatting rather than wall-clock time
-   * since signup. The server decides how much each tick is worth and ignores
-   * ticks that arrive too fast, so this interval cannot be gamed.
+   * Sent only while this screen is open AND the app is in front, which is what
+   * makes the introductory allowance measure time actually spent chatting
+   * rather than wall-clock time since signup. Backgrounding the app stops the
+   * heartbeat, so the allowance is not spent while the phone is in a pocket —
+   * and because the server stores a balance rather than a deadline, reopening
+   * resumes from whatever is left instead of restarting at thirty minutes.
+   *
+   * The server decides how much each tick is worth and ignores ticks that
+   * arrive too fast, so this interval cannot be gamed.
+   */
+  const isForeground = useIsForeground();
+
+  const isSpendingFreeTalk = Boolean(
+    conversationId && !wallet?.isUnlimited && wallet?.freeTalkSecondsRemaining && isForeground,
+  );
+
+  /*
+   * The header's countdown follows the heartbeat exactly, so the number on
+   * screen is moving if and only if the server is billing for it.
    */
   useEffect(() => {
-    if (!conversationId || wallet?.isUnlimited) return undefined;
-    if (!wallet?.freeTalkSecondsRemaining) return undefined;
+    setFreeTalkRunning(isSpendingFreeTalk);
+    return () => setFreeTalkRunning(false);
+  }, [isSpendingFreeTalk, setFreeTalkRunning]);
+
+  useEffect(() => {
+    if (!isSpendingFreeTalk) return undefined;
 
     const timer = setInterval(() => {
       emit(SOCKET_EVENT.CHAT_HEARTBEAT, { conversationId });
     }, 15_000);
 
     return () => clearInterval(timer);
-  }, [conversationId, emit, wallet?.isUnlimited, wallet?.freeTalkSecondsRemaining]);
+  }, [conversationId, emit, isSpendingFreeTalk]);
+
+  // ----- Message actions ----------------------------------------------------
+
+  /** The message a long press opened the reaction row for, if any. */
+  const [actioned, setActioned] = useState(null);
+
+  function openMessageActions(message) {
+    setActioned(message);
+  }
+
+  async function react(message, emoji) {
+    setActioned(null);
+
+    /*
+     * Applied locally first. A reaction is a tap on something already on
+     * screen, and waiting a round trip to see it makes the button feel
+     * unresponsive — the socket event that follows carries the authoritative
+     * tally and overwrites this.
+     */
+    const mine = message.reactions?.find((entry) => entry.mine);
+    const isUndo = mine?.emoji === emoji;
+
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === message.id
+          ? { ...item, reactions: isUndo ? [] : [{ emoji, count: 1, mine: true }] }
+          : item,
+      ),
+    );
+
+    try {
+      await chatApi.react(message.id, emoji);
+    } catch (error) {
+      // Put the old reaction back rather than leaving a lie on screen.
+      setMessages((current) =>
+        current.map((item) =>
+          item.id === message.id ? { ...item, reactions: message.reactions ?? [] } : item,
+        ),
+      );
+      toast.error(error.message ?? 'Could not react to that');
+    }
+  }
+
+  function confirmDelete(message) {
+    setActioned(null);
+
+    const isMine = String(message.senderId) === String(user?.id);
+
+    const options = [
+      {
+        label: 'Delete for me',
+        destructive: true,
+        onPress: () => removeMessage(message, 'me'),
+      },
+    ];
+
+    /*
+     * Withdrawing from both sides is offered only on your own messages,
+     * because it is a claim over the other person's copy. The server enforces
+     * this too — the menu just does not dangle an option that would be
+     * refused.
+     */
+    if (isMine) {
+      options.push({
+        label: 'Delete for everyone',
+        destructive: true,
+        onPress: () => removeMessage(message, 'everyone'),
+      });
+    }
+
+    actionSheet.show({ title: 'Delete message?', options });
+  }
+
+  async function removeMessage(message, scope) {
+    try {
+      await chatApi.deleteMessage(message.id, scope);
+
+      if (scope === 'me') {
+        // Gone from this device only; the other person keeps their copy, so
+        // there is no tombstone to leave behind here.
+        setMessages((current) => current.filter((item) => item.id !== message.id));
+        return;
+      }
+
+      setMessages((current) =>
+        current.map((item) =>
+          item.id === message.id ? { ...item, isDeleted: true, text: '', reactions: [] } : item,
+        ),
+      );
+    } catch (error) {
+      toast.error(error.message ?? 'Could not delete that');
+    }
+  }
 
   // ----- Sending ------------------------------------------------------------
 
@@ -384,9 +547,43 @@ export default function ChatScreen() {
             message={item}
             isMine={String(item.senderId) === String(user?.id)}
             showTime={item.showTime}
+            onLongPress={openMessageActions}
           />
         )}
       />
+
+      {/*
+        A long press opens the reactions inline rather than in the action
+        sheet: reacting is the common case and should cost one more tap, while
+        deleting is rarer and deserves the confirmation step.
+      */}
+      <Modal
+        visible={Boolean(actioned)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActioned(null)}
+      >
+        <Pressable className="flex-1 justify-center bg-black/40 px-6" onPress={() => setActioned(null)}>
+          <Pressable onPress={(event) => event.stopPropagation()}>
+            <ReactionPicker
+              current={actioned?.reactions?.find((entry) => entry.mine)?.emoji}
+              onPick={(emoji) => react(actioned, emoji)}
+            />
+
+            <Pressable
+              onPress={() => confirmDelete(actioned)}
+              accessibilityRole="button"
+              accessibilityLabel="Delete this message"
+              className="mt-2 items-center py-3"
+              style={{ backgroundColor: colors.surface, borderRadius: radius }}
+            >
+              <Text className="text-[15px] font-medium" style={{ color: colors.danger }}>
+                Delete message
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {partnerTyping ? <TypingIndicator nickname={partner?.nickname ?? 'They'} /> : null}
 

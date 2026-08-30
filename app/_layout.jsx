@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from '../src/hooks/useAuth.jsx';
 import { SocketProvider } from '../src/hooks/useSocket.jsx';
 import { SoundProvider, useSounds } from '../src/hooks/useSounds.jsx';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider.jsx';
+import { ActionSheetProvider } from '../src/components/ActionSheet.jsx';
 import { ToastProvider } from '../src/components/Toast.jsx';
 import { usePushNotifications } from '../src/hooks/usePushNotifications.js';
 import '../global.css';
@@ -78,13 +79,15 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <ToastProvider>
-              <SoundProvider>
-                <AuthProvider>
-                  <SocketProvider>
-                    <AppShell />
-                  </SocketProvider>
-                </AuthProvider>
-              </SoundProvider>
+              <ActionSheetProvider>
+                <SoundProvider>
+                  <AuthProvider>
+                    <SocketProvider>
+                      <AppShell />
+                    </SocketProvider>
+                  </AuthProvider>
+                </SoundProvider>
+              </ActionSheetProvider>
             </ToastProvider>
           </ThemeProvider>
         </QueryClientProvider>

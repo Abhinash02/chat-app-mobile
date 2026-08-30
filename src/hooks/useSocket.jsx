@@ -174,6 +174,17 @@ export function SocketProvider({ children }) {
     return () => socketRef.current?.off(event, handler);
   }, []);
 
+  /**
+   * Whether the free-talk allowance is actually being spent right now.
+   *
+   * Set by the chat screen while it is open and the app is in front — the only
+   * situation in which the server is billing time. The header reads it to
+   * decide whether its countdown should move: ticking on the Discover screen
+   * showed the allowance draining while nobody was chatting, and the number
+   * then jumped back up the moment the server corrected it.
+   */
+  const [isFreeTalkRunning, setFreeTalkRunning] = useState(false);
+
   const value = useMemo(
     () => ({
       socket,
@@ -185,8 +196,10 @@ export function SocketProvider({ children }) {
       presence,
       emit,
       on,
+      isFreeTalkRunning,
+      setFreeTalkRunning,
     }),
-    [socket, isConnected, wallet, unreadCount, presence, emit, on],
+    [socket, isConnected, wallet, unreadCount, presence, emit, on, isFreeTalkRunning],
   );
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { VideoView, useVideoPlayer } from 'expo-video';
 
 import { Gradient } from '../../src/components/Gradient.jsx';
+import { useActionSheet } from '../../src/components/ActionSheet.jsx';
 import { goBack } from '../../src/components/ScreenHeader.jsx';
 import { Avatar, Loading } from '../../src/components/ui.jsx';
 import { STATUS_BACKGROUNDS } from '../../src/constants/status.js';
@@ -154,6 +155,7 @@ export default function StatusViewerScreen() {
   // a cinema is. Tinting it to the palette would wash out the photos.
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const actionSheet = useActionSheet();
   const queryClient = useQueryClient();
   const { on } = useSocket();
   const { width } = useWindowDimensions();
@@ -283,10 +285,18 @@ export default function StatusViewerScreen() {
   }
 
   function confirmDelete() {
-    Alert.alert('Delete this status?', 'It disappears for everyone straight away.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => remove.mutate(current.id) },
-    ]);
+    // Paused while the sheet is up, so the story does not advance out from
+    // under the question being asked about it.
+    setIsPaused(true);
+
+    actionSheet.show({
+      title: 'Delete this status?',
+      message: 'It disappears for everyone straight away.',
+      options: [
+        { label: 'Delete', destructive: true, onPress: () => remove.mutate(current.id) },
+      ],
+      onClose: () => setIsPaused(false),
+    });
   }
 
   if (isLoading) {

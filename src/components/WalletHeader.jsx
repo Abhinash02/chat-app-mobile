@@ -16,7 +16,7 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
  */
 export function WalletHeader({ compact = false }) {
   const { colors, radius } = useTheme();
-  const { wallet, isConnected } = useSocket();
+  const { wallet, isConnected, isFreeTalkRunning } = useSocket();
 
   const serverSeconds = wallet?.freeTalkSecondsRemaining ?? 0;
 
@@ -31,14 +31,26 @@ export function WalletHeader({ compact = false }) {
     setDisplaySeconds(serverSeconds);
   }
 
+  /*
+   * The countdown only moves while the allowance is actually being spent —
+   * a chat open, in the foreground, with the server billing heartbeats.
+   *
+   * It used to tick everywhere, all the time. Sitting on the Discover screen
+   * watched the free minutes drain away without a word being sent, and the
+   * number sprang back up whenever the server corrected it. The allowance is a
+   * stored balance, not a countdown from signup: it is spent by talking, and
+   * closing the app pauses it rather than burning it.
+   *
+   * Ticking here is still only cosmetic. The server owns the balance and
+   * corrects this on every heartbeat, so local drift can never cost anyone
+   * time.
+   */
   useEffect(() => {
-    if (displaySeconds <= 0) return undefined;
+    if (displaySeconds <= 0 || !isFreeTalkRunning) return undefined;
 
-    // Local ticking is cosmetic only. The server owns the real balance and
-    // corrects this every heartbeat, so drift can never cost anyone time.
     const timer = setInterval(() => setDisplaySeconds((current) => Math.max(0, current - 1)), 1000);
     return () => clearInterval(timer);
-  }, [displaySeconds > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displaySeconds > 0, isFreeTalkRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!wallet) return null;
 

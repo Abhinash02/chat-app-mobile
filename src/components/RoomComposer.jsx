@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import { EmojiPicker } from './EmojiPicker.jsx';
+import { useActionSheet } from './ActionSheet.jsx';
 import { SIZE_LIMITS, appendFile, captureWithCamera, formatDuration, isWithinLimit, pickFromLibrary } from '../lib/media.js';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder.js';
@@ -59,6 +60,7 @@ function RecordingBar({ seconds, maxSeconds, onCancel, onSend }) {
  */
 export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
   const { colors, radius } = useTheme();
+  const actionSheet = useActionSheet();
 
   const [draft, setDraft] = useState('');
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
@@ -100,11 +102,14 @@ export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
   async function chooseAttachment() {
     if (isUploading || recorder.isRecording) return;
 
-    Alert.alert('Share something', 'Choose where it comes from', [
-      { text: 'Camera', onPress: () => pick(captureWithCamera) },
-      { text: 'Gallery', onPress: () => pick(pickFromLibrary) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    actionSheet.show({
+      title: 'Share something',
+      message: 'Choose where it comes from',
+      options: [
+        { label: '📷  Camera', onPress: () => pick(captureWithCamera) },
+        { label: '🖼️  Gallery', onPress: () => pick(pickFromLibrary) },
+      ],
+    });
   }
 
   async function pick(source) {

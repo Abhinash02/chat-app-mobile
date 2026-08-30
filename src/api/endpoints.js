@@ -33,6 +33,13 @@ export const chatApi = {
     requestList({ method: 'GET', url: `/chat/conversations/${id}/messages`, params }),
   send: (id, data) => request({ method: 'POST', url: `/chat/conversations/${id}/messages`, data }),
   markRead: (id) => request({ method: 'POST', url: `/chat/conversations/${id}/read` }),
+
+  /** `scope` is 'me' or 'everyone'; the server defaults to the safer 'me'. */
+  deleteMessage: (messageId, scope) =>
+    request({ method: 'DELETE', url: `/chat/messages/${messageId}`, params: { scope } }),
+
+  react: (messageId, emoji) =>
+    request({ method: 'POST', url: `/chat/messages/${messageId}/reactions`, data: { emoji } }),
   unreadCount: () => request({ method: 'GET', url: '/chat/unread-count' }),
 };
 
