@@ -11,7 +11,7 @@ import { useTheme } from '../src/theme/ThemeProvider.jsx';
  * at a signed-in one.
  */
 export default function Index() {
-  const { isAuthenticated, isRestoring, user } = useAuth();
+  const { isAuthenticated, isRestoring } = useAuth();
   const { colors } = useTheme();
 
   if (isRestoring) {
@@ -24,11 +24,16 @@ export default function Index() {
 
   if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
 
-  // Verified elsewhere too, but sending an unverified account straight to the
-  // code screen saves them hitting a wall on the first tap.
-  if (user?.status === 'pending_verification') {
-    return <Redirect href={{ pathname: '/(auth)/verify', params: { email: user.email } }} />;
-  }
-
+  /*
+   * A signed-in user always lands in the app, verified or not.
+   *
+   * Routing unverified accounts to the code screen on every launch trapped
+   * them there: signup issues a session immediately, so the status stays
+   * pending until a code is entered, and anyone who never received one had no
+   * way past it. It read as being asked to sign in again on every open.
+   *
+   * The prompt lives on as a dismissible banner inside the app instead, which
+   * is the right weight for something that blocks nothing by default.
+   */
   return <Redirect href="/(tabs)" />;
 }

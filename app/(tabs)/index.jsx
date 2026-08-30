@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Avatar, Badge, EmptyState, Loading } from '../../src/components/ui.jsx';
 import { BannerCarousel } from '../../src/components/BannerCarousel.jsx';
 import { DailyCoinsCard } from '../../src/components/DailyCoinsCard.jsx';
+import { VerifyBanner } from '../../src/components/VerifyBanner.jsx';
 import {
   CallableRow,
   LiveRoomsRow,
@@ -282,6 +283,7 @@ export default function Discover() {
           // with the feed instead of eating a fixed strip of a small screen.
           ListHeaderComponent={
             <View className="px-4">
+              <VerifyBanner />
               <BannerCarousel />
               <DailyCoinsCard />
 
