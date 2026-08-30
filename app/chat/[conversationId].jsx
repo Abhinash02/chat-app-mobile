@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -17,10 +18,12 @@ import { goBack } from '../../src/components/ScreenHeader.jsx';
 import { useActionSheet } from '../../src/components/ActionSheet.jsx';
 import { MessageTicks } from '../../src/components/chat/MessageTicks.jsx';
 import { ReactionChips, ReactionPicker } from '../../src/components/chat/ReactionBar.jsx';
+import { ImageBubble } from '../../src/components/MediaBubble.jsx';
 import { Avatar } from '../../src/components/ui.jsx';
 import { Skeleton } from '../../src/components/Loader.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { chatApi } from '../../src/api/endpoints.js';
+import { appendFile, captureWithCamera, pickFromLibrary } from '../../src/lib/media.js';
 import { SOCKET_EVENT } from '../../src/constants/events.js';
 import { formatMessageTime, formatRelativeTime } from '../../src/lib/format.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
@@ -38,6 +41,7 @@ function MessageBubble({ message, isMine, showTime, onLongPress }) {
   // A message that is only emoji is rendered big and bare, the way every
   // messaging app people already use does it.
   const isEmojiOnly = message.type === 'emoji';
+  const isPhoto = message.type === 'image' && message.media?.url && !message.isDeleted;
 
   if (isEmojiOnly && !message.isDeleted) {
     return (
@@ -72,7 +76,7 @@ function MessageBubble({ message, isMine, showTime, onLongPress }) {
         delayLongPress={280}
         accessibilityRole={message.isDeleted ? 'text' : 'button'}
         accessibilityHint={message.isDeleted ? undefined : 'Long press for reactions and delete'}
-        className="max-w-[80%] px-3.5 py-2.5"
+        className={`max-w-[80%] ${isPhoto ? 'p-1' : 'px-3.5 py-2.5'}`}
         style={{
           backgroundColor: isMine ? colors.primary : colors.surface,
           borderRadius: radius,
@@ -83,12 +87,16 @@ function MessageBubble({ message, isMine, showTime, onLongPress }) {
           opacity: message.isDeleted ? 0.7 : 1,
         }}
       >
-        <Text
-          className={`text-[15px] leading-5 ${message.isDeleted ? 'italic' : ''}`}
-          style={{ color: isMine ? colors.onPrimary : colors.textPrimary }}
-        >
-          {message.isDeleted ? 'This message was deleted' : message.text}
-        </Text>
+        {message.type === 'image' && message.media?.url && !message.isDeleted ? (
+          <ImageBubble url={message.media.url} caption={message.text} isMine={isMine} />
+        ) : (
+          <Text
+            className={`text-[15px] leading-5 ${message.isDeleted ? 'italic' : ''}`}
+            style={{ color: isMine ? colors.onPrimary : colors.textPrimary }}
+          >
+            {message.isDeleted ? 'This message was deleted' : message.text}
+          </Text>
+        )}
       </Pressable>
 
       <ReactionChips
@@ -125,7 +133,7 @@ export default function ChatScreen() {
   const { conversationId } = useLocalSearchParams();
   const { colors, radius } = useTheme();
   const { user } = useAuth();
-  const { emit, on, presence, wallet, setUnreadCount, setFreeTalkRunning } = useSocket();
+  const { emit, on, presence, wallet, setWallet, setUnreadCount, setFreeTalkRunning } = useSocket();
   const actionSheet = useActionSheet();
   const { playSent } = useSounds();
   const toast = useToast();
@@ -300,6 +308,61 @@ export default function ChatScreen() {
 
     return () => clearInterval(timer);
   }, [conversationId, emit, isSpendingFreeTalk]);
+
+  // ----- Photos -------------------------------------------------------------
+
+  const [isUploading, setIsUploading] = useState(false);
+
+  function choosePhoto() {
+    actionSheet.show({
+      title: 'Send a photo',
+      options: [
+        { label: '📷  Camera', onPress: () => pickPhoto(captureWithCamera) },
+        { label: '🖼️  Gallery', onPress: () => pickPhoto(pickFromLibrary) },
+      ],
+    });
+  }
+
+  async function pickPhoto(source) {
+    // Photos only here. Video in a one-to-one chat is a bigger question than
+    // an attach button — it needs its own limits and its own storage budget.
+    const result = await source({ allowVideo: false });
+
+    if (result.error) return toast.error(result.error);
+    if (result.cancelled || !result.asset) return undefined;
+
+    return sendPhoto(result.asset);
+  }
+
+  async function sendPhoto(asset) {
+    setIsUploading(true);
+
+    // Whatever is typed rides along as the caption, so a photo and the line
+    // about it arrive as one message rather than two.
+    const caption = draft.trim();
+
+    try {
+      const formData = new FormData();
+      await appendFile(formData, { uri: asset.uri, mimeType: asset.mimeType });
+      if (caption) formData.append('caption', caption);
+
+      const result = await chatApi.sendMedia(conversationId, formData);
+
+      setDraft('');
+      setMessages((current) =>
+        current.some((existing) => existing.id === result.message.id)
+          ? current
+          : [...current, result.message],
+      );
+
+      // A photo is billed like any other message, so the wallet moves with it.
+      if (result.billing?.wallet) setWallet(result.billing.wallet);
+    } catch (error) {
+      toast.error(error.message ?? 'Could not send that photo');
+    } finally {
+      setIsUploading(false);
+    }
+  }
 
   // ----- Message actions ----------------------------------------------------
 
@@ -640,6 +703,18 @@ export default function ChatScreen() {
         />
 
         <Pressable
+          onPress={choosePhoto}
+          disabled={isUploading || isSending}
+          accessibilityRole="button"
+          accessibilityLabel="Send a photo"
+          className="h-11 w-10 items-center justify-center"
+        >
+          <Text className="text-xl" style={{ opacity: isUploading ? 0.4 : 1 }}>
+            📷
+          </Text>
+        </Pressable>
+
+        <Pressable
           onPress={() => send(draft)}
           disabled={!draft.trim() || isSending}
           accessibilityRole="button"
@@ -650,9 +725,13 @@ export default function ChatScreen() {
             opacity: isSending ? 0.6 : 1,
           }}
         >
-          <Text style={{ color: draft.trim() ? colors.onPrimary : colors.textMuted, fontSize: 18 }}>
-            ➤
-          </Text>
+          {isUploading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Text style={{ color: draft.trim() ? colors.onPrimary : colors.textMuted, fontSize: 18 }}>
+              ➤
+            </Text>
+          )}
         </Pressable>
       </View>
     </KeyboardAvoidingView>

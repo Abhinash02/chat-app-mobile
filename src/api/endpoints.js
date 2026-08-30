@@ -34,6 +34,16 @@ export const chatApi = {
   send: (id, data) => request({ method: 'POST', url: `/chat/conversations/${id}/messages`, data }),
   markRead: (id) => request({ method: 'POST', url: `/chat/conversations/${id}/read` }),
 
+  /** A photo, already shrunk on the device. Billed exactly like a message. */
+  sendMedia: (id, formData) =>
+    request({
+      method: 'POST',
+      url: `/chat/conversations/${id}/media`,
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 90_000,
+    }),
+
   /** `scope` is 'me' or 'everyone'; the server defaults to the safer 'me'. */
   deleteMessage: (messageId, scope) =>
     request({ method: 'DELETE', url: `/chat/messages/${messageId}`, params: { scope } }),

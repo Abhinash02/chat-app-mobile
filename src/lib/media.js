@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 /** Mirrors what the server accepts, so a rejection happens before the upload. */
 const EXTENSION_MIME = {
@@ -66,6 +67,79 @@ export async function appendFile(formData, { uri, mimeType, fieldName = 'file' }
   return formData;
 }
 
+/**
+ * The longest edge a shared photo keeps.
+ *
+ * Matched to what Cloudinary stores rather than picked freely. The server caps
+ * images at 1080 on the long edge, so anything larger is bytes uploaded over
+ * mobile data purely to be thrown away on arrival — and sending exactly 1080
+ * means Cloudinary's resize is a no-op, so the picture is resampled once
+ * instead of twice. Every resample costs a little detail.
+ *
+ * 1080 is also about what a phone screen can show. A 12-megapixel camera photo
+ * is roughly 4000px wide: three quarters of that data cannot be displayed on
+ * the device it is being sent to.
+ */
+const MAX_IMAGE_EDGE = 1080;
+
+/**
+ * JPEG quality for the upload.
+ *
+ * Deliberately higher than the final: Cloudinary re-encodes with its own
+ * quality pass, and a second encode of an already-squeezed image compounds the
+ * artefacts. Handing it a generous source and letting it do the last squeeze
+ * gives a better picture at a smaller size than compressing hard twice.
+ *
+ * At 0.85 the difference from the original is not visible at phone size, while
+ * a typical camera photo drops from around 4MB to a couple of hundred KB.
+ */
+const UPLOAD_QUALITY = 0.85;
+
+/**
+ * Shrinks a photo before it is uploaded.
+ *
+ * Compression belongs on this side of the wire. Doing it only on the server
+ * still means the person waits for four megabytes to crawl out over a phone
+ * connection, and pays for the data, before anything is saved — the saving
+ * lands on the storage bill rather than on them.
+ *
+ * A failure here is not fatal: if the manipulator cannot read the file, the
+ * original is uploaded instead. A larger photo that arrives beats a smaller
+ * one that never sends.
+ */
+export async function compressImage(uri, { width, height } = {}) {
+  try {
+    const context = ImageManipulator.manipulate(uri);
+
+    const longestEdge = Math.max(width ?? 0, height ?? 0);
+
+    /*
+     * Only shrink, and only the longest edge.
+     *
+     * Which edge that is decides which value to pass: the manipulator works
+     * out the other one from the aspect ratio, and passing both would fix a
+     * ratio and squash anything that is not square. Asking for a width of 1080
+     * on a portrait photo leaves it 1080 x 1920 — still over the limit on the
+     * side that mattered.
+     *
+     * An image already smaller than the cap is left at its own size. Resizing
+     * up invents detail that was never captured and makes the file bigger to
+     * store it.
+     */
+    if (longestEdge > MAX_IMAGE_EDGE) {
+      const isLandscape = (width ?? 0) >= (height ?? 0);
+      context.resize(isLandscape ? { width: MAX_IMAGE_EDGE } : { height: MAX_IMAGE_EDGE });
+    }
+
+    const image = await context.renderAsync();
+    const result = await image.saveAsync({ compress: UPLOAD_QUALITY, format: SaveFormat.JPEG });
+
+    return { uri: result.uri, mimeType: 'image/jpeg', width: result.width, height: result.height };
+  } catch {
+    return null;
+  }
+}
+
 /** What the server allows, so an over-size file fails here and not after a long upload. */
 export const SIZE_LIMITS = { image: 5, audio: 3, video: 12 };
 
@@ -84,12 +158,25 @@ async function ensureCameraPermission() {
   return granted;
 }
 
-function normalizeAsset(asset) {
+/**
+ * Turns a picker result into the shape the rest of the app uses, shrinking
+ * photos on the way through.
+ *
+ * Compression happens here rather than at each upload site so every path —
+ * chat, status, rooms — gets it without having to remember, and so the size
+ * check downstream sees what will actually be sent rather than what came off
+ * the camera. Checking the original would reject a 20MB photo that compresses
+ * to 300KB and would have uploaded perfectly well.
+ *
+ * Video is left alone. Transcoding on-device is slow enough to feel broken,
+ * and the length limits already bound how large a clip can be.
+ */
+async function normalizeAsset(asset) {
   if (!asset) return null;
 
   const kind = asset.type === 'video' ? 'video' : 'image';
 
-  return {
+  const base = {
     uri: asset.uri,
     kind,
     mimeType: guessMimeType(asset.uri, asset.mimeType),
@@ -97,6 +184,29 @@ function normalizeAsset(asset) {
     width: asset.width ?? null,
     height: asset.height ?? null,
     durationSeconds: asset.duration ? Math.round(asset.duration / 1000) : null,
+  };
+
+  if (kind !== 'image') return base;
+
+  const compressed = await compressImage(asset.uri, { width: asset.width, height: asset.height });
+
+  // Compression is best effort: an image the manipulator cannot read is sent
+  // as it came, and the server's own limit is still there to catch it.
+  if (!compressed) return base;
+
+  return {
+    ...base,
+    uri: compressed.uri,
+    mimeType: compressed.mimeType,
+    width: compressed.width,
+    height: compressed.height,
+    /*
+     * The original byte count no longer describes this file, and guessing
+     * would be worse than admitting it: a null means "unknown", which the
+     * limit check reads as "let the server decide".
+     */
+    sizeBytes: null,
+    wasCompressed: true,
   };
 }
 
@@ -120,7 +230,7 @@ export async function pickFromLibrary({ allowVideo = true, videoMaxSeconds = nul
   });
 
   if (result.canceled) return { cancelled: true };
-  return { asset: normalizeAsset(result.assets?.[0]) };
+  return { asset: await normalizeAsset(result.assets?.[0]) };
 }
 
 export async function captureWithCamera({ allowVideo = true, videoMaxSeconds = null } = {}) {
@@ -135,7 +245,7 @@ export async function captureWithCamera({ allowVideo = true, videoMaxSeconds = n
   });
 
   if (result.canceled) return { cancelled: true };
-  return { asset: normalizeAsset(result.assets?.[0]) };
+  return { asset: await normalizeAsset(result.assets?.[0]) };
 }
 
 /** mm:ss, the only duration format anyone reads on a playback control. */
