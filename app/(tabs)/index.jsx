@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Avatar, Badge, EmptyState, Loading } from '../../src/components/ui.jsx';
+import { BannerCarousel } from '../../src/components/BannerCarousel.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { chatApi, usersApi } from '../../src/api/endpoints.js';
 import { formatDistance, formatRelativeTime } from '../../src/lib/format.js';
@@ -249,6 +250,13 @@ export default function Discover() {
           numColumns={2}
           columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
           contentContainerStyle={{ paddingBottom: 24, flexGrow: 1 }}
+          // Inside the list rather than above it, so the banner scrolls away
+          // with the feed instead of eating a fixed strip of a small screen.
+          ListHeaderComponent={
+            <View className="px-4">
+              <BannerCarousel />
+            </View>
+          }
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}

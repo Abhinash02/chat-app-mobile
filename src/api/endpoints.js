@@ -78,3 +78,10 @@ export const reportsApi = {
 export const settingsApi = {
   public: () => request({ method: 'GET', url: '/settings/public' }),
 };
+
+export const bannersApi = {
+  listLive: () => request({ method: 'GET', url: '/banners' }),
+  recordImpressions: (bannerIds) =>
+    request({ method: 'POST', url: '/banners/impressions', data: { bannerIds } }),
+  recordTap: (bannerId) => request({ method: 'POST', url: `/banners/${bannerId}/tap` }),
+};
