@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 const ACCESS_TOKEN_KEY = 'vibe.accessToken';
 const REFRESH_TOKEN_KEY = 'vibe.refreshToken';
 const USER_KEY = 'vibe.user';
+const LOCATION_ASKED_KEY = 'vibe.locationAsked';
 
 /**
  * Session storage.
@@ -79,6 +80,22 @@ export const storage = {
 
   async setUser(user) {
     await write(USER_KEY, user ? JSON.stringify(user) : null);
+  },
+
+  /**
+   * Whether the location prompt has already been shown.
+   *
+   * Kept out of `clear()` on purpose: signing out and back in should not
+   * re-ask. The OS only grants one permission dialog per install, so asking
+   * again would either do nothing or annoy — the profile screen is where
+   * someone changes their mind.
+   */
+  async hasAskedLocation() {
+    return (await read(LOCATION_ASKED_KEY)) === 'true';
+  },
+
+  async setLocationAsked() {
+    await write(LOCATION_ASKED_KEY, 'true');
   },
 
   async clear() {

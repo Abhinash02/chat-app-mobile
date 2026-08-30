@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
@@ -9,12 +9,14 @@ import { EmptyState } from '../../src/components/ui.jsx';
 import { BrowseRow } from '../../src/components/BrowseRow.jsx';
 import { BannerCarousel } from '../../src/components/BannerCarousel.jsx';
 import { DailyCoinsCard } from '../../src/components/DailyCoinsCard.jsx';
+import { LocationPrompt } from '../../src/components/LocationPrompt.jsx';
 import { VerifyBanner } from '../../src/components/VerifyBanner.jsx';
 import { GamesRow, LiveRoomsRow, SectionHeader } from '../../src/components/HomeSections.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { chatApi, gamesApi, roomsApi, usersApi } from '../../src/api/endpoints.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
+import { storage } from '../../src/lib/storage.js';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
 
@@ -61,6 +63,27 @@ export default function Discover() {
   const [useNearby, setUseNearby] = useState(false);
   const [coordinates, setCoordinates] = useState(null);
   const [openingId, setOpeningId] = useState(null);
+
+  /*
+   * Asked once, on the home screen rather than during signup.
+   *
+   * A permission prompt in the middle of registration is asking before anyone
+   * has a reason to say yes. Here they have already seen the feed, so "find
+   * people near you" means something.
+   */
+  const [shouldAskLocation, setShouldAskLocation] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    storage.hasAskedLocation().then((asked) => {
+      if (!cancelled && !asked) setShouldAskLocation(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const looking = user?.gender === 'male' ? 'girls' : 'boys';
 
@@ -190,6 +213,10 @@ export default function Discover() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
+      {shouldAskLocation ? (
+        <LocationPrompt onDone={() => setShouldAskLocation(false)} />
+      ) : null}
+
       <View className="flex-row items-center justify-between px-4 pb-3 pt-2">
         <View>
           <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
