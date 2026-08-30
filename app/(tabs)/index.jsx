@@ -126,26 +126,36 @@ function PersonCard({ person, presence, onPress, isOpening }) {
       </View>
 
       {/*
-        * An explicit Chat button, not just a tappable card.
+        * A compact outlined pill, sized to its label rather than stretched
+        * across the card. A full-width bar reads as the card's footer and
+        * competes with the face above it; a small pill reads as an action.
         *
-        * The whole card still opens the chat, but a labelled button says what
-        * tapping does — on a grid of faces that is not otherwise obvious, and
-        * it is the difference between browsing and knowing how to start.
+        * The whole card still opens the chat — this is a signpost for what
+        * tapping does, which on a grid of faces is not otherwise obvious.
         */}
-      <View
-        className="mt-3 flex-row items-center justify-center gap-1.5 py-2.5"
-        style={{
-          backgroundColor: isOnline ? colors.primary : colors.surfaceAlt,
-          borderRadius: radius - 2,
-        }}
-      >
-        <Text style={{ fontSize: 12 }}>💬</Text>
-        <Text
-          className="text-xs font-bold"
-          style={{ color: isOnline ? colors.onPrimary : colors.textSecondary }}
+      <View className="mt-2.5 items-center">
+        <View
+          className="flex-row items-center gap-1"
+          style={{
+            paddingHorizontal: 14,
+            paddingVertical: 6,
+            borderRadius: 999,
+            backgroundColor: isOnline ? `${colors.primary}14` : colors.surfaceAlt,
+            borderWidth: 1,
+            borderColor: isOnline ? colors.primary : colors.border,
+          }}
         >
-          {isOpening ? 'Opening…' : 'Chat'}
-        </Text>
+          <Text style={{ fontSize: 10 }}>💬</Text>
+          <Text
+            className="text-[11px] font-bold"
+            // `textSecondary`, not `textMuted`: the offline pill should read
+            // as quieter, not as unreadable — muted grey on the tinted surface
+            // fell below a comfortable contrast.
+            style={{ color: isOnline ? colors.primary : colors.textSecondary }}
+          >
+            {isOpening ? 'Opening' : 'Chat'}
+          </Text>
+        </View>
       </View>
     </Pressable>
   );
