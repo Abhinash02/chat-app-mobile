@@ -211,16 +211,46 @@ export default function Discover() {
             <DailyCoinsCard />
           </View>
 
-          {onlinePeople.length > 0 || isLoadingOnline ? (
-            <View className="mb-5">
+          {/*
+            * This section stays put when nobody is online, unlike the others.
+            *
+            * A row that disappears is indistinguishable from one that was
+            * removed — and "nobody is online" is itself worth knowing, where
+            * "there are no live rooms" is not.
+            */}
+          <View className="mb-5">
+            <View className="px-4">
+              <SectionHeader
+                title="Online now"
+                badge={onlinePeople.length > 0 ? 'LIVE' : undefined}
+                action={onlinePeople.length > 0 ? 'See all' : undefined}
+                onAction={() => router.push('/browse?online=true')}
+              />
+            </View>
+
+            {onlinePeople.length === 0 && !isLoadingOnline ? (
               <View className="px-4">
-                <SectionHeader
-                  title="Online now"
-                  badge="LIVE"
-                  action="See all"
-                  onAction={() => router.push('/browse?online=true')}
-                />
+                <View
+                  className="flex-row items-center gap-3 px-4 py-4"
+                  style={{
+                    backgroundColor: colors.surfaceAlt,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 20 }}>🌙</Text>
+                  <View className="min-w-0 flex-1">
+                    <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                      Nobody is online right now
+                    </Text>
+                    <Text className="text-xs" style={{ color: colors.textMuted }}>
+                      Browse everyone below and say hi anyway.
+                    </Text>
+                  </View>
+                </View>
               </View>
+            ) : (
               <View className="pl-4">
                 <BrowseRow
                   people={onlinePeople}
@@ -233,8 +263,8 @@ export default function Discover() {
                   actionLabel="Say hi"
                 />
               </View>
-            </View>
-          ) : null}
+            )}
+          </View>
 
           {(liveRooms?.items?.length ?? 0) > 0 || isLoadingRooms ? (
             <View className="mb-5">
