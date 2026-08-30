@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-nativ
 import { Image } from 'expo-image';
 
 import { Gradient } from './Gradient.jsx';
+import { ScreenLoader } from './Loader.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
 /**
@@ -287,19 +288,14 @@ export function Badge({ label, tone = 'neutral', className = '' }) {
   );
 }
 
+/**
+ * The app-wide loading state.
+ *
+ * Re-exported from `Loader.jsx` so every screen already importing `Loading`
+ * picks up the animated version without a change at the call site.
+ */
 export function Loading({ label }) {
-  const { colors } = useTheme();
-
-  return (
-    <View className="flex-1 items-center justify-center gap-3 py-12">
-      <ActivityIndicator size="large" color={colors.primary} />
-      {label ? (
-        <Text className="text-sm" style={{ color: colors.textMuted }}>
-          {label}
-        </Text>
-      ) : null}
-    </View>
-  );
+  return <ScreenLoader label={label} />;
 }
 
 export function EmptyState({ emoji = '✨', title, description, action }) {
