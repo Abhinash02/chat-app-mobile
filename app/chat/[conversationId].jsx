@@ -13,7 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { goBack } from '../../src/components/ScreenHeader.jsx';
-import { Avatar, Loading } from '../../src/components/ui.jsx';
+import { Avatar } from '../../src/components/ui.jsx';
+import { Skeleton } from '../../src/components/Loader.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { chatApi } from '../../src/api/endpoints.js';
 import { SOCKET_EVENT } from '../../src/constants/events.js';
@@ -114,9 +115,23 @@ export default function ChatScreen() {
   const listRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  const { data: conversation, isLoading: isLoadingConversation } = useQuery({
+  /*
+   * The chat list already holds everything the header needs — partner name,
+   * avatar, presence — so it seeds this query as placeholder data. The header
+   * then paints on the first frame instead of after a round trip, which on a
+   * cluster in another country is the difference between instant and a
+   * half-second of blank screen.
+   *
+   * It is `placeholderData` rather than `initialData` on purpose: the cached
+   * copy is a preview, so the query still refetches and replaces it.
+   */
+  const { data: conversation } = useQuery({
     queryKey: ['conversation', conversationId],
     queryFn: () => chatApi.conversation(conversationId),
+    placeholderData: () => {
+      const cached = queryClient.getQueryData(['conversations']);
+      return cached?.items?.find((item) => item.id === conversationId);
+    },
   });
 
   const { data: history, isLoading: isLoadingMessages } = useQuery({
@@ -285,14 +300,6 @@ export default function ChatScreen() {
     });
   }, [messages]);
 
-  if (isLoadingConversation || isLoadingMessages) {
-    return (
-      <View className="flex-1" style={{ backgroundColor: colors.background }}>
-        <Loading label="Opening chat…" />
-      </View>
-    );
-  }
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -341,6 +348,30 @@ export default function ChatScreen() {
 
         <WalletHeader compact />
       </View>
+
+      {isLoadingMessages && groupedMessages.length === 0 ? (
+        /*
+         * Bubbles rather than a spinner: the shape of the thing arriving reads
+         * as faster than a spinner does, even when the wait is identical — and
+         * only this area waits now, not the whole screen.
+         */
+        <View className="flex-1 justify-end px-4 pb-3">
+          {[
+            { mine: false, width: '62%' },
+            { mine: true, width: '48%' },
+            { mine: false, width: '70%' },
+            { mine: true, width: '38%' },
+          ].map((row, index) => (
+            <View
+              key={index}
+              className="mb-2.5"
+              style={{ alignItems: row.mine ? 'flex-end' : 'flex-start' }}
+            >
+              <Skeleton width={row.width} height={38} radius={18} />
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <FlatList
         ref={listRef}

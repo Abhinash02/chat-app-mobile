@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { Avatar, Badge, EmptyState, Loading } from '../../src/components/ui.jsx';
+import { EmptyState } from '../../src/components/ui.jsx';
+import { BrowseRow } from '../../src/components/BrowseRow.jsx';
 import { BannerCarousel } from '../../src/components/BannerCarousel.jsx';
 import { DailyCoinsCard } from '../../src/components/DailyCoinsCard.jsx';
 import { VerifyBanner } from '../../src/components/VerifyBanner.jsx';
@@ -18,7 +19,6 @@ import {
 } from '../../src/components/HomeSections.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { chatApi, gamesApi, roomsApi, usersApi } from '../../src/api/endpoints.js';
-import { formatDistance, formatRelativeTime } from '../../src/lib/format.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
@@ -55,112 +55,6 @@ function FilterChip({ label, active, onPress }) {
  * the server sends the greeting, which is why the label says "Say hi" rather
  * than "View profile".
  */
-function PersonCard({ person, presence, onPress, isOpening }) {
-  const { colors, radius } = useTheme();
-
-  // Socket presence overrides the value the list was fetched with, so the dot
-  // is right even on a feed loaded minutes ago.
-  const isOnline = presence?.[person.id]?.isOnline ?? person.isOnline;
-  const distance = formatDistance(person.distanceKm);
-
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={isOpening}
-      accessibilityRole="button"
-      accessibilityLabel={`Say hi to ${person.nickname}${isOnline ? ', online now' : ''}`}
-      className="mb-3 flex-1 p-3"
-      style={({ pressed }) => ({
-        backgroundColor: colors.surface,
-        borderRadius: radius,
-        borderWidth: 1,
-        borderColor: colors.border,
-        opacity: isOpening ? 0.6 : pressed ? 0.85 : 1,
-      })}
-    >
-      <View className="items-center">
-        <Avatar
-          uri={person.avatarUrl}
-          name={person.nickname}
-          gender={person.gender}
-          emoji={person.avatarEmoji}
-          color={person.avatarColor}
-          size={72}
-          isOnline={isOnline}
-          showPresence
-        />
-
-        <Text
-          numberOfLines={1}
-          className="mt-2.5 text-sm font-semibold"
-          style={{ color: colors.textPrimary }}
-        >
-          {person.nickname}
-        </Text>
-
-        {isOnline ? (
-          <Text className="mt-0.5 text-[11px] font-medium" style={{ color: colors.onlineDot }}>
-            Online now
-          </Text>
-        ) : (
-          <Text className="mt-0.5 text-[11px]" style={{ color: colors.textMuted }}>
-            {person.lastSeenAt ? `Seen ${formatRelativeTime(person.lastSeenAt)} ago` : 'Offline'}
-          </Text>
-        )}
-
-        {person.bio ? (
-          <Text
-            numberOfLines={2}
-            className="mt-1.5 text-center text-[11px] leading-4"
-            style={{ color: colors.textMuted }}
-          >
-            {person.bio}
-          </Text>
-        ) : null}
-
-        {distance ? (
-          <View className="mt-2">
-            <Badge label={`📍 ${distance}`} />
-          </View>
-        ) : null}
-      </View>
-
-      {/*
-        * A compact outlined pill, sized to its label rather than stretched
-        * across the card. A full-width bar reads as the card's footer and
-        * competes with the face above it; a small pill reads as an action.
-        *
-        * The whole card still opens the chat — this is a signpost for what
-        * tapping does, which on a grid of faces is not otherwise obvious.
-        */}
-      <View className="mt-2.5 items-center">
-        <View
-          className="flex-row items-center gap-1"
-          style={{
-            paddingHorizontal: 14,
-            paddingVertical: 6,
-            borderRadius: 999,
-            backgroundColor: isOnline ? `${colors.primary}14` : colors.surfaceAlt,
-            borderWidth: 1,
-            borderColor: isOnline ? colors.primary : colors.border,
-          }}
-        >
-          <Text style={{ fontSize: 10 }}>💬</Text>
-          <Text
-            className="text-[11px] font-bold"
-            // `textSecondary`, not `textMuted`: the offline pill should read
-            // as quieter, not as unreadable — muted grey on the tinted surface
-            // fell below a comfortable contrast.
-            style={{ color: isOnline ? colors.primary : colors.textSecondary }}
-          >
-            {isOpening ? 'Opening' : 'Chat'}
-          </Text>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
 export default function Discover() {
   const { colors } = useTheme();
   const { user } = useAuth();
@@ -304,72 +198,12 @@ export default function Discover() {
         <FilterChip label="📍 Nearby" active={useNearby} onPress={toggleNearby} />
       </View>
 
-      {isLoading ? (
-        <Loading label={`Finding ${looking}…`} />
-      ) : error ? (
-        <EmptyState
-          emoji="📡"
-          title="Could not load anyone"
-          description={error.message}
-        />
+      {error ? (
+        <EmptyState emoji="📡" title="Could not load anyone" description={error.message} />
       ) : (
-        <FlatList
-          data={people}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
-          contentContainerStyle={{ paddingBottom: 24, flexGrow: 1 }}
-          // Inside the list rather than above it, so the banner scrolls away
-          // with the feed instead of eating a fixed strip of a small screen.
-          ListHeaderComponent={
-            <View className="px-4">
-              <VerifyBanner />
-              <BannerCarousel />
-              <DailyCoinsCard />
-
-              {callable.length > 0 || isLoadingOnline ? (
-                <View className="mb-5">
-                  <SectionHeader
-                    title="Say Hi"
-                    action="Shuffle"
-                    onAction={() => queryClient.invalidateQueries({ queryKey: ['discover', 'online'] })}
-                  />
-                  <CallableRow people={callable} isLoading={isLoadingOnline} onCall={openChat} />
-                </View>
-              ) : null}
-
-              {chattable.length > 0 || isLoadingOnline ? (
-                <View className="mb-5">
-                  <SectionHeader title="Online Now" badge="LIVE" />
-                  <OnlineChatRow people={chattable} isLoading={isLoadingOnline} onChat={openChat} />
-                </View>
-              ) : null}
-
-              {(liveRooms?.items?.length ?? 0) > 0 || isLoadingRooms ? (
-                <View className="mb-5">
-                  <SectionHeader
-                    title="Voice Rooms"
-                    action="See all"
-                    onAction={() => router.push('/(tabs)/rooms')}
-                  />
-                  <LiveRoomsRow rooms={liveRooms?.items} isLoading={isLoadingRooms} />
-                </View>
-              ) : null}
-
-              {(games?.length ?? 0) > 0 || isLoadingGames ? (
-                <View className="mb-5">
-                  <SectionHeader
-                    title="Play & Win"
-                    action="Leaderboard"
-                    onAction={() => router.push('/leaderboard')}
-                  />
-                  <GamesRow games={games} isLoading={isLoadingGames} />
-                </View>
-              ) : null}
-
-              <SectionHeader title="Browse everyone" />
-            </View>
-          }
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -378,26 +212,89 @@ export default function Discover() {
               colors={[colors.primary]}
             />
           }
-          renderItem={({ item }) => (
-            <PersonCard
-              person={item}
-              presence={presence}
-              isOpening={openingId === item.id}
-              onPress={() => openChat(item)}
-            />
-          )}
-          ListEmptyComponent={
-            <EmptyState
-              emoji="🔍"
-              title={onlineOnly ? `No ${looking} online right now` : `No ${looking} to show yet`}
-              description={
-                onlineOnly
-                  ? 'Try turning off the online filter — you can still message anyone.'
-                  : 'Check back in a little while as more people join.'
-              }
-            />
-          }
-        />
+        >
+          <View className="px-4">
+            <VerifyBanner />
+            <BannerCarousel />
+            <DailyCoinsCard />
+          </View>
+
+          {callable.length > 0 || isLoadingOnline ? (
+            <View className="mb-5">
+              <View className="px-4">
+                <SectionHeader
+                  title="Say Hi"
+                  action="Shuffle"
+                  onAction={() => queryClient.invalidateQueries({ queryKey: ['discover', 'online'] })}
+                />
+              </View>
+              <View className="pl-4">
+                <CallableRow people={callable} isLoading={isLoadingOnline} onCall={openChat} />
+              </View>
+            </View>
+          ) : null}
+
+          {chattable.length > 0 || isLoadingOnline ? (
+            <View className="mb-5">
+              <View className="px-4">
+                <SectionHeader title="Online Now" badge="LIVE" />
+              </View>
+              <View className="pl-4">
+                <OnlineChatRow people={chattable} isLoading={isLoadingOnline} onChat={openChat} />
+              </View>
+            </View>
+          ) : null}
+
+          {(liveRooms?.items?.length ?? 0) > 0 || isLoadingRooms ? (
+            <View className="mb-5">
+              <View className="px-4">
+                <SectionHeader
+                  title="Voice Rooms"
+                  action="See all"
+                  onAction={() => router.push('/(tabs)/rooms')}
+                />
+              </View>
+              <View className="pl-4">
+                <LiveRoomsRow rooms={liveRooms?.items} isLoading={isLoadingRooms} />
+              </View>
+            </View>
+          ) : null}
+
+          {(games?.length ?? 0) > 0 || isLoadingGames ? (
+            <View className="mb-5">
+              <View className="px-4">
+                <SectionHeader
+                  title="Play & Win"
+                  action="Leaderboard"
+                  onAction={() => router.push('/leaderboard')}
+                />
+              </View>
+              <View className="pl-4">
+                <GamesRow games={games} isLoading={isLoadingGames} />
+              </View>
+            </View>
+          ) : null}
+
+          <View className="mb-2">
+            <View className="px-4">
+              <SectionHeader
+                title="Browse everyone"
+                action="See all"
+                onAction={() => router.push('/browse')}
+              />
+            </View>
+            <View className="pl-4">
+              <BrowseRow
+                people={people}
+                total={data?.meta?.total}
+                isLoading={isLoading}
+                presence={presence}
+                openingId={openingId}
+                onOpen={openChat}
+              />
+            </View>
+          </View>
+        </ScrollView>
       )}
     </View>
   );

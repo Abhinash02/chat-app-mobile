@@ -60,6 +60,7 @@ function AppShell() {
         <Stack.Screen name="chat/[conversationId]" />
         <Stack.Screen name="room/[roomId]" />
         <Stack.Screen name="coins" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="browse" />
         <Stack.Screen name="leaderboard" />
         <Stack.Screen name="settings" />
       </Stack>
