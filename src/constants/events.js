@@ -3,6 +3,7 @@ export const SOCKET_EVENT = Object.freeze({
   READY: 'connection:ready',
 
   PRESENCE_UPDATED: 'presence:updated',
+  FOLLOW_UPDATED: 'user:follow:updated',
 
   CONVERSATION_JOIN: 'conversation:join',
   CONVERSATION_LEAVE: 'conversation:leave',

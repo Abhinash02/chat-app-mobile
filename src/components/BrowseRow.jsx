@@ -1,13 +1,13 @@
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { PersonCard } from './PersonCard.jsx';
+import { CARD_HEIGHT, PersonCard } from './PersonCard.jsx';
 import { Skeleton } from './Loader.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
 /** How many fit before the swipe stops being a swipe and becomes a scroll. */
 const MAX_IN_ROW = 10;
-const CARD_WIDTH = 132;
+const CARD_WIDTH = 138;
 
 /**
  * The tile at the end of the row.
@@ -24,27 +24,42 @@ function SeeMoreCard({ total, href }) {
       onPress={() => router.push(href)}
       accessibilityRole="button"
       accessibilityLabel="See everyone"
-      className="items-center justify-center px-4"
-      style={{
+      style={({ pressed }) => ({
         width: CARD_WIDTH,
+        height: CARD_HEIGHT,
         backgroundColor: colors.primary,
-        borderRadius: radius,
-      }}
+        borderRadius: radius || 16,
+        paddingHorizontal: 12,
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+        elevation: 3,
+        opacity: pressed ? 0.88 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      })}
     >
       <View
-        className="mb-2 h-12 w-12 items-center justify-center rounded-full"
-        style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+        className="mb-3 h-14 w-14 items-center justify-center rounded-full"
+        style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}
       >
-        <Text style={{ color: colors.onPrimary, fontSize: 22 }}>›</Text>
+        <Text style={{ color: colors.onPrimary, fontSize: 24, fontWeight: 'bold' }}>›</Text>
       </View>
       <Text className="text-center text-sm font-bold" style={{ color: colors.onPrimary }}>
         See more
       </Text>
       {total > MAX_IN_ROW ? (
-        <Text className="mt-0.5 text-[11px]" style={{ color: colors.onPrimary, opacity: 0.8 }}>
+        <Text className="mt-1 text-xs" style={{ color: colors.onPrimary, opacity: 0.85 }}>
           {total - MAX_IN_ROW} more
         </Text>
-      ) : null}
+      ) : (
+        <Text className="mt-1 text-xs" style={{ color: colors.onPrimary, opacity: 0.85 }}>
+          View all
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -72,10 +87,11 @@ export function BrowseRow({
         data={[0, 1, 2, 3]}
         horizontal
         showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
         keyExtractor={(item) => String(item)}
         renderItem={() => (
           <View className="mr-3">
-            <Skeleton width={CARD_WIDTH} height={196} radius={18} />
+            <Skeleton width={CARD_WIDTH} height={CARD_HEIGHT} radius={16} />
           </View>
         )}
       />
@@ -91,6 +107,7 @@ export function BrowseRow({
       data={shown}
       horizontal
       showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
       keyExtractor={(item) => item.id}
       // Snapping makes each swipe land on a card rather than mid-way between
       // two, which is what stops a horizontal row feeling loose.

@@ -6,6 +6,22 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { formatDuration } from '../lib/media.js';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
+const API_ORIGIN = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
+
+export function resolveMediaUrl(url) {
+  if (!url) return '';
+  if (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('blob:') ||
+    url.startsWith('file:') ||
+    url.startsWith('data:')
+  ) {
+    return url;
+  }
+  return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 /**
  * A photo in a message, tappable to fill the screen.
  *
@@ -18,14 +34,15 @@ export function ImageBubble({ url, caption, isMine }) {
   const { width } = useWindowDimensions();
   const [isOpen, setIsOpen] = useState(false);
 
+  const resolvedUrl = resolveMediaUrl(url);
   const size = Math.min(240, width * 0.6);
 
   return (
     <View>
       <Pressable onPress={() => setIsOpen(true)} accessibilityRole="imagebutton" accessibilityLabel="Open photo">
         <Image
-          source={{ uri: url }}
-          style={{ width: size, height: size, borderRadius: radius - 4 }}
+          source={{ uri: resolvedUrl }}
+          style={{ width: size, height: size, borderRadius: radius - 4, backgroundColor: colors.surfaceAlt }}
           contentFit="cover"
           transition={150}
         />
@@ -39,7 +56,7 @@ export function ImageBubble({ url, caption, isMine }) {
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable className="flex-1 items-center justify-center bg-black/95" onPress={() => setIsOpen(false)}>
-          <Image source={{ uri: url }} style={{ width: '100%', height: '80%' }} contentFit="contain" />
+          <Image source={{ uri: resolvedUrl }} style={{ width: '100%', height: '80%' }} contentFit="contain" />
           {caption ? <Text className="px-6 pt-4 text-center text-[15px] text-white">{caption}</Text> : null}
         </Pressable>
       </Modal>

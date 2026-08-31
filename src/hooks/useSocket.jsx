@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { AppState } from 'react-native';
 import { io } from 'socket.io-client';
 
+import { useQueryClient } from '@tanstack/react-query';
+import { getApiOrigin } from '../api/client.js';
 import { SOCKET_EVENT } from '../constants/events.js';
 import { storage } from '../lib/storage.js';
 import { useAuth } from './useAuth.jsx';
@@ -9,23 +11,16 @@ import { useSounds } from './useSounds.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 import { useToast } from '../components/Toast.jsx';
 
-const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
+const SOCKET_URL = getApiOrigin();
 
 const SocketContext = createContext(null);
 
-/**
- * The app's single realtime connection.
- *
- * Everything that must feel live comes through here: the coin counter, the
- * free-time countdown, presence dots, incoming messages and admin theme
- * changes. Each of those also has a REST equivalent, so a dropped socket
- * degrades the app to "pull to refresh" rather than breaking it.
- */
 export function SocketProvider({ children }) {
   const { isAuthenticated, user, signOut } = useAuth();
   const { applyTheme } = useTheme();
   const { playMessage, playCoin } = useSounds();
   const toast = useToast();
+  const queryClient = useQueryClient();
 
   const socketRef = useRef(null);
   // The socket itself is held in state as well as a ref: consumers render
@@ -114,6 +109,23 @@ export function SocketProvider({ children }) {
         setPresence((current) => ({ ...current, [userId]: { isOnline, lastSeenAt } }));
       });
 
+      socket.on(SOCKET_EVENT.FOLLOW_UPDATED, ({ actorId, actorName, isFollowing }) => {
+        if (isFollowing && actorName && String(actorId) !== String(handlersRef.current.user?.id)) {
+          handlersRef.current.toast.info(`${actorName} started following you now! 👤✨`);
+        }
+        queryClient.invalidateQueries({ queryKey: ['my-profile'] });
+        queryClient.invalidateQueries({ queryKey: ['followers'] });
+        queryClient.invalidateQueries({ queryKey: ['following'] });
+        queryClient.invalidateQueries({ queryKey: ['discover'] });
+        queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+      });
+
+      socket.on('feedback:status:updated', ({ category, status }) => { 
+        handlersRef.current.toast.info(`Feedback update: Your ${category} was marked as ${status}`);
+        queryClient.invalidateQueries({ queryKey: ['my-feedback'] });
+      });
+
       socket.on(SOCKET_EVENT.THEME_UPDATED, (theme) => {
         handlersRef.current.applyTheme(theme);
       });
@@ -149,7 +161,7 @@ export function SocketProvider({ children }) {
       setPresence({});
       setUnreadCount(0);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, queryClient]);
 
   /**
    * Phones suspend sockets in the background. Reconnecting on foreground is

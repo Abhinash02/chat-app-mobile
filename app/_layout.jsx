@@ -11,6 +11,7 @@ import { SocketProvider } from '../src/hooks/useSocket.jsx';
 import { SoundProvider, useSounds } from '../src/hooks/useSounds.jsx';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider.jsx';
 import { ActionSheetProvider } from '../src/components/ActionSheet.jsx';
+import { AppUpdateModal } from '../src/components/AppUpdateModal.jsx';
 import { ToastProvider } from '../src/components/Toast.jsx';
 import { usePushNotifications } from '../src/hooks/usePushNotifications.js';
 import '../global.css';
@@ -68,6 +69,7 @@ function AppShell() {
         {/* Full-screen and black: a story should not sit inside the app's chrome. */}
         <Stack.Screen name="status/[userId]" options={{ animation: 'fade' }} />
       </Stack>
+      <AppUpdateModal />
     </View>
   );
 }

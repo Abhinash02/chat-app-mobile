@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
+import { CoinIcon } from './CoinIcon.jsx';
 import { formatCoins, formatFreeTalk } from '../lib/format.js';
 import { useSocket } from '../hooks/useSocket.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
@@ -75,41 +76,33 @@ export function WalletHeader({ compact = false }) {
     <Pressable
       onPress={() => router.push('/coins')}
       accessibilityRole="button"
-      accessibilityLabel={
-        isFreeTime
-          ? `${formatFreeTalk(displaySeconds)} of free chat left`
-          : `${wallet.coinBalance} coins. Tap to buy more.`
-      }
+      accessibilityLabel={`${wallet.coinBalance} coins. Tap to buy more.`}
       className="flex-row items-center gap-1.5 px-3 py-1.5"
       style={({ pressed }) => ({
         backgroundColor: isLow ? `${colors.danger}1F` : `${colors.coinGold}22`,
         borderRadius: radius,
+        borderWidth: 1,
+        borderColor: isLow ? `${colors.danger}40` : `${colors.coinGold}40`,
         opacity: pressed ? 0.75 : 1,
       })}
     >
+      <CoinIcon size={16} />
+      <Text
+        className="text-sm font-bold"
+        style={{ color: isLow ? colors.danger : colors.textPrimary }}
+      >
+        {formatCoins(wallet.coinBalance)}
+      </Text>
+
       {isFreeTime ? (
-        <>
-          <Text className="text-xs">⏳</Text>
-          <Text className="text-xs font-semibold" style={{ color: colors.textPrimary }}>
-            {formatFreeTalk(displaySeconds)} free
-          </Text>
-        </>
-      ) : (
-        <>
-          <Text className="text-xs">🪙</Text>
-          <Text
-            className="text-sm font-bold"
-            style={{ color: isLow ? colors.danger : colors.textPrimary }}
-          >
-            {formatCoins(wallet.coinBalance)}
-          </Text>
-          {!compact && wallet.estimatedMessagesRemaining !== null ? (
-            <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-              · {wallet.estimatedMessagesRemaining} msg
-            </Text>
-          ) : null}
-        </>
-      )}
+        <Text className="text-[11px] font-semibold" style={{ color: colors.primary }}>
+          · ⏳ {formatFreeTalk(displaySeconds)}
+        </Text>
+      ) : !compact && wallet.estimatedMessagesRemaining !== null ? (
+        <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+          · {wallet.estimatedMessagesRemaining} msg
+        </Text>
+      ) : null}
 
       {/* A stale counter is worse than an obviously offline one. */}
       {!isConnected ? (

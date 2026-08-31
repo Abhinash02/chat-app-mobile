@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { goBack } from '../src/components/ScreenHeader.jsx';
-import { Badge, Button, Card, Field, GradientButton, Input, Loading } from '../src/components/ui.jsx';
+import { Badge, Button, Card, CoinIcon, Field, GradientButton, Input, Loading } from '../src/components/ui.jsx';
 import { coinsApi, paymentsApi } from '../src/api/endpoints.js';
 import { formatCoins, formatCountdown, formatRupees } from '../src/lib/format.js';
 import { useSocket } from '../src/hooks/useSocket.jsx';
@@ -105,16 +106,107 @@ function DailyBonusCard() {
   );
 }
 
-function PackageCard({ coinPackage, selected, onSelect }) {
+function RedeemCouponCard({ onDiscountApplied, appliedCoupon, onClearCoupon }) {
+  const { colors } = useTheme();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [code, setCode] = useState('');
+
+  const redeem = useMutation({
+    mutationFn: (promoCode) => paymentsApi.redeemCode(promoCode),
+    onSuccess: (res) => {
+      if (res.rewardType === 'free_coins') {
+        toast.coins(res.message || `+${res.coinsCredited} coins added to wallet!`);
+        queryClient.invalidateQueries({ queryKey: ['wallet'] });
+        setCode('');
+      } else {
+        toast.success(res.message || 'Discount coupon applied!');
+        onDiscountApplied({
+          code: code.trim().toUpperCase(),
+          rewardType: res.rewardType,
+          discountPercent: res.discountPercent,
+          discountAmountInRupees: res.discountAmountInRupees,
+        });
+      }
+    },
+    onError: (error) => toast.error(error.message ?? 'Invalid or expired promo code'),
+  });
+
+  return (
+    <Card className="mb-5" style={{ borderColor: appliedCoupon ? colors.success : colors.border }}>
+      <View className="flex-row items-center gap-2 mb-2">
+        <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
+          🎁 Redeem Code or Discount Coupon
+        </Text>
+      </View>
+      <Text className="text-xs mb-3" style={{ color: colors.textMuted }}>
+        Enter an admin promo code for free bonus coins or instant package discounts.
+      </Text>
+
+      {appliedCoupon ? (
+        <View
+          className="flex-row items-center justify-between p-3 rounded-xl"
+          style={{ backgroundColor: `${colors.success}15`, borderWidth: 1, borderColor: colors.success }}
+        >
+          <View>
+            <Text className="text-xs font-bold text-emerald-600">
+              ✓ COUPON APPLIED: {appliedCoupon.code}
+            </Text>
+            <Text className="text-[11px]" style={{ color: colors.textSecondary }}>
+              {appliedCoupon.rewardType === 'discount_percent'
+                ? `${appliedCoupon.discountPercent}% OFF on all packs`
+                : `₹${appliedCoupon.discountAmountInRupees} OFF on all packs`}
+            </Text>
+          </View>
+          <Pressable onPress={onClearCoupon} className="px-2.5 py-1 rounded-lg bg-red-500/10">
+            <Text className="text-xs font-semibold text-red-600">Remove</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View className="flex-row items-center gap-2">
+          <View className="flex-1">
+            <Input
+              value={code}
+              onChangeText={(t) => setCode(t.toUpperCase())}
+              placeholder="e.g. DIWALI100"
+              autoCapitalize="characters"
+              maxLength={25}
+            />
+          </View>
+          <Button
+            title="Redeem"
+            size="sm"
+            isLoading={redeem.isPending}
+            disabled={!code.trim()}
+            onPress={() => redeem.mutate(code.trim().toUpperCase())}
+          />
+        </View>
+      )}
+    </Card>
+  );
+}
+
+function PackageCard({ coinPackage, selected, onSelect, appliedCoupon }) {
   const { colors, radius } = useTheme();
   const isSelected = selected === coinPackage.id;
+
+  let finalPrice = coinPackage.priceInRupees;
+  if (appliedCoupon) {
+    if (appliedCoupon.rewardType === 'discount_percent' && appliedCoupon.discountPercent > 0) {
+      finalPrice = Math.max(1, Math.round(coinPackage.priceInRupees * (1 - appliedCoupon.discountPercent / 100)));
+    } else if (appliedCoupon.rewardType === 'discount_flat' && appliedCoupon.discountAmountInRupees > 0) {
+      finalPrice = Math.max(1, coinPackage.priceInRupees - appliedCoupon.discountAmountInRupees);
+    }
+  }
+
+  const hasDiscount = finalPrice < coinPackage.priceInRupees;
 
   return (
     <Pressable
       onPress={() => onSelect(coinPackage.id)}
       accessibilityRole="radio"
       accessibilityState={{ selected: isSelected }}
-      accessibilityLabel={`${coinPackage.totalCoins} coins for ${formatRupees(coinPackage.priceInRupees)}`}
+      accessibilityLabel={`${coinPackage.totalCoins} coins for ${formatRupees(finalPrice)}`}
       className="mb-3 flex-row items-center gap-3 p-4"
       style={{
         backgroundColor: isSelected ? `${colors.primary}0F` : colors.surface,
@@ -127,7 +219,7 @@ function PackageCard({ coinPackage, selected, onSelect }) {
         className="h-11 w-11 items-center justify-center rounded-full"
         style={{ backgroundColor: `${colors.coinGold}22` }}
       >
-        <Text className="text-xl">🪙</Text>
+        <CoinIcon size={24} />
       </View>
 
       <View className="flex-1">
@@ -139,6 +231,7 @@ function PackageCard({ coinPackage, selected, onSelect }) {
             <Badge label={`+${coinPackage.bonusCoins} free`} tone="success" />
           ) : null}
           {coinPackage.isPopular ? <Badge label="Popular" tone="brand" /> : null}
+          {hasDiscount ? <Badge label="Discounted" tone="warning" /> : null}
         </View>
 
         <Text className="mt-0.5 text-xs" style={{ color: colors.textMuted }}>
@@ -146,9 +239,16 @@ function PackageCard({ coinPackage, selected, onSelect }) {
         </Text>
       </View>
 
-      <Text className="text-lg font-bold" style={{ color: colors.primary }}>
-        {formatRupees(coinPackage.priceInRupees)}
-      </Text>
+      <View className="items-end">
+        <Text className="text-lg font-bold" style={{ color: colors.primary }}>
+          {formatRupees(finalPrice)}
+        </Text>
+        {hasDiscount && (
+          <Text className="text-xs line-through" style={{ color: colors.textMuted }}>
+            {formatRupees(coinPackage.priceInRupees)}
+          </Text>
+        )}
+      </View>
     </Pressable>
   );
 }
@@ -255,6 +355,7 @@ export default function Coins() {
 
   const [selectedId, setSelectedId] = useState(null);
   const [activeOrder, setActiveOrder] = useState(null);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
 
   const { data: options, isLoading } = useQuery({
     queryKey: ['payment-options'],
@@ -298,15 +399,40 @@ export default function Coins() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}>
+        {/* Events & Offers Banner */}
+        <Pressable
+          onPress={() => router.push('/events')}
+          className="mb-4 flex-row items-center justify-between p-3.5 rounded-2xl"
+          style={{ backgroundColor: `${colors.primary}12`, borderWidth: 1, borderColor: `${colors.primary}30` }}
+        >
+          <View className="flex-row items-center gap-2.5">
+            <Text className="text-xl">🎉</Text>
+            <View>
+              <Text className="text-xs font-bold" style={{ color: colors.primary }}>
+                Live Offers & Festival Events
+              </Text>
+              <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+                Check free chat hours and limited-time coin drops
+              </Text>
+            </View>
+          </View>
+          <Text className="text-xs font-bold" style={{ color: colors.primary }}>
+            View →
+          </Text>
+        </Pressable>
+
         <Card className="mb-5">
           <View className="flex-row items-center justify-between">
             <View>
               <Text className="text-xs" style={{ color: colors.textMuted }}>
                 Your balance
               </Text>
-              <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-                {formatCoins(wallet?.coinBalance ?? 0)} 🪙
-              </Text>
+              <View className="flex-row items-center gap-2 mt-0.5">
+                <CoinIcon size={24} />
+                <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+                  {formatCoins(wallet?.coinBalance ?? 0)}
+                </Text>
+              </View>
             </View>
 
             {wallet && !wallet.isUnlimited ? (
@@ -330,6 +456,12 @@ export default function Coins() {
 
         <DailyBonusCard />
 
+        <RedeemCouponCard
+          appliedCoupon={appliedCoupon}
+          onDiscountApplied={setAppliedCoupon}
+          onClearCoupon={() => setAppliedCoupon(null)}
+        />
+
         {activeOrder ? (
           <UpiFlow
             order={activeOrder.order}
@@ -351,6 +483,7 @@ export default function Coins() {
                 coinPackage={coinPackage}
                 selected={activePackageId}
                 onSelect={setSelectedId}
+                appliedCoupon={appliedCoupon}
               />
             ))}
 
@@ -398,6 +531,20 @@ export default function Coins() {
             <Text className="mt-5 text-center text-xs leading-4" style={{ color: colors.textMuted }}>
               Coins never expire. Girls chat free and unlimited, so they never need to buy any.
             </Text>
+
+            <View className="mt-3 flex-row items-center justify-center gap-3">
+              <Pressable onPress={() => router.push('/terms')}>
+                <Text className="text-xs font-semibold" style={{ color: colors.primary }}>
+                  Terms of Use
+                </Text>
+              </Pressable>
+              <Text style={{ color: colors.textMuted }}>•</Text>
+              <Pressable onPress={() => router.push('/refund')}>
+                <Text className="text-xs font-semibold" style={{ color: colors.primary }}>
+                  Refund Policy
+                </Text>
+              </Pressable>
+            </View>
           </>
         )}
       </ScrollView>

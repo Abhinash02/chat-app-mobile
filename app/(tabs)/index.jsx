@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { EmptyState } from '../../src/components/ui.jsx';
+import { Avatar, EmptyState } from '../../src/components/ui.jsx';
 import { BrowseRow } from '../../src/components/BrowseRow.jsx';
 import { BannerCarousel } from '../../src/components/BannerCarousel.jsx';
 import { DailyCoinsCard } from '../../src/components/DailyCoinsCard.jsx';
@@ -44,6 +44,29 @@ function FilterChip({ label, active, onPress }) {
       </Text>
     </Pressable>
   );
+}
+
+function getTimeGreeting(name) {
+  const hour = new Date().getHours();
+  let greeting = 'Good evening';
+  let emoji = '🌙';
+
+  if (hour >= 5 && hour < 12) {
+    greeting = 'Good morning';
+    emoji = '☀️';
+  } else if (hour >= 12 && hour < 17) {
+    greeting = 'Good afternoon';
+    emoji = '🌤️';
+  } else if (hour >= 17 && hour < 22) {
+    greeting = 'Good evening';
+    emoji = '✨';
+  } else {
+    greeting = 'Good night';
+    emoji = '🌙';
+  }
+
+  const firstName = (name || '').trim().split(' ')[0];
+  return firstName ? `${greeting}, ${firstName} ${emoji}` : `${greeting} ${emoji}`;
 }
 
 /**
@@ -85,8 +108,6 @@ export default function Discover() {
     };
   }, []);
 
-  const looking = user?.gender === 'male' ? 'girls' : 'boys';
-
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: ['discover', { onlineOnly, coordinates }],
     queryFn: () =>
@@ -116,15 +137,31 @@ export default function Discover() {
         accuracy: Location.Accuracy.Balanced,
       });
 
+      let city = null;
+      let country = null;
+      try {
+        const [geo] = await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        if (geo) {
+          city = geo.city || geo.subregion || geo.district || geo.region || null;
+          country = geo.country || null;
+        }
+      } catch {
+        // Fallback gracefully if reverse geocoding fails
+      }
+
       const next = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
+        city,
+        country,
       };
 
       setCoordinates(next);
 
-      // Sharing it with the server is what lets other people find this user
-      // by distance too.
+      // Sharing it with the server saves their real city and distance
       usersApi.updateLocation(next).catch(() => undefined);
     } catch {
       toast.error('Could not get your location');
@@ -211,6 +248,8 @@ export default function Discover() {
 
   const people = data?.items ?? [];
 
+  const displayName = user?.name || user?.nickname || 'Viber';
+
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
       {shouldAskLocation ? (
@@ -218,14 +257,48 @@ export default function Discover() {
       ) : null}
 
       <View className="flex-row items-center justify-between px-4 pb-3 pt-2">
-        <View>
-          <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-            Discover
-          </Text>
-          <Text className="text-xs" style={{ color: colors.textMuted }}>
-            {people.length > 0 ? `${data?.meta?.total ?? people.length} ${looking} to meet` : looking}
-          </Text>
+        <View className="flex-row items-center gap-3 flex-1 mr-2">
+          <Pressable
+            onPress={() => router.push('/(tabs)/profile')}
+            accessibilityRole="button"
+            accessibilityLabel="Your profile"
+            className="relative"
+          >
+            <Avatar
+              uri={user?.avatarUrl}
+              name={user?.nickname}
+              gender={user?.gender}
+              emoji={user?.avatarEmoji}
+              color={user?.avatarColor}
+              size={40}
+            />
+            <View
+              className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2"
+              style={{
+                backgroundColor: '#22c55e',
+                borderColor: colors.background,
+              }}
+            />
+          </Pressable>
+
+          <View className="min-w-0 flex-1 justify-center">
+            <Text
+              className="text-[15px] font-bold"
+              style={{ color: colors.textPrimary }}
+              numberOfLines={1}
+            >
+              {displayName}
+            </Text>
+            <Text
+              className="text-[11px] font-medium mt-0.5"
+              style={{ color: colors.primary }}
+              numberOfLines={1}
+            >
+              {getTimeGreeting(displayName)}
+            </Text>
+          </View>
         </View>
+
         <WalletHeader />
       </View>
 
@@ -254,6 +327,39 @@ export default function Discover() {
             <VerifyBanner />
             <BannerCarousel />
             <DailyCoinsCard />
+
+            <Pressable
+              onPress={() => router.push('/events')}
+              className="mb-4 flex-row items-center justify-between p-3 rounded-2xl"
+              style={{
+                backgroundColor: `${colors.primary}10`,
+                borderWidth: 1,
+                borderColor: `${colors.primary}25`,
+              }}
+            >
+              <View className="flex-row items-center gap-2.5">
+                <View
+                  className="h-8 w-8 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: `${colors.primary}20` }}
+                >
+                  <Text className="text-base">🎉</Text>
+                </View>
+                <View>
+                  <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>
+                    Live Events & Special Offers
+                  </Text>
+                  <Text className="text-[10px]" style={{ color: colors.textMuted }}>
+                    Festival sales, free chat hours & bonus coins
+                  </Text>
+                </View>
+              </View>
+              <View
+                className="px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: colors.primary }}
+              >
+                <Text className="text-[10px] font-bold text-white">Explore</Text>
+              </View>
+            </Pressable>
           </View>
 
           {/*

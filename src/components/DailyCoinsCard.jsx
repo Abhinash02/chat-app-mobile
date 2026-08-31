@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { coinsApi } from '../api/endpoints.js';
+import { CoinIcon } from './CoinIcon.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 import { useToast } from './Toast.jsx';
 
@@ -97,9 +98,9 @@ export function DailyCoinsCard() {
       <View className="flex-row items-center gap-3">
         <View
           className="h-14 w-14 items-center justify-center rounded-full"
-          style={{ backgroundColor: colors.coinGold }}
+          style={{ backgroundColor: `${colors.coinGold}25` }}
         >
-          <Text style={{ fontSize: 26 }}>🪙</Text>
+          <CoinIcon size={34} />
         </View>
 
         <View className="min-w-0 flex-1">

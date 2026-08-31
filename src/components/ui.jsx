@@ -316,3 +316,5 @@ export function EmptyState({ emoji = '✨', title, description, action }) {
     </View>
   );
 }
+
+export { CoinIcon } from './CoinIcon.jsx';

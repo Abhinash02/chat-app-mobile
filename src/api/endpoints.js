@@ -14,6 +14,12 @@ export const usersApi = {
   updateLocation: (data) => request({ method: 'PUT', url: '/users/me/location', data }),
   block: (userId) => request({ method: 'POST', url: `/users/${userId}/block` }),
   unblock: (userId) => request({ method: 'DELETE', url: `/users/${userId}/block` }),
+  blocked: () => request({ method: 'GET', url: '/users/blocked' }),
+  blockedBy: () => request({ method: 'GET', url: '/users/blocked-by' }),
+  follow: (userId) => request({ method: 'POST', url: `/users/${userId}/follow` }),
+  unfollow: (userId) => request({ method: 'DELETE', url: `/users/${userId}/follow` }),
+  followers: (userId) => request({ method: 'GET', url: `/users/${userId}/followers` }),
+  following: (userId) => request({ method: 'GET', url: `/users/${userId}/following` }),
   onlineCount: () => request({ method: 'GET', url: '/users/online-count' }),
 
   uploadAvatar: (formData) =>
@@ -21,8 +27,9 @@ export const usersApi = {
       method: 'POST',
       url: '/users/me/avatar',
       data: formData,
-      headers: { 'Content-Type': 'multipart/form-data' },
     }),
+
+  deleteAccount: () => request({ method: 'DELETE', url: '/users/me' }),
 };
 
 export const chatApi = {
@@ -40,7 +47,6 @@ export const chatApi = {
       method: 'POST',
       url: `/chat/conversations/${id}/media`,
       data: formData,
-      headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 90_000,
     }),
 
@@ -69,6 +75,13 @@ export const paymentsApi = {
   submitProof: (orderId, data) =>
     request({ method: 'POST', url: `/payments/orders/${orderId}/proof`, data }),
   orders: (params) => requestList({ method: 'GET', url: '/payments/orders', params }),
+  redeemCode: (code) => request({ method: 'POST', url: '/payments/redeem', data: { code } }),
+  validateCoupon: (code, priceInRupees) =>
+    request({ method: 'POST', url: '/payments/coupon/validate', data: { code, priceInRupees } }),
+};
+
+export const eventsApi = {
+  list: () => request({ method: 'GET', url: '/events' }),
 };
 
 export const roomsApi = {
@@ -91,7 +104,6 @@ export const roomsApi = {
       method: 'POST',
       url: `/rooms/${roomId}/media`,
       data: formData,
-      headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 90_000,
     }),
 };
@@ -105,7 +117,6 @@ export const statusApi = {
       method: 'POST',
       url: '/status/media',
       data: formData,
-      headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 90_000,
     }),
 
@@ -136,4 +147,10 @@ export const bannersApi = {
   recordImpressions: (bannerIds) =>
     request({ method: 'POST', url: '/banners/impressions', data: { bannerIds } }),
   recordTap: (bannerId) => request({ method: 'POST', url: `/banners/${bannerId}/tap` }),
+};
+
+export const feedbackApi = {
+  submit: (data) => request({ method: 'POST', url: '/feedback', data }),
+  list: () => request({ method: 'GET', url: '/feedback' }),
+  my: () => request({ method: 'GET', url: '/feedback/my' }),
 };

@@ -1,11 +1,23 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 
 import { storage } from '../lib/storage.js';
 
-const API_ORIGIN = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
-export const BASE_URL = `${API_ORIGIN}/api/v1`;
+export function getApiOrigin() {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    return `http://${ip}:5000`;
+  }
+  return 'http://localhost:5000';
+}
 
-export const api = axios.create({ baseURL: BASE_URL, timeout: 20_000 });
+export const BASE_URL = `${getApiOrigin()}/api/v1`;
+
+export const api = axios.create({ baseURL: BASE_URL, timeout: 15_000 });
 
 /** One error shape, whatever actually went wrong. */
 export class ApiError extends Error {

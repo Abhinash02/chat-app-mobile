@@ -14,17 +14,13 @@ const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 import { bannersApi } from '../api/endpoints.js';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
-const CARD_HEIGHT = 118;
 const AUTO_ADVANCE_MS = 5000;
 
 /**
  * One banner, with whichever motion the admin chose.
- *
- * Every animation runs on the native driver, so a banner keeps moving while the
- * discovery feed below it is fetching and rendering — the moment a stutter
- * would be most visible.
+ * Formatted in 4:1 LinkedIn banner aspect ratio.
  */
-function AnimatedBanner({ banner, width }) {
+function AnimatedBanner({ banner, width, height }) {
   const { radius } = useTheme();
   const [motion] = useState(() => new Animated.Value(0));
 
@@ -64,7 +60,7 @@ function AnimatedBanner({ banner, width }) {
 
   const imageStyle = {
     width: isPan ? width * 1.12 : width,
-    height: CARD_HEIGHT,
+    height,
     transform: [
       ...(isPan
         ? [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [0, -width * 0.12] }) }]
@@ -76,7 +72,7 @@ function AnimatedBanner({ banner, width }) {
   };
 
   return (
-    <View style={{ width, height: CARD_HEIGHT, borderRadius: radius, overflow: 'hidden' }}>
+    <View style={{ width, height, borderRadius: radius, overflow: 'hidden' }}>
       <Animated.View style={imageStyle}>
         <Image
           source={{ uri: banner.imageUrl }}
@@ -116,11 +112,7 @@ function AnimatedBanner({ banner, width }) {
 
 /**
  * The promo strip at the top of the home feed.
- *
- * Renders nothing at all when there are no live banners — an empty placeholder
- * would push the discovery grid down for no reason. Impressions are reported
- * once per mount rather than per scroll, so the admin's tap-rate stays a
- * meaningful ratio instead of inflating every time the list re-renders.
+ * Formatted like a LinkedIn panoramic banner (4:1 aspect ratio).
  */
 export function BannerCarousel() {
   const { colors, radius } = useTheme();
@@ -128,6 +120,8 @@ export function BannerCarousel() {
   const [index, setIndex] = useState(0);
   const scrollRef = useRef(null);
   const reportedRef = useRef(false);
+
+  const bannerHeight = Math.round(width / 4);
 
   const { data: banners = [] } = useQuery({
     queryKey: ['banners', 'home_top'],
@@ -199,7 +193,7 @@ export function BannerCarousel() {
             accessibilityRole={banner.action === 'none' ? 'image' : 'button'}
             accessibilityLabel={banner.title}
           >
-            <AnimatedBanner banner={banner} width={width} />
+            <AnimatedBanner banner={banner} width={width} height={bannerHeight} />
           </Pressable>
         ))}
       </Animated.ScrollView>

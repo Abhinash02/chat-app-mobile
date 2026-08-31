@@ -548,29 +548,40 @@ export default function ChatScreen() {
           </Text>
         </Pressable>
 
-        <Avatar
-          uri={partner?.avatarUrl}
-          name={partner?.nickname}
-          gender={partner?.gender}
-          emoji={partner?.avatarEmoji}
-          color={partner?.avatarColor}
-          size={40}
-          isOnline={isOnline}
-          showPresence
-        />
+        <Pressable
+          onPress={() => {
+            if (partner?.id) {
+              router.push(`/user/${partner.id}`);
+            }
+          }}
+          className="flex-row items-center gap-3 flex-1"
+          accessibilityRole="button"
+          accessibilityLabel={`View ${partner?.nickname ?? 'user'}'s profile`}
+        >
+          <Avatar
+            uri={partner?.avatarUrl}
+            name={partner?.nickname}
+            gender={partner?.gender}
+            emoji={partner?.avatarEmoji}
+            color={partner?.avatarColor}
+            size={40}
+            isOnline={isOnline}
+            showPresence
+          />
 
-        <View className="flex-1">
-          <Text numberOfLines={1} className="text-base font-semibold" style={{ color: colors.textPrimary }}>
-            {partner?.nickname ?? 'Chat'}
-          </Text>
-          <Text className="text-[11px]" style={{ color: isOnline ? colors.onlineDot : colors.textMuted }}>
-            {isOnline
-              ? 'Online now'
-              : partner?.lastSeenAt
-                ? `Seen ${formatRelativeTime(partner.lastSeenAt)} ago`
-                : 'Offline'}
-          </Text>
-        </View>
+          <View className="flex-1">
+            <Text numberOfLines={1} className="text-base font-semibold" style={{ color: colors.textPrimary }}>
+              {partner?.nickname ?? 'Chat'}
+            </Text>
+            <Text className="text-[11px]" style={{ color: isOnline ? colors.onlineDot : colors.textMuted }}>
+              {isOnline
+                ? 'Online now'
+                : partner?.lastSeenAt
+                  ? `Seen ${formatRelativeTime(partner.lastSeenAt)} ago`
+                  : 'Offline'}
+            </Text>
+          </View>
+        </Pressable>
 
         <WalletHeader compact />
       </View>

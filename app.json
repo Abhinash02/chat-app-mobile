@@ -3,6 +3,14 @@
     "name": "Vibe",
     "slug": "vibe-chat",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2bca91af-be9d-4c99-b068-a9b32f8e627c",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 1500
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "vibe",
@@ -16,6 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.vibechat.mobile",
+      "buildNumber": "1",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Vibe uses your location to show you people nearby. You can turn this off at any time in Settings.",
         "NSMicrophoneUsageDescription": "Vibe uses your microphone so you can talk in voice rooms and send voice notes.",
@@ -28,6 +37,7 @@
     },
     "android": {
       "package": "app.vibechat.mobile",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FF4E88",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -49,6 +59,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-updates",
       "expo-secure-store",
       "expo-audio",
       "expo-image",

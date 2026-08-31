@@ -138,6 +138,8 @@ export default function RoomScreen() {
   useEffect(() => {
     if (!roomId) return undefined;
 
+    // Join room via API and socket
+    roomsApi.join(roomId, {}).catch(() => undefined);
     emit(SOCKET_EVENT.ROOM_JOIN, { roomId });
 
     const offMessage = on(SOCKET_EVENT.ROOM_MESSAGE_NEW, (message) => {
