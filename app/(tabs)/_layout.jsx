@@ -14,15 +14,15 @@ function TabIcon({ name, activeName, focused, color }) {
       style={{
         alignItems: 'center',
         justifyContent: 'center',
-        width: 48,
-        height: 30,
-        borderRadius: 15,
+        width: 44,
+        height: 26,
+        borderRadius: 13,
         backgroundColor: focused ? `${colors.primary}18` : 'transparent',
       }}
     >
       <Ionicons
         name={focused ? activeName : name}
-        size={22}
+        size={20}
         color={focused ? colors.primary : colors.textMuted}
       />
     </View>
@@ -38,20 +38,20 @@ function UnreadBadge({ count }) {
     <View
       style={{
         position: 'absolute',
-        top: -2,
+        top: -3,
         right: -6,
-        minWidth: 18,
-        height: 18,
-        borderRadius: 9,
-        paddingHorizontal: 4,
+        minWidth: 17,
+        height: 17,
+        borderRadius: 8.5,
+        paddingHorizontal: 3.5,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.danger,
-        borderWidth: 2,
+        borderWidth: 1.5,
         borderColor: colors.surface,
       }}
     >
-      <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800', lineHeight: 12 }}>
+      <Text style={{ color: '#FFFFFF', fontSize: 9.5, fontWeight: '800', lineHeight: 11 }}>
         {count > 99 ? '99+' : count}
       </Text>
     </View>
@@ -63,8 +63,8 @@ export default function TabsLayout() {
   const { unreadCount } = useSocket();
   const insets = useSafeAreaInsets();
 
-  const safeBottom = Platform.OS === 'ios' ? insets.bottom : Math.max(insets.bottom, 6);
-  const tabHeight = 64 + (Platform.OS === 'web' ? 6 : safeBottom);
+  const safeBottom = Platform.OS === 'ios' ? insets.bottom : Math.max(insets.bottom, 12);
+  const tabHeight = 60 + safeBottom;
 
   return (
     <Tabs
@@ -78,7 +78,7 @@ export default function TabsLayout() {
           borderTopWidth: 1,
           height: tabHeight,
           paddingTop: 6,
-          paddingBottom: Platform.OS === 'web' ? 8 : safeBottom + 2,
+          paddingBottom: safeBottom,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.06,
@@ -86,10 +86,11 @@ export default function TabsLayout() {
           elevation: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10.5,
           fontWeight: '700',
-          letterSpacing: 0.2,
-          marginTop: 2,
+          letterSpacing: 0.1,
+          marginTop: 1,
+          marginBottom: 1,
         },
         tabBarItemStyle: {
           alignItems: 'center',
