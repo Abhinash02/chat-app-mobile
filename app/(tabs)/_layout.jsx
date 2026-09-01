@@ -6,7 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 
-function TabIcon({ name, activeName, focused, color }) {
+const TABS = [
+  { name: 'index', title: 'Discover', icon: 'sparkles-outline', activeIcon: 'sparkles' },
+  { name: 'chats', title: 'Chats', icon: 'chatbubble-ellipses-outline', activeIcon: 'chatbubble-ellipses' },
+  { name: 'rooms', title: 'Voice', icon: 'radio-outline', activeIcon: 'radio' },
+  { name: 'games', title: 'Games', icon: 'game-controller-outline', activeIcon: 'game-controller' },
+  { name: 'profile', title: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+];
+
+function TabIcon({ name, activeName, focused }) {
   const { colors } = useTheme();
 
   return (
@@ -14,17 +22,13 @@ function TabIcon({ name, activeName, focused, color }) {
       style={{
         alignItems: 'center',
         justifyContent: 'center',
-        width: 44,
-        height: 26,
-        borderRadius: 13,
+        width: 42,
+        height: 30,
+        borderRadius: 15,
         backgroundColor: focused ? `${colors.primary}18` : 'transparent',
       }}
     >
-      <Ionicons
-        name={focused ? activeName : name}
-        size={20}
-        color={focused ? colors.primary : colors.textMuted}
-      />
+      <Ionicons name={focused ? activeName : name} size={20} color={focused ? colors.primary : colors.textMuted} />
     </View>
   );
 }
@@ -38,8 +42,8 @@ function UnreadBadge({ count }) {
     <View
       style={{
         position: 'absolute',
-        top: -3,
-        right: -6,
+        top: -2,
+        right: 2,
         minWidth: 17,
         height: 17,
         borderRadius: 8.5,
@@ -51,10 +55,38 @@ function UnreadBadge({ count }) {
         borderColor: colors.surface,
       }}
     >
-      <Text style={{ color: '#FFFFFF', fontSize: 9.5, fontWeight: '800', lineHeight: 11 }}>
+      <Text
+        allowFontScaling={false}
+        style={{ color: '#FFFFFF', fontSize: 9.5, fontWeight: '800', lineHeight: 11 }}
+      >
         {count > 99 ? '99+' : count}
       </Text>
     </View>
+  );
+}
+
+/** Label under each icon. Explicit lineHeight (rather than relying on the
+ * platform default) is what fixes the clipped/cramped rendering — Android in
+ * particular will clip descenders when lineHeight isn't set generously above
+ * fontSize. allowFontScaling is disabled so a user's system font-size
+ * setting can't overflow the fixed tab bar height. */
+function TabLabel({ title, focused }) {
+  const { colors } = useTheme();
+  return (
+    <Text
+      allowFontScaling={false}
+      numberOfLines={1}
+      style={{
+        fontSize: 10.5,
+        lineHeight: 14,
+        fontWeight: focused ? '700' : '600',
+        letterSpacing: 0.15,
+        marginTop: 3,
+        color: focused ? colors.primary : colors.textMuted,
+      }}
+    >
+      {title}
+    </Text>
   );
 }
 
@@ -64,7 +96,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
 
   const safeBottom = Platform.OS === 'ios' ? Math.max(insets.bottom, 24) : Math.max(insets.bottom, 20);
-  const tabHeight = 58 + safeBottom;
+  const tabHeight = 62 + safeBottom;
 
   return (
     <Tabs
@@ -72,12 +104,15 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
+        // Labels are rendered manually via tabBarLabel below so we have full
+        // control over lineHeight/allowFontScaling instead of relying on
+        // tabBarLabelStyle, which is what produced the clipped text.
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
           height: tabHeight,
-          paddingTop: 6,
+          paddingTop: 8,
           paddingBottom: safeBottom,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
@@ -85,77 +120,28 @@ export default function TabsLayout() {
           shadowRadius: 10,
           elevation: 10,
         },
-        tabBarLabelStyle: {
-          fontSize: 10.5,
-          fontWeight: '700',
-          letterSpacing: 0.1,
-          marginTop: 2,
-        },
         tabBarItemStyle: {
           alignItems: 'center',
           justifyContent: 'center',
-          paddingTop: 2,
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Discover',
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="sparkles-outline" activeName="sparkles" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="chats"
-        options={{
-          title: 'Chats',
-          tabBarIcon: ({ focused, color }) => (
-            <View style={{ position: 'relative' }}>
-              <TabIcon
-                name="chatbubble-ellipses-outline"
-                activeName="chatbubble-ellipses"
-                focused={focused}
-                color={color}
-              />
-              <UnreadBadge count={unreadCount} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="rooms"
-        options={{
-          title: 'Voice',
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="radio-outline" activeName="radio" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="games"
-        options={{
-          title: 'Games',
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon
-              name="game-controller-outline"
-              activeName="game-controller"
-              focused={focused}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="person-outline" activeName="person" focused={focused} color={color} />
-          ),
-        }}
-      />
+      {TABS.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarLabel: ({ focused }) => <TabLabel title={tab.title} focused={focused} />,
+            tabBarIcon: ({ focused }) => (
+              <View style={{ position: 'relative' }}>
+                <TabIcon name={tab.icon} activeName={tab.activeIcon} focused={focused} />
+                {tab.name === 'chats' ? <UnreadBadge count={unreadCount} /> : null}
+              </View>
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }
