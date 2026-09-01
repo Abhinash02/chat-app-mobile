@@ -12,7 +12,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
-import { goBack } from '../../src/components/ScreenHeader.jsx';
 import { ImageBubble, VideoBubble } from '../../src/components/MediaBubble.jsx';
 import { RoomComposer } from '../../src/components/RoomComposer.jsx';
 import { VoiceNote } from '../../src/components/VoiceNote.jsx';
@@ -28,10 +27,6 @@ import { useScreenCaptureProtection } from '../../src/hooks/useScreenCaptureProt
 
 /**
  * What actually sits inside a bubble, chosen by message type.
- *
- * Media falls back to its caption if the type is one this build does not know
- * how to draw — an older app should show something rather than an empty
- * bubble when the server starts sending a kind it has never heard of.
  */
 function MessageBody({ message, isMine }) {
   const { colors } = useTheme();
@@ -68,31 +63,130 @@ function MessageBody({ message, isMine }) {
 }
 
 function RoomMessage({ message, isMine }) {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
 
   return (
-    <View className={`mb-2 px-4 ${isMine ? 'items-end' : 'items-start'}`}>
+    <View className={`mb-3 px-3 flex-row ${isMine ? 'justify-end' : 'justify-start items-end gap-2'}`}>
       {!isMine ? (
-        <Text className="mb-0.5 px-1 text-[11px] font-medium" style={{ color: colors.textMuted }}>
-          {message.sender?.nickname ?? 'Someone'}
-        </Text>
+        <Pressable
+          onPress={() => {
+            if (message.sender?.id) {
+              router.push(`/user/${message.sender.id}`);
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${message.sender?.nickname ?? 'user'}'s profile`}
+          style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+        >
+          <Avatar
+            uri={message.sender?.avatarUrl}
+            name={message.sender?.nickname}
+            gender={message.sender?.gender}
+            emoji={message.sender?.avatarEmoji}
+            color={message.sender?.avatarColor}
+            size={32}
+          />
+        </Pressable>
       ) : null}
 
-      <View
-        className="max-w-[82%] px-3.5 py-2.5"
-        style={{
-          backgroundColor: isMine ? colors.primary : colors.surface,
-          borderRadius: radius,
-          borderWidth: isMine ? 0 : 1,
-          borderColor: colors.border,
-        }}
-      >
-        <MessageBody message={message} isMine={isMine} />
-      </View>
+      <View style={{ maxWidth: '78%' }}>
+        {!isMine ? (
+          <Text className="mb-1 ml-1 text-xs font-semibold" style={{ color: colors.primary }}>
+            {message.sender?.nickname ?? 'Anonymous'}
+          </Text>
+        ) : null}
 
-      <Text className="mt-0.5 px-1 text-[10px]" style={{ color: colors.textMuted }}>
-        {formatMessageTime(message.createdAt)}
-      </Text>
+        <View
+          style={{
+            backgroundColor: isMine ? colors.primary : colors.surface,
+            borderRadius: 18,
+            borderBottomRightRadius: isMine ? 4 : 18,
+            borderBottomLeftRadius: !isMine ? 4 : 18,
+            borderWidth: isMine ? 0 : 1,
+            borderColor: colors.border,
+            paddingHorizontal: 13,
+            paddingVertical: 9,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: isMine ? 0.15 : 0.04,
+            shadowRadius: 2,
+            elevation: 1,
+          }}
+        >
+          <MessageBody message={message} isMine={isMine} />
+        </View>
+
+        <Text
+          className="mt-1 px-1 text-[10px]"
+          style={{
+            color: colors.textMuted,
+            textAlign: isMine ? 'right' : 'left',
+          }}
+        >
+          {formatMessageTime(message.createdAt)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Compact mini box displaying room details: Icon, Room Name, Host, and Total Members count.
+ */
+function RoomDetailsBox({ room, participants }) {
+  const { colors } = useTheme();
+
+  return (
+    <View
+      style={{
+        marginHorizontal: 12,
+        marginTop: 6,
+        marginBottom: 2,
+        backgroundColor: colors.surface,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: colors.border,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 2,
+      }}
+    >
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center gap-2 flex-1 mr-2">
+          <View
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: `${colors.primary}18`,
+            }}
+          >
+            <Text style={{ fontSize: 15 }}>{room?.isVoiceEnabled ? '🎙️' : '💬'}</Text>
+          </View>
+          <View className="flex-1">
+            <Text numberOfLines={1} className="text-[13px] font-bold" style={{ color: colors.textPrimary }}>
+              {room?.name || 'Live Room'}
+            </Text>
+            {room?.host?.nickname ? (
+              <Text numberOfLines={1} className="text-[11px] font-medium" style={{ color: colors.primary }}>
+                👑 Host: {room.host.nickname}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        <Badge
+          label={`👥 ${participants.length} / ${room?.maxParticipants || 20}`}
+          tone="brand"
+          size="sm"
+        />
+      </View>
     </View>
   );
 }
@@ -109,34 +203,35 @@ export default function RoomScreen() {
 
   const [messages, setMessages] = useState([]);
   const [participants, setParticipants] = useState([]);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
 
   const listRef = useRef(null);
 
   const { data: room, isLoading } = useQuery({
     queryKey: ['room', roomId],
     queryFn: () => roomsApi.get(roomId),
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
-  const { data: history } = useQuery({
+  const { data: initialMessages } = useQuery({
     queryKey: ['room-messages', roomId],
     queryFn: () => roomsApi.messages(roomId, { limit: 50 }),
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
-  // Both lists start from the server and are then kept live by socket events,
-  // so they are adjusted during render rather than synced in an effect.
-  const [syncedHistory, setSyncedHistory] = useState(null);
-  const [syncedRoom, setSyncedRoom] = useState(null);
+  useEffect(() => {
+    if (initialMessages?.items) {
+      setMessages(initialMessages.items);
+    }
+  }, [initialMessages]);
 
-  if (history && history !== syncedHistory) {
-    setSyncedHistory(history);
-    setMessages(history.items);
-  }
-
-  if (room && room !== syncedRoom) {
-    setSyncedRoom(room);
-    setParticipants(room.participants ?? []);
-  }
+  useEffect(() => {
+    if (room?.participants) {
+      setParticipants(room.participants);
+    }
+  }, [room]);
 
   useEffect(() => {
     if (!roomId) return undefined;
@@ -147,38 +242,66 @@ export default function RoomScreen() {
 
     const offMessage = on(SOCKET_EVENT.ROOM_MESSAGE_NEW, (message) => {
       if (String(message.roomId) !== String(roomId)) return;
-      setMessages((current) =>
-        current.some((existing) => existing.id === message.id) ? current : [...current, message],
-      );
+      setMessages((prev) => {
+        if (prev.some((m) => String(m.id) === String(message.id))) return prev;
+        return [...prev, message];
+      });
+      queryClient.setQueryData(['room-messages', roomId], (old) => {
+        if (!old?.items) return { items: [message] };
+        if (old.items.some((m) => String(m.id) === String(message.id))) return old;
+        return { ...old, items: [...old.items, message] };
+      });
     });
 
     const offParticipants = on(SOCKET_EVENT.ROOM_PARTICIPANTS, (payload) => {
       if (String(payload.roomId) !== String(roomId)) return;
-      setParticipants(payload.participants);
+      setParticipants(payload.participants ?? []);
     });
 
     const offClosed = on(SOCKET_EVENT.ROOM_CLOSED, (payload) => {
       if (String(payload.roomId) !== String(roomId)) return;
       toast.info('The host ended this room.');
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      goBack();
+      router.replace('/(tabs)/rooms');
     });
 
     return () => {
-      emit(SOCKET_EVENT.ROOM_LEAVE, { roomId });
       offMessage?.();
       offParticipants?.();
       offClosed?.();
+      emit(SOCKET_EVENT.ROOM_LEAVE, { roomId });
     };
   }, [roomId, emit, on, toast, queryClient]);
 
   // Rooms are free, so neither path has a billing round trip.
   async function sendText(text) {
-    await roomsApi.send(roomId, { text });
+    const sent = await roomsApi.send(roomId, { text });
+    if (sent) {
+      setMessages((prev) => {
+        if (prev.some((m) => String(m.id) === String(sent.id))) return prev;
+        return [...prev, sent];
+      });
+      queryClient.setQueryData(['room-messages', roomId], (old) => {
+        if (!old?.items) return { items: [sent] };
+        if (old.items.some((m) => String(m.id) === String(sent.id))) return old;
+        return { ...old, items: [...old.items, sent] };
+      });
+    }
   }
 
   async function sendMedia(formData) {
-    await roomsApi.sendMedia(roomId, formData);
+    const sent = await roomsApi.sendMedia(roomId, formData);
+    if (sent) {
+      setMessages((prev) => {
+        if (prev.some((m) => String(m.id) === String(sent.id))) return prev;
+        return [...prev, sent];
+      });
+      queryClient.setQueryData(['room-messages', roomId], (old) => {
+        if (!old?.items) return { items: [sent] };
+        if (old.items.some((m) => String(m.id) === String(sent.id))) return old;
+        return { ...old, items: [...old.items, sent] };
+      });
+    }
   }
 
   async function leave() {
@@ -189,11 +312,24 @@ export default function RoomScreen() {
       // whose socket disconnects.
     }
     queryClient.invalidateQueries({ queryKey: ['rooms'] });
+    queryClient.invalidateQueries({ queryKey: ['room-messages', roomId] });
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/(tabs)/rooms');
     }
+  }
+
+  async function endRoom() {
+    try {
+      await roomsApi.close(roomId);
+      toast.info('Room closed successfully.');
+    } catch (err) {
+      toast.error(err.message ?? 'Could not end the room');
+    }
+    queryClient.invalidateQueries({ queryKey: ['rooms'] });
+    queryClient.invalidateQueries({ queryKey: ['room-messages', roomId] });
+    router.replace('/(tabs)/rooms');
   }
 
   if (isLoading) {
@@ -210,8 +346,9 @@ export default function RoomScreen() {
       className="flex-1"
       style={{ backgroundColor: colors.background }}
     >
+      {/* Navigation Top Bar */}
       <View
-        className="px-4 pb-3"
+        className="px-4 pb-2.5 flex-row items-center justify-between"
         style={{
           paddingTop: insets.top + 6,
           backgroundColor: colors.surface,
@@ -219,11 +356,11 @@ export default function RoomScreen() {
           borderBottomColor: colors.border,
         }}
       >
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row items-center gap-3 flex-1">
           <Pressable
             onPress={leave}
             accessibilityRole="button"
-            accessibilityLabel="Leave the room"
+            accessibilityLabel="Back to rooms"
             style={({ pressed }) => ({
               width: 38,
               height: 38,
@@ -240,60 +377,58 @@ export default function RoomScreen() {
           </Pressable>
 
           <View className="flex-1">
-            <Text numberOfLines={1} className="text-base font-semibold" style={{ color: colors.textPrimary }}>
-              {room?.name}
+            <Text numberOfLines={1} className="text-base font-bold" style={{ color: colors.textPrimary }}>
+              {room?.name || 'Live Room'}
             </Text>
-            <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-              {participants.length} of {room?.maxParticipants} inside
-              {room?.isHost ? ' · you are the host' : ''}
-            </Text>
+            <View className="flex-row items-center gap-1.5">
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.onlineDot }} />
+              <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+                {participants.length} inside {room?.isHost ? '· Host' : ''}
+              </Text>
+            </View>
           </View>
+        </View>
+
+        <View className="flex-row items-center gap-2">
+          {room?.isHost ? (
+            <Pressable
+              onPress={endRoom}
+              accessibilityRole="button"
+              accessibilityLabel="End Room"
+              style={({ pressed }) => ({
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 12,
+                backgroundColor: '#EF444418',
+                borderWidth: 1,
+                borderColor: '#EF444433',
+                opacity: pressed ? 0.75 : 1,
+              })}
+            >
+              <Text style={{ fontSize: 11, fontWeight: '700', color: '#EF4444' }}>End</Text>
+            </Pressable>
+          ) : null}
 
           {room?.isVoiceEnabled ? (
             <Pressable
               onPress={() => {
                 setIsMuted((muted) => !muted);
                 emit(SOCKET_EVENT.ROOM_VOICE_STATE, { roomId, isMuted: !isMuted });
-                // Voice needs a development build with a WebRTC module; the
-                // server already relays the signalling for it.
                 toast.info('Voice needs the full app build — chat works now.');
               }}
               accessibilityRole="button"
               accessibilityLabel={isMuted ? 'Unmute' : 'Mute'}
-              className="h-10 w-10 items-center justify-center rounded-full"
+              className="h-9 w-9 items-center justify-center rounded-full"
               style={{ backgroundColor: isMuted ? colors.surfaceAlt : `${colors.success}22` }}
             >
-              <Text className="text-lg">{isMuted ? '🔇' : '🎙️'}</Text>
+              <Text className="text-base">{isMuted ? '🔇' : '🎙️'}</Text>
             </Pressable>
           ) : null}
         </View>
-
-        {participants.length > 0 ? (
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={participants}
-            keyExtractor={(item) => item.userId}
-            contentContainerStyle={{ gap: 10, paddingTop: 12 }}
-            renderItem={({ item }) => (
-              <View className="items-center" style={{ width: 52 }}>
-                <Avatar
-                  uri={item.avatarUrl}
-                  name={item.nickname}
-                  gender={item.gender}
-                  emoji={item.avatarEmoji}
-                  color={item.avatarColor}
-                  size={42}
-                />
-                <Text numberOfLines={1} className="mt-1 text-[10px]" style={{ color: colors.textMuted }}>
-                  {item.nickname ?? 'Guest'}
-                </Text>
-                {item.role === 'host' ? <Badge label="Host" tone="brand" /> : null}
-              </View>
-            )}
-          />
-        ) : null}
       </View>
+
+      {/* Compact Room Details Mini Box */}
+      <RoomDetailsBox room={room} participants={participants} />
 
       <FlatList
         ref={listRef}
@@ -306,14 +441,11 @@ export default function RoomScreen() {
         )}
       />
 
-      <View style={{ paddingBottom: insets.bottom }}>
-        <RoomComposer
-          onSendText={sendText}
-          onSendMedia={sendMedia}
-          onNotice={(notice) => toast.error(notice)}
-        />
-      </View>
-
+      <RoomComposer
+        onSendText={sendText}
+        onSendMedia={sendMedia}
+        onNotice={(notice) => toast.error(notice)}
+      />
     </KeyboardAvoidingView>
   );
 }

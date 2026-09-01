@@ -611,10 +611,23 @@ export default function ChatScreen() {
           borderBottomColor: colors.border,
         }}
       >
-        <Pressable onPress={() => goBack()} accessibilityRole="button" accessibilityLabel="Back" className="px-1">
-          <Text className="text-2xl" style={{ color: colors.textPrimary }}>
-            ‹
-          </Text>
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/chats'))}
+          accessibilityRole="button"
+          accessibilityLabel="Back to chats"
+          style={({ pressed }) => ({
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surfaceAlt || `${colors.primary}12`,
+            borderWidth: 1,
+            borderColor: colors.border,
+            opacity: pressed ? 0.75 : 1,
+          })}
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </Pressable>
 
         <Pressable

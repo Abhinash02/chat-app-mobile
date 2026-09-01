@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmojiPicker } from './EmojiPicker.jsx';
 import { useActionSheet } from './ActionSheet.jsx';
@@ -9,31 +11,46 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder.js';
 
 /**
- * While recording, the composer is replaced rather than decorated.
- *
- * Half a UI that is live and half that is not invites taps on a text field
- * that will not accept them. Recording is a mode, so it looks like one.
+ * While recording, the composer is replaced with a sleek recording indicator.
  */
 function RecordingBar({ seconds, maxSeconds, onCancel, onSend }) {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <View
-      className="flex-row items-center gap-3 px-4 py-3"
-      style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius, margin: 8 }}
+      className="flex-row items-center gap-3 px-4 py-3 mx-3 my-2"
+      style={{
+        backgroundColor: colors.surfaceAlt,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: `${colors.danger}33`,
+      }}
     >
-      <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors.danger }} />
+      <View
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: 5,
+          backgroundColor: colors.danger,
+        }}
+      />
 
-      <Text className="text-[15px] font-semibold" style={{ color: colors.textPrimary }}>
+      <Text className="text-sm font-bold tracking-wide" style={{ color: colors.textPrimary }}>
         {formatDuration(seconds)}
       </Text>
 
-      <Text className="flex-1 text-[12px]" style={{ color: colors.textMuted }}>
-        {seconds >= maxSeconds - 10 ? `${maxSeconds - seconds}s left` : 'Recording…'}
+      <Text className="flex-1 text-xs" style={{ color: colors.textMuted }}>
+        {seconds >= maxSeconds - 10 ? `${maxSeconds - seconds}s remaining` : 'Recording audio…'}
       </Text>
 
-      <Pressable onPress={onCancel} accessibilityRole="button" accessibilityLabel="Cancel recording" className="px-2">
-        <Text className="text-[13px] font-medium" style={{ color: colors.danger }}>
+      <Pressable
+        onPress={onCancel}
+        accessibilityRole="button"
+        accessibilityLabel="Cancel recording"
+        className="px-2 py-1 rounded-full"
+        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      >
+        <Text className="text-xs font-semibold" style={{ color: colors.danger }}>
           Cancel
         </Text>
       </Pressable>
@@ -42,24 +59,28 @@ function RecordingBar({ seconds, maxSeconds, onCancel, onSend }) {
         onPress={onSend}
         accessibilityRole="button"
         accessibilityLabel="Send voice note"
-        className="h-10 w-10 items-center justify-center rounded-full"
-        style={{ backgroundColor: colors.primary }}
+        style={({ pressed }) => ({
+          width: 38,
+          height: 38,
+          borderRadius: 19,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.primary,
+          opacity: pressed ? 0.85 : 1,
+        })}
       >
-        <Text style={{ color: colors.onPrimary, fontSize: 16 }}>➤</Text>
+        <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
       </Pressable>
     </View>
   );
 }
 
 /**
- * The room input: text, emoji, photos, short video and voice notes.
- *
- * Sending is tap-to-start / tap-to-send rather than press-and-hold. Hold works
- * on a phone in one hand and nowhere else — a slipped finger loses the whole
- * recording, and there is no way to hold a button while reading the room.
+ * The live room message composer: text, emoji, photos, short video and voice notes.
  */
 export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const actionSheet = useActionSheet();
 
   const [draft, setDraft] = useState('');
@@ -67,13 +88,6 @@ export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
   const [isUploading, setIsUploading] = useState(false);
 
   const recorder = useVoiceRecorder({ onError: onNotice });
-
-  /*
-   * A recording that hits the ceiling is sent rather than dropped: someone has
-   * been talking for two minutes and losing it would be unforgivable. The ref
-   * keeps this out of the effect's dependencies — `finishRecording` is rebuilt
-   * every render, and depending on it would stop and send on every tick.
-   */
   const finishRef = useRef(null);
 
   useEffect(() => {
@@ -103,11 +117,11 @@ export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
     if (isUploading || recorder.isRecording) return;
 
     actionSheet.show({
-      title: 'Share something',
-      message: 'Choose where it comes from',
+      title: 'Share media',
+      message: 'Choose from Camera or Gallery',
       options: [
-        { label: '📷  Camera', onPress: () => pick(captureWithCamera) },
-        { label: '🖼️  Gallery', onPress: () => pick(pickFromLibrary) },
+        { label: '📷  Take Photo / Video', onPress: () => pick(captureWithCamera) },
+        { label: '🖼️  Photo Library', onPress: () => pick(pickFromLibrary) },
       ],
     });
   }
@@ -120,13 +134,8 @@ export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
 
     const { asset } = result;
 
-    /*
-     * Checked before the upload starts. Discovering a file is too big after
-     * waiting for it to transfer over a slow connection is the worst possible
-     * moment to find out.
-     */
     if (!isWithinLimit(asset.sizeBytes, asset.kind)) {
-      return onNotice?.(`That ${asset.kind} is over ${SIZE_LIMITS[asset.kind]}MB. Try a shorter one.`);
+      return onNotice?.(`That ${asset.kind} is over ${SIZE_LIMITS[asset.kind]}MB. Try a smaller file.`);
     }
 
     return upload({ uri: asset.uri, mimeType: asset.mimeType, kind: asset.kind });
@@ -134,14 +143,11 @@ export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
 
   async function upload({ uri, mimeType, kind }) {
     setIsUploading(true);
-
     const caption = draft.trim();
 
     try {
       const formData = new FormData();
       await appendFile(formData, { uri, mimeType });
-      // A caption rides along with the file, so a photo can be sent with a
-      // line of text as one message rather than two.
       if (caption && kind !== 'audio') formData.append('caption', caption);
 
       await onSendMedia(formData);
@@ -179,9 +185,10 @@ export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
   }
 
   const hasDraft = draft.trim().length > 0;
+  const bottomInset = Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : Math.max(insets.bottom, 8);
 
   return (
-    <View>
+    <View style={{ backgroundColor: colors.surface }}>
       {isEmojiOpen ? (
         <EmojiPicker
           onSelect={(emoji) => setDraft((current) => current + emoji)}
@@ -190,58 +197,111 @@ export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
       ) : null}
 
       <View
-        className="flex-row items-end gap-1.5 px-2 pt-2"
-        style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}
+        className="flex-row items-center px-3 pt-2.5"
+        style={{
+          paddingBottom: bottomInset,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        }}
       >
+        {/* Emoji Button */}
         <Pressable
           onPress={() => setIsEmojiOpen((open) => !open)}
           accessibilityRole="button"
           accessibilityLabel={isEmojiOpen ? 'Hide emoji' : 'Show emoji'}
-          className="h-10 w-10 items-center justify-center rounded-full"
-          style={{ backgroundColor: isEmojiOpen ? colors.surfaceAlt : 'transparent' }}
+          style={({ pressed }) => ({
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: isEmojiOpen ? `${colors.primary}18` : 'transparent',
+            marginRight: 6,
+            opacity: pressed ? 0.75 : 1,
+          })}
         >
-          <Text className="text-xl">😊</Text>
+          <Ionicons
+            name={isEmojiOpen ? 'happy' : 'happy-outline'}
+            size={24}
+            color={isEmojiOpen ? colors.primary : colors.textMuted}
+          />
         </Pressable>
 
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          onFocus={() => setIsEmojiOpen(false)}
-          placeholder="Say something…"
-          placeholderTextColor={colors.textMuted}
-          multiline
-          maxLength={2000}
-          editable={!isUploading}
-          className="max-h-24 flex-1 px-4 py-2.5 text-[15px]"
-          style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius, color: colors.textPrimary }}
-        />
-
-        <Pressable
-          onPress={chooseAttachment}
-          disabled={isUploading}
-          accessibilityRole="button"
-          accessibilityLabel="Send a photo or video"
-          className="h-10 w-10 items-center justify-center rounded-full"
+        {/* Input Field Capsule */}
+        <View
+          className="flex-1 flex-row items-center px-3.5 py-1.5"
+          style={{
+            backgroundColor: colors.surfaceAlt,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: colors.border,
+            minHeight: 44,
+          }}
         >
-          <Text className="text-xl">📎</Text>
-        </Pressable>
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            onFocus={() => setIsEmojiOpen(false)}
+            placeholder="Say something…"
+            placeholderTextColor={colors.textMuted}
+            multiline
+            maxLength={2000}
+            editable={!isUploading}
+            style={{
+              flex: 1,
+              maxHeight: 90,
+              fontSize: 14.5,
+              color: colors.textPrimary,
+              paddingVertical: Platform.OS === 'ios' ? 6 : 4,
+              paddingRight: 6,
+            }}
+          />
 
-        {/* The send button becomes a microphone when there is nothing to send,
-            so one slot serves both and neither needs explaining. */}
+          {/* Attachment Clip inside Capsule */}
+          <Pressable
+            onPress={chooseAttachment}
+            disabled={isUploading}
+            accessibilityRole="button"
+            accessibilityLabel="Attach media"
+            style={({ pressed }) => ({
+              padding: 4,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Ionicons name="attach" size={22} color={colors.textMuted} />
+          </Pressable>
+        </View>
+
+        {/* Send / Mic Action Button */}
         <Pressable
           onPress={hasDraft ? sendText : startRecording}
           disabled={isUploading}
           accessibilityRole="button"
-          accessibilityLabel={hasDraft ? 'Send' : 'Record a voice note'}
-          className="h-11 w-11 items-center justify-center rounded-full"
-          style={{ backgroundColor: hasDraft ? colors.primary : colors.surfaceAlt }}
+          accessibilityLabel={hasDraft ? 'Send message' : 'Record voice message'}
+          style={({ pressed }) => ({
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginLeft: 8,
+            backgroundColor: hasDraft ? colors.primary : colors.surfaceAlt,
+            borderWidth: hasDraft ? 0 : 1,
+            borderColor: colors.border,
+            shadowColor: hasDraft ? colors.primary : '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: hasDraft ? 0.3 : 0.05,
+            shadowRadius: 4,
+            elevation: 3,
+            opacity: pressed ? 0.8 : 1,
+          })}
         >
           {isUploading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={hasDraft ? '#FFFFFF' : colors.primary} />
+          ) : hasDraft ? (
+            <Ionicons name="send" size={18} color="#FFFFFF" style={{ marginLeft: 2 }} />
           ) : (
-            <Text style={{ color: hasDraft ? colors.onPrimary : colors.textPrimary, fontSize: hasDraft ? 18 : 20 }}>
-              {hasDraft ? '➤' : '🎙️'}
-            </Text>
+            <Ionicons name="mic" size={21} color={colors.textPrimary} />
           )}
         </Pressable>
       </View>

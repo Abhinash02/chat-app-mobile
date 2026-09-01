@@ -90,6 +90,7 @@ export const roomsApi = {
   get: (roomId) => request({ method: 'GET', url: `/rooms/${roomId}` }),
   join: (roomId, data) => request({ method: 'POST', url: `/rooms/${roomId}/join`, data }),
   leave: (roomId) => request({ method: 'POST', url: `/rooms/${roomId}/leave` }),
+  close: (roomId) => request({ method: 'POST', url: `/rooms/${roomId}/close` }),
   messages: (roomId, params) => requestList({ method: 'GET', url: `/rooms/${roomId}/messages`, params }),
   send: (roomId, data) => request({ method: 'POST', url: `/rooms/${roomId}/messages`, data }),
 
