@@ -6,10 +6,10 @@ import {
   Pressable,
   Text,
   View,
-} from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 
 import { goBack } from '../../src/components/ScreenHeader.jsx';
 import { ImageBubble, VideoBubble } from '../../src/components/MediaBubble.jsx';
@@ -188,7 +188,11 @@ export default function RoomScreen() {
       // whose socket disconnects.
     }
     queryClient.invalidateQueries({ queryKey: ['rooms'] });
-    goBack();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/rooms');
+    }
   }
 
   if (isLoading) {
@@ -215,10 +219,23 @@ export default function RoomScreen() {
         }}
       >
         <View className="flex-row items-center gap-3">
-          <Pressable onPress={leave} accessibilityRole="button" accessibilityLabel="Leave the room" className="px-1">
-            <Text className="text-2xl" style={{ color: colors.textPrimary }}>
-              ‹
-            </Text>
+          <Pressable
+            onPress={leave}
+            accessibilityRole="button"
+            accessibilityLabel="Leave the room"
+            style={({ pressed }) => ({
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.surfaceAlt || `${colors.primary}12`,
+              borderWidth: 1,
+              borderColor: colors.border,
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
           </Pressable>
 
           <View className="flex-1">
