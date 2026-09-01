@@ -305,7 +305,7 @@ export default function Settings() {
                 onPress={async () => {
                   setIsSignOutModalOpen(false);
                   await signOut();
-                  router.replace('/(auth)/welcome');
+                  router.replace('/(auth)/login');
                 }}
                 className="w-full items-center justify-center py-3.5 px-4 flex-row gap-2"
                 style={{

@@ -842,6 +842,7 @@ export default function Profile() {
                   try {
                     await signOut();
                     toast.success('Logged out successfully');
+                    router.replace('/(auth)/login');
                   } catch {
                     toast.error('Could not log out');
                   }
