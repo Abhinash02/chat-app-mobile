@@ -7,9 +7,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/2bca91af-be9d-4c99-b068-a9b32f8e627c",
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 1500
+      "url": "https://u.expo.dev/cd917c17-10f7-4b1a-bd44-c2da4457edd9"
     },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -50,7 +48,10 @@
         "RECORD_AUDIO",
         "VIBRATE",
         "POST_NOTIFICATIONS",
-        "CAMERA"
+        "CAMERA",
+        "MODIFY_AUDIO_SETTINGS",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "web": {
@@ -89,9 +90,11 @@
       "typedRoutes": false
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "2bca91af-be9d-4c99-b068-a9b32f8e627c"
+        "projectId": "cd917c17-10f7-4b1a-bd44-c2da4457edd9"
       }
-    }
+    },
+    "owner": "avinash_99"
   }
 }

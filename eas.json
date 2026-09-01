@@ -11,6 +11,9 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL_LIVE": "https://chat-app-backend-r6f2.onrender.com"
+      },
       "android": {
         "buildType": "apk"
       }

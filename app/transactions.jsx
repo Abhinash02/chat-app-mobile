@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   Text,
   View,
 } from 'react-native';
@@ -14,11 +15,9 @@ import { useQuery } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 
-import { ScreenHeader, goBack } from '../src/components/ScreenHeader.jsx';
-import { Badge, Button, Card, CoinIcon, EmptyState, Loading } from '../src/components/ui.jsx';
+import { ScreenHeader } from '../src/components/ScreenHeader.jsx';
+import { Badge, Card, CoinIcon, EmptyState, Loading } from '../src/components/ui.jsx';
 import { coinsApi, paymentsApi } from '../src/api/endpoints.js';
-import { BASE_URL } from '../src/api/client.js';
-import { storage } from '../src/lib/storage.js';
 import { formatCoins, formatRelativeTime, formatRupees } from '../src/lib/format.js';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
 import { useToast } from '../src/components/Toast.jsx';
@@ -26,12 +25,60 @@ import { useToast } from '../src/components/Toast.jsx';
 const FILTER_TYPES = [
   { label: 'All', value: undefined },
   { label: '🪙 Purchases', value: 'purchase' },
+  { label: '↩️ Refunds', value: 'admin_deduct' },
   { label: '🎁 Bonuses', value: 'daily_bonus' },
   { label: '💬 Messages', value: 'message_charge' },
   { label: '🎮 Games', value: 'game_reward' },
 ];
 
+const STATUS_THEME = {
+  refunded: {
+    tone: '#10B981',
+    tint: '#10B98112',
+    border: '#10B98135',
+    icon: 'arrow-undo-circle',
+    label: 'Refunded',
+  },
+  failed: {
+    tone: '#D97706',
+    tint: '#F59E0B12',
+    border: '#F59E0B35',
+    icon: 'time',
+    label: 'Failed',
+  },
+  expired: {
+    tone: '#D97706',
+    tint: '#F59E0B12',
+    border: '#F59E0B35',
+    icon: 'hourglass',
+    label: 'Expired',
+  },
+  rejected: {
+    tone: '#EF4444',
+    tint: '#EF444412',
+    border: '#EF444435',
+    icon: 'close-circle',
+    label: 'Rejected',
+  },
+  paid: {
+    tone: null,
+    tint: null,
+    border: null,
+    icon: 'checkmark-circle',
+    label: 'Paid',
+  },
+};
+
+function orderStatusKey(item) {
+  if (item.status === 'refunded') return 'refunded';
+  if (item.status === 'rejected') return 'rejected';
+  if (item.status === 'expired') return 'expired';
+  if (item.status === 'failed') return 'failed';
+  return 'paid';
+}
+
 function transactionIcon(type, amount) {
+  if (type === 'admin_deduct' || type === 'refund') return '↩️';
   if (amount > 0) {
     if (type === 'purchase') return '💳';
     if (type === 'daily_bonus') return '🎁';
@@ -52,10 +99,103 @@ function transactionTitle(item) {
     message_charge: 'Message Sent',
     game_reward: 'Game Reward',
     admin_grant: 'Admin Grant',
-    admin_deduct: 'Admin Adjustment',
+    admin_deduct: 'Refund Coin Adjustment',
+    refund: 'Coin Refund Reversal',
     room_gift: 'Gift Sent',
   };
   return map[item.type] ?? item.type?.replace(/_/g, ' ') ?? 'Coin Transaction';
+}
+
+function InfoRow({ label, value, tone, mono, colors }) {
+  return (
+    <View className="flex-row items-center justify-between py-1">
+      <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+        {label}
+      </Text>
+      <Text
+        className={mono ? 'text-[11px] font-mono' : 'text-[11px] font-bold'}
+        style={{ color: tone ?? colors.textPrimary }}
+        numberOfLines={1}
+        ellipsizeMode="middle"
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function RefundNotice({ item, colors }) {
+  const theme = STATUS_THEME.refunded;
+  return (
+    <View className="mb-3 rounded-2xl border overflow-hidden" style={{ borderColor: theme.border }}>
+      <View className="flex-row items-center gap-1.5 px-3 py-2" style={{ backgroundColor: theme.tint }}>
+        <Ionicons name={theme.icon} size={15} color={theme.tone} />
+        <Text className="text-xs font-extrabold" style={{ color: theme.tone }}>
+          Refund Processed
+        </Text>
+        <View className="flex-1" />
+        <Text className="text-[10px] font-semibold" style={{ color: theme.tone }}>
+          {formatRelativeTime(item.refundedAt || item.updatedAt || item.createdAt)}
+        </Text>
+      </View>
+      <View className="px-3 py-2.5" style={{ backgroundColor: colors.surface }}>
+        <InfoRow label="Amount reversed" value={formatRupees(item.amountInRupees)} tone={theme.tone} colors={colors} />
+        {item.refundReason ? <InfoRow label="Reason" value={item.refundReason} colors={colors} /> : null}
+        {item.providerRefundId ? (
+          <InfoRow label="Refund ID" value={item.providerRefundId} mono colors={colors} />
+        ) : null}
+        <Text className="text-[10.5px] leading-4 mt-1.5" style={{ color: colors.textMuted }}>
+          Credited back to your original payment method — banks typically post this within 5–7 business days.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function FailedNotice({ item, colors }) {
+  const theme = item.status === 'expired' ? STATUS_THEME.expired : STATUS_THEME.failed;
+  return (
+    <View className="mb-3 rounded-2xl border overflow-hidden" style={{ borderColor: theme.border }}>
+      <View className="flex-row items-center gap-1.5 px-3 py-2" style={{ backgroundColor: theme.tint }}>
+        <Ionicons name="shield-checkmark" size={15} color={theme.tone} />
+        <Text className="text-xs font-extrabold" style={{ color: theme.tone }}>
+          Auto-Refund Protection
+        </Text>
+      </View>
+      <View className="px-3 py-2.5" style={{ backgroundColor: colors.surface }}>
+        <Text className="text-[11.5px] leading-4" style={{ color: colors.textPrimary }}>
+          {item.status === 'expired'
+            ? 'This order window closed before payment was confirmed. If any amount was deducted, it was never captured and will not be charged.'
+            : 'This payment did not go through on the gateway. If money was deducted from your bank or UPI app, it was not captured by us.'}
+        </Text>
+        <View className="flex-row items-center gap-1.5 mt-2 self-start px-2.5 py-1 rounded-full" style={{ backgroundColor: `${theme.tone}15` }}>
+          <Ionicons name="time-outline" size={12} color={theme.tone} />
+          <Text className="text-[10.5px] font-bold" style={{ color: theme.tone }}>
+            Auto-reversed in 2–24 hrs (max 2–3 business days)
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function RejectedNotice({ item, colors }) {
+  const theme = STATUS_THEME.rejected;
+  return (
+    <View className="mb-3 rounded-2xl border overflow-hidden" style={{ borderColor: theme.border }}>
+      <View className="flex-row items-center gap-1.5 px-3 py-2" style={{ backgroundColor: theme.tint }}>
+        <Ionicons name={theme.icon} size={15} color={theme.tone} />
+        <Text className="text-xs font-extrabold" style={{ color: theme.tone }}>
+          Order Rejected
+        </Text>
+      </View>
+      <View className="px-3 py-2.5" style={{ backgroundColor: colors.surface }}>
+        <Text className="text-[11.5px] leading-4" style={{ color: colors.textPrimary }}>
+          {item.rejectionReason || 'The payment verification was rejected.'}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 export default function Transactions() {
@@ -63,7 +203,8 @@ export default function Transactions() {
   const toast = useToast();
   const insets = useSafeAreaInsets();
 
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'ledger'
+  // 3 dedicated tabs: 'invoices' | 'refunds' | 'ledger'
+  const [activeTab, setActiveTab] = useState('invoices');
   const [selectedType, setSelectedType] = useState(undefined);
   const [downloadingId, setDownloadingId] = useState(null);
 
@@ -92,11 +233,19 @@ export default function Transactions() {
   const orders = ordersData?.items ?? [];
   const transactions = ledgerData?.items ?? [];
 
-  // Calculate quick stats
-  const totalPaidInvoices = orders.filter((o) => o.status === 'paid').length;
-  const totalCoinsBought = orders
-    .filter((o) => o.status === 'paid')
-    .reduce((acc, curr) => acc + (curr.totalCoins || curr.coins || 0), 0);
+  // Segment orders into Paid Invoices vs Refunds & Issues
+  const paidOrders = orders.filter((o) => o.status === 'paid');
+  const issueOrders = orders.filter((o) => o.status === 'refunded' || o.status === 'failed' || o.status === 'expired' || o.status === 'rejected');
+  const refundedOrders = orders.filter((o) => o.status === 'refunded');
+
+  const totalRefundAmount = refundedOrders.reduce(
+    (acc, curr) => acc + (curr.amountInRupees || curr.amountInPaise / 100 || 0),
+    0
+  );
+  const totalCoinsBought = paidOrders.reduce(
+    (acc, curr) => acc + (curr.totalCoins || curr.coins || 0),
+    0
+  );
 
   const handleDownloadInvoice = async (order) => {
     try {
@@ -105,7 +254,6 @@ export default function Transactions() {
 
       let targetUrl = order.invoiceUrl;
 
-      // If not yet uploaded to Cloudinary, generate and fetch via authenticated API
       if (!targetUrl || !targetUrl.startsWith('http')) {
         const res = await paymentsApi.getInvoice(order.id);
         targetUrl = res?.invoiceUrl;
@@ -122,7 +270,6 @@ export default function Transactions() {
       }
 
       toast.success('Official PDF Invoice opened!');
-      // Refetch orders list so the persistent Cloudinary URL is updated in local state
       refetchOrders();
     } catch (err) {
       toast.error(err?.message || 'Could not download invoice. Please try again.');
@@ -137,122 +284,185 @@ export default function Transactions() {
     toast.success('Transaction reference copied!');
   };
 
+  const currentOrdersList = activeTab === 'invoices' ? paidOrders : issueOrders;
+
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
       {/* Executive Attractive Screen Header */}
       <ScreenHeader
         title="Transaction History"
-        subtitle="Official Cashfree tax invoices & coin balance records"
+        subtitle="Official tax invoices, refund records & coin ledger"
         fallback="/(tabs)/profile"
       />
 
-      {/* Overview Stats Bar */}
+      {/* Overview Stats Bar — responsive layout */}
       <View
-        className="px-4 py-3 border-b flex-row items-center justify-between"
+        className="px-4 py-3 border-b flex-row items-center gap-2"
         style={{ backgroundColor: colors.surface, borderBottomColor: colors.border }}
       >
-        <View className="flex-row items-center gap-2">
-          <View
-            className="h-8 w-8 rounded-xl items-center justify-center"
-            style={{ backgroundColor: `${colors.primary}18` }}
-          >
-            <Text className="text-sm">🧾</Text>
-          </View>
-          <View>
+        <View
+          className="flex-1 px-3 py-2.5 rounded-2xl border"
+          style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
+        >
+          <View className="flex-row items-center gap-1.5 mb-0.5">
+            <Ionicons name="receipt-outline" size={13} color={colors.primary} />
             <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: colors.textMuted }}>
-              Paid Invoices
-            </Text>
-            <Text className="text-sm font-black" style={{ color: colors.textPrimary }}>
-              {totalPaidInvoices} Receipts
+              Paid
             </Text>
           </View>
+          <Text className="text-sm font-black" style={{ color: colors.textPrimary }}>
+            {paidOrders.length} Invoices
+          </Text>
         </View>
 
-        <View className="h-6 w-px" style={{ backgroundColor: colors.border }} />
-
-        <View className="flex-row items-center gap-2">
-          <View
-            className="h-8 w-8 rounded-xl items-center justify-center"
-            style={{ backgroundColor: `${colors.coinGold || '#F59E0B'}20` }}
+        <View
+          className="flex-1 px-3 py-2.5 rounded-2xl border"
+          style={{
+            backgroundColor: refundedOrders.length > 0 ? '#10B9810C' : colors.surfaceAlt,
+            borderColor: refundedOrders.length > 0 ? '#10B98130' : colors.border,
+          }}
+        >
+          <View className="flex-row items-center gap-1.5 mb-0.5">
+            <Ionicons name="arrow-undo" size={13} color={refundedOrders.length > 0 ? '#10B981' : colors.textMuted} />
+            <Text
+              className="text-[10px] uppercase font-bold tracking-wider"
+              style={{ color: refundedOrders.length > 0 ? '#10B981' : colors.textMuted }}
+            >
+              Refunds
+            </Text>
+          </View>
+          <Text
+            className="text-sm font-black"
+            style={{ color: refundedOrders.length > 0 ? '#10B981' : colors.textPrimary }}
           >
-            <CoinIcon size={14} />
-          </View>
-          <View>
+            {formatRupees(totalRefundAmount)}
+          </Text>
+        </View>
+
+        <View
+          className="flex-1 px-3 py-2.5 rounded-2xl border"
+          style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
+        >
+          <View className="flex-row items-center gap-1.5 mb-0.5">
+            <CoinIcon size={12} />
             <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: colors.textMuted }}>
-              Coins Purchased
-            </Text>
-            <Text className="text-sm font-black" style={{ color: colors.coinGold || '#F59E0B' }}>
-              +{formatCoins(totalCoinsBought)}
+              Coins
             </Text>
           </View>
+          <Text className="text-sm font-black" style={{ color: colors.coinGold || '#F59E0B' }}>
+            +{formatCoins(totalCoinsBought)}
+          </Text>
         </View>
       </View>
 
-      {/* Main Tab Switcher */}
-      <View
-        className="flex-row p-3 gap-2 border-b"
-        style={{ borderBottomColor: colors.border, backgroundColor: colors.surfaceAlt }}
-      >
-        <Pressable
-          onPress={() => setActiveTab('orders')}
-          className="flex-1 py-2.5 rounded-xl items-center flex-row justify-center gap-2"
-          style={{
-            backgroundColor: activeTab === 'orders' ? colors.primary : colors.surface,
-            borderWidth: 1,
-            borderColor: activeTab === 'orders' ? colors.primary : colors.border,
-            shadowColor: activeTab === 'orders' ? colors.primary : '#000',
-            shadowOpacity: activeTab === 'orders' ? 0.2 : 0,
-            shadowRadius: 4,
-            elevation: activeTab === 'orders' ? 2 : 0,
-          }}
+      {/* 3 Dedicated Segmented Tabs: Invoices | Refunds & Failed | Coin Ledger */}
+      <View className="px-3 py-2.5 border-b" style={{ borderBottomColor: colors.border, backgroundColor: colors.surface }}>
+        <View
+          className="p-1 rounded-2xl flex-row items-center"
+          style={{ backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border }}
         >
-          <Text className="text-sm">🧾</Text>
-          <Text
-            className="text-xs font-bold"
-            style={{ color: activeTab === 'orders' ? colors.onPrimary : colors.textPrimary }}
+          {/* Tab 1: Invoices */}
+          <Pressable
+            onPress={() => setActiveTab('invoices')}
+            className="flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1"
+            style={{
+              backgroundColor: activeTab === 'invoices' ? colors.primary : 'transparent',
+              shadowColor: activeTab === 'invoices' ? colors.primary : 'transparent',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: activeTab === 'invoices' ? 0.3 : 0,
+              shadowRadius: 4,
+              elevation: activeTab === 'invoices' ? 2 : 0,
+            }}
           >
-            Tax Invoices & Bills ({orders.length})
-          </Text>
-        </Pressable>
+            <Ionicons
+              name="receipt"
+              size={13}
+              color={activeTab === 'invoices' ? colors.onPrimary : colors.textMuted}
+            />
+            <Text
+              className="text-[11px] font-bold"
+              style={{ color: activeTab === 'invoices' ? colors.onPrimary : colors.textPrimary }}
+              numberOfLines={1}
+            >
+              Invoices ({paidOrders.length})
+            </Text>
+          </Pressable>
 
-        <Pressable
-          onPress={() => setActiveTab('ledger')}
-          className="flex-1 py-2.5 rounded-xl items-center flex-row justify-center gap-2"
-          style={{
-            backgroundColor: activeTab === 'ledger' ? colors.primary : colors.surface,
-            borderWidth: 1,
-            borderColor: activeTab === 'ledger' ? colors.primary : colors.border,
-            shadowColor: activeTab === 'ledger' ? colors.primary : '#000',
-            shadowOpacity: activeTab === 'ledger' ? 0.2 : 0,
-            shadowRadius: 4,
-            elevation: activeTab === 'ledger' ? 2 : 0,
-          }}
-        >
-          <Text className="text-sm">🪙</Text>
-          <Text
-            className="text-xs font-bold"
-            style={{ color: activeTab === 'ledger' ? colors.onPrimary : colors.textPrimary }}
+          {/* Tab 2: Refunds & Failed */}
+          <Pressable
+            onPress={() => setActiveTab('refunds')}
+            className="flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1"
+            style={{
+              backgroundColor: activeTab === 'refunds' ? colors.primary : 'transparent',
+              shadowColor: activeTab === 'refunds' ? colors.primary : 'transparent',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: activeTab === 'refunds' ? 0.3 : 0,
+              shadowRadius: 4,
+              elevation: activeTab === 'refunds' ? 2 : 0,
+            }}
           >
-            Coin Ledger
-          </Text>
-        </Pressable>
+            <Ionicons
+              name="arrow-undo-circle"
+              size={13}
+              color={activeTab === 'refunds' ? colors.onPrimary : colors.textMuted}
+            />
+            <Text
+              className="text-[11px] font-bold"
+              style={{ color: activeTab === 'refunds' ? colors.onPrimary : colors.textPrimary }}
+              numberOfLines={1}
+            >
+              Refunds ({issueOrders.length})
+            </Text>
+          </Pressable>
+
+          {/* Tab 3: Coin Ledger */}
+          <Pressable
+            onPress={() => setActiveTab('ledger')}
+            className="flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1"
+            style={{
+              backgroundColor: activeTab === 'ledger' ? colors.primary : 'transparent',
+              shadowColor: activeTab === 'ledger' ? colors.primary : 'transparent',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: activeTab === 'ledger' ? 0.3 : 0,
+              shadowRadius: 4,
+              elevation: activeTab === 'ledger' ? 2 : 0,
+            }}
+          >
+            <Ionicons
+              name="wallet"
+              size={13}
+              color={activeTab === 'ledger' ? colors.onPrimary : colors.textMuted}
+            />
+            <Text
+              className="text-[11px] font-bold"
+              style={{ color: activeTab === 'ledger' ? colors.onPrimary : colors.textPrimary }}
+              numberOfLines={1}
+            >
+              Coin Ledger
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
-      {/* View: Orders & Bills */}
-      {activeTab === 'orders' ? (
+      {/* Content Area */}
+      {activeTab === 'invoices' || activeTab === 'refunds' ? (
         isOrdersLoading ? (
           <View className="flex-1 items-center justify-center">
             <Loading label="Loading orders & invoices…" />
           </View>
-        ) : orders.length === 0 ? (
+        ) : currentOrdersList.length === 0 ? (
           <EmptyState
-            emoji="🧾"
-            title="No invoices yet"
-            description="When you purchase coin bundles via Cashfree, your official tax invoices will be generated and saved to the cloud here."
+            emoji={activeTab === 'invoices' ? '🧾' : '↩️'}
+            title={activeTab === 'invoices' ? 'No paid invoices yet' : 'No refunds or failed orders'}
+            description={
+              activeTab === 'invoices'
+                ? 'When you purchase coins, your official tax invoices will appear here for download.'
+                : 'Any refunded, expired, or failed order protections will appear here.'
+            }
           />
         ) : (
           <FlatList
-            data={orders}
+            data={currentOrdersList}
             keyExtractor={(item, index) => String(item.id || item._id || index)}
             contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}
             refreshControl={
@@ -265,118 +475,170 @@ export default function Transactions() {
             }
             ItemSeparatorComponent={() => <View className="h-3" />}
             renderItem={({ item }) => {
-              const isPaid = item.status === 'paid';
+              const statusKey = orderStatusKey(item);
+              const isPaid = statusKey === 'paid';
+              const isRefunded = statusKey === 'refunded';
+              const isFailed = statusKey === 'failed' || statusKey === 'expired';
+              const isRejected = statusKey === 'rejected';
+              const theme = STATUS_THEME[statusKey];
+              const accentColor = theme.tone ?? colors.primary;
               const cashfreeRef = item.providerPaymentId || item.providerOrderId || item.id;
               const isDownloadingThis = downloadingId === item.id;
 
               return (
-                <Card
-                  className="p-4"
+                <View
+                  className="rounded-3xl overflow-hidden flex-row"
                   style={{
-                    borderColor: isPaid ? `${colors.primary}30` : colors.border,
                     backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: theme.border ?? colors.border,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 6,
+                    elevation: 1,
                   }}
                 >
-                  {/* Top Row: Package + Badge */}
-                  <View
-                    className="flex-row items-center justify-between pb-3 border-b"
-                    style={{ borderBottomColor: colors.border }}
-                  >
-                    <View className="flex-row items-center gap-2.5 flex-1 mr-2">
-                      <View
-                        className="h-10 w-10 rounded-2xl items-center justify-center"
-                        style={{ backgroundColor: `${colors.primary}15` }}
-                      >
-                        <Text className="text-lg">⚡</Text>
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-sm font-bold" style={{ color: colors.textPrimary }} numberOfLines={1}>
-                          {item.packageName || 'Coins Bundle'}
-                        </Text>
-                        <Pressable
-                          onPress={() => handleCopyRef(cashfreeRef)}
-                          className="flex-row items-center gap-1 mt-0.5"
+                  {/* Left status accent bar */}
+                  <View style={{ width: 4, backgroundColor: accentColor }} />
+
+                  <View className="flex-1 p-4">
+                    {/* Top Row: Package + Badge */}
+                    <View
+                      className="flex-row items-center justify-between pb-3 border-b"
+                      style={{ borderBottomColor: colors.border }}
+                    >
+                      <View className="flex-row items-center gap-3 flex-1 mr-2">
+                        <View
+                          className="h-11 w-11 rounded-2xl items-center justify-center"
+                          style={{ backgroundColor: `${accentColor}15` }}
                         >
-                          <Text
-                            className="text-[11px] font-mono"
-                            style={{ color: colors.textMuted }}
-                            numberOfLines={1}
-                            ellipsizeMode="middle"
-                          >
-                            Ref: {cashfreeRef}
+                          <Ionicons
+                            name={isRefunded ? 'arrow-undo' : isFailed ? 'time-outline' : isRejected ? 'close' : 'flash'}
+                            size={20}
+                            color={accentColor}
+                          />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-base font-bold" style={{ color: colors.textPrimary }} numberOfLines={1}>
+                            {item.packageName || 'Coins Bundle'}
                           </Text>
-                          <Ionicons name="copy-outline" size={10} color={colors.textMuted} />
-                        </Pressable>
+                          <Pressable
+                            onPress={() => handleCopyRef(cashfreeRef)}
+                            className="flex-row items-center gap-1 mt-0.5"
+                          >
+                            <Text
+                              className="text-[11px] font-mono"
+                              style={{ color: colors.textMuted }}
+                              numberOfLines={1}
+                              ellipsizeMode="middle"
+                            >
+                              Ref: {cashfreeRef}
+                            </Text>
+                            <Ionicons name="copy-outline" size={11} color={colors.textMuted} />
+                          </Pressable>
+                        </View>
                       </View>
-                    </View>
 
-                    <Badge
-                      label={isPaid ? 'PAID' : item.status.toUpperCase()}
-                      tone={isPaid ? 'success' : item.status === 'failed' ? 'danger' : 'warning'}
-                    />
-                  </View>
-
-                  {/* Mid Row: Coins Credited & Amount Paid */}
-                  <View
-                    className="my-3 p-3 rounded-2xl flex-row items-center justify-between"
-                    style={{ backgroundColor: colors.surfaceAlt }}
-                  >
-                    <View>
-                      <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textMuted }}>
-                        Coins Credited
-                      </Text>
-                      <View className="flex-row items-center gap-1.5 mt-0.5">
-                        <CoinIcon size={14} />
-                        <Text className="text-sm font-black" style={{ color: colors.coinGold || '#F59E0B' }}>
-                          +{formatCoins(item.totalCoins || item.coins || 0)} Coins
+                      <View
+                        className="px-2.5 py-1 rounded-full border flex-row items-center gap-1"
+                        style={{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}35` }}
+                      >
+                        <Ionicons name={theme.icon} size={11} color={accentColor} />
+                        <Text
+                          className="text-[10px] font-extrabold uppercase tracking-wider"
+                          style={{ color: accentColor }}
+                        >
+                          {theme.label}
                         </Text>
                       </View>
                     </View>
 
-                    <View className="items-end">
-                      <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textMuted }}>
-                        Amount Paid
-                      </Text>
-                      <Text className="text-base font-black" style={{ color: colors.textPrimary }}>
-                        {formatRupees(item.amountInRupees)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Bottom Row: Timestamp + Cloudinary PDF Download Button */}
-                  <View
-                    className="flex-row items-center justify-between pt-2 border-t"
-                    style={{ borderTopColor: colors.border }}
-                  >
-                    <View className="flex-row items-center gap-1">
-                      <Ionicons name="time-outline" size={12} color={colors.textMuted} />
-                      <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-                        {formatRelativeTime(item.createdAt)}
-                      </Text>
-                    </View>
-
-                    <Pressable
-                      onPress={() => handleDownloadInvoice(item)}
-                      disabled={isDownloadingThis}
-                      className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl border"
+                    {/* Mid Row: Coins Credited & Amount Paid / Refunded */}
+                    <View
+                      className="my-3 p-3 rounded-2xl flex-row items-center justify-between border"
                       style={{
-                        backgroundColor: `${colors.primary}12`,
-                        borderColor: `${colors.primary}30`,
+                        backgroundColor: isRefunded || isFailed ? `${accentColor}0A` : colors.surfaceAlt,
+                        borderColor: isRefunded || isFailed ? `${accentColor}25` : colors.border,
                       }}
                     >
-                      {isDownloadingThis ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <>
-                          <Ionicons name="download-outline" size={14} color={colors.primary} />
-                          <Text className="text-xs font-bold" style={{ color: colors.primary }}>
-                            Download PDF
+                      <View>
+                        <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                          {isRefunded ? 'Coins Reversal' : isFailed ? 'Coins (Uncredited)' : 'Coins Credited'}
+                        </Text>
+                        <View className="flex-row items-center gap-1.5 mt-0.5">
+                          <CoinIcon size={14} />
+                          <Text
+                            className="text-sm font-black"
+                            style={{
+                              color: isRefunded ? accentColor : isFailed ? colors.textMuted : colors.coinGold || '#F59E0B',
+                            }}
+                          >
+                            {isRefunded
+                              ? `-${formatCoins(item.totalCoins || item.coins || 0)} Coins`
+                              : isFailed
+                              ? '0 Coins'
+                              : `+${formatCoins(item.totalCoins || item.coins || 0)} Coins`}
                           </Text>
-                        </>
+                        </View>
+                      </View>
+
+                      <View className="items-end">
+                        <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                          {isRefunded ? 'Refund Amount' : isFailed ? 'Order Value' : 'Amount Paid'}
+                        </Text>
+                        <Text className="text-base font-black" style={{ color: isRefunded ? accentColor : colors.textPrimary }}>
+                          {formatRupees(item.amountInRupees)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Status-specific notice */}
+                    {isRefunded ? <RefundNotice item={item} colors={colors} /> : null}
+                    {isFailed ? <FailedNotice item={item} colors={colors} /> : null}
+                    {isRejected && item.rejectionReason ? <RejectedNotice item={item} colors={colors} /> : null}
+
+                    {/* Bottom Row: Timestamp + Cloudinary PDF Download Button */}
+                    <View
+                      className="flex-row items-center justify-between pt-2 border-t"
+                      style={{ borderTopColor: colors.border }}
+                    >
+                      <View className="flex-row items-center gap-1">
+                        <Ionicons name="time-outline" size={13} color={colors.textMuted} />
+                        <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+                          {formatRelativeTime(item.createdAt)}
+                        </Text>
+                      </View>
+
+                      {isPaid || isRefunded ? (
+                        <Pressable
+                          onPress={() => handleDownloadInvoice(item)}
+                          disabled={isDownloadingThis}
+                          className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl border"
+                          style={{
+                            backgroundColor: `${colors.primary}12`,
+                            borderColor: `${colors.primary}30`,
+                          }}
+                        >
+                          {isDownloadingThis ? (
+                            <ActivityIndicator size="small" color={colors.primary} />
+                          ) : (
+                            <>
+                              <Ionicons name="download-outline" size={14} color={colors.primary} />
+                              <Text className="text-xs font-bold" style={{ color: colors.primary }}>
+                                {isRefunded ? 'Credit Note / PDF' : 'Download PDF'}
+                              </Text>
+                            </>
+                          )}
+                        </Pressable>
+                      ) : (
+                        <Text className="text-[11px] font-semibold" style={{ color: isFailed ? '#D97706' : colors.textMuted }}>
+                          {item.status === 'expired' ? 'Expired / Unpaid' : 'Payment Incomplete'}
+                        </Text>
                       )}
-                    </Pressable>
+                    </View>
                   </View>
-                </Card>
+                </View>
               );
             }}
           />
