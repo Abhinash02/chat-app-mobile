@@ -63,8 +63,8 @@ export default function TabsLayout() {
   const { unreadCount } = useSocket();
   const insets = useSafeAreaInsets();
 
-  const safeBottom = Platform.OS === 'ios' ? insets.bottom : Math.max(insets.bottom, 12);
-  const tabHeight = 60 + safeBottom;
+  const safeBottom = Platform.OS === 'ios' ? Math.max(insets.bottom, 24) : Math.max(insets.bottom, 20);
+  const tabHeight = 58 + safeBottom;
 
   return (
     <Tabs
@@ -89,13 +89,12 @@ export default function TabsLayout() {
           fontSize: 10.5,
           fontWeight: '700',
           letterSpacing: 0.1,
-          marginTop: 1,
-          marginBottom: 1,
+          marginTop: 2,
         },
         tabBarItemStyle: {
           alignItems: 'center',
           justifyContent: 'center',
-          paddingVertical: 2,
+          paddingTop: 2,
         },
       }}
     >
