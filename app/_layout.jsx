@@ -19,7 +19,10 @@ import '../global.css';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      placeholderData: (previous) => previous,
       retry: (failureCount, error) => {
         // A 402 or 403 will not become a 200 on retry; only transport failures
         // are worth attempting again.

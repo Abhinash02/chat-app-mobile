@@ -1,5 +1,6 @@
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Avatar } from './ui.jsx';
 import { Skeleton } from './Loader.jsx';
@@ -7,26 +8,25 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
 
 /**
  * A titled row with an optional action on the right.
- *
- * Sections render nothing when empty rather than showing a placeholder: on a
- * new install several would be empty at once, and a screen of "nothing here
- * yet" cards reads as a broken app.
  */
 export function SectionHeader({ title, badge, action, onAction }) {
   const { colors, radius } = useTheme();
 
   return (
     <View className="mb-3 flex-row items-center gap-2">
-      <Text className="text-xl font-extrabold" style={{ color: colors.textPrimary }}>
+      <Text className="text-lg font-black tracking-tight" style={{ color: colors.textPrimary }}>
         {title}
       </Text>
 
       {badge ? (
         <View
-          className="px-2 py-0.5"
-          style={{ backgroundColor: `${colors.success}22`, borderRadius: radius }}
+          className="px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: `${colors.success || '#10B981'}20` }}
         >
-          <Text className="text-[11px] font-bold" style={{ color: colors.success }}>
+          <Text
+            className="text-[10px] font-black uppercase tracking-wider"
+            style={{ color: colors.success || '#10B981' }}
+          >
             {badge}
           </Text>
         </View>
@@ -36,10 +36,13 @@ export function SectionHeader({ title, badge, action, onAction }) {
         <Pressable
           onPress={onAction}
           accessibilityRole="button"
-          className="ml-auto px-3 py-1.5"
-          style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius }}
+          className="ml-auto px-3 py-1 rounded-full border shadow-sm active:scale-95 transition"
+          style={{
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+          }}
         >
-          <Text className="text-sm font-semibold" style={{ color: colors.primary }}>
+          <Text className="text-xs font-bold" style={{ color: colors.primary }}>
             {action}
           </Text>
         </Pressable>
@@ -57,26 +60,32 @@ function RoomCard({ room, onPress }) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Join ${room.name}`}
-      className="mr-3 p-3.5"
+      className="mr-3 p-3.5 border shadow-sm active:scale-95 transition"
       style={{
-        width: 210,
+        width: 220,
         backgroundColor: colors.surface,
         borderRadius: radius + 4,
-        borderWidth: 1,
         borderColor: colors.border,
       }}
     >
-      <View className="mb-2 flex-row items-center gap-2">
+      <View className="mb-2 flex-row items-center gap-1.5">
         <View
-          className="h-2 w-2 rounded-full"
-          style={{ backgroundColor: room.status === 'live' ? colors.onlineDot : colors.offlineDot }}
-        />
-        <Text className="text-[11px] font-bold uppercase" style={{ color: colors.success }}>
-          Live
-        </Text>
-        <Text className="ml-auto text-[11px]" style={{ color: colors.textMuted }}>
-          {/* Distance only appears on a nearby feed, so its absence is not a
-              gap — it means the list was not location-based. */}
+          className="flex-row items-center gap-1 px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: `${colors.success || '#10B981'}15` }}
+        >
+          <View
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: colors.success || '#10B981' }}
+          />
+          <Text
+            className="text-[10px] font-black uppercase"
+            style={{ color: colors.success || '#10B981' }}
+          >
+            Live
+          </Text>
+        </View>
+
+        <Text className="ml-auto text-[11px] font-semibold" style={{ color: colors.textMuted }}>
           {room.distanceKm !== null && room.distanceKm !== undefined
             ? `📍 ${room.distanceKm} km · `
             : ''}
@@ -84,28 +93,48 @@ function RoomCard({ room, onPress }) {
         </Text>
       </View>
 
-      <Text numberOfLines={1} className="text-sm font-bold" style={{ color: colors.textPrimary }}>
+      <Text
+        numberOfLines={1}
+        className="text-sm font-extrabold"
+        style={{ color: colors.textPrimary }}
+      >
         {room.name}
       </Text>
-      <Text numberOfLines={1} className="mt-0.5 text-xs" style={{ color: colors.textMuted }}>
+      <Text
+        numberOfLines={1}
+        className="mt-0.5 text-xs font-medium"
+        style={{ color: colors.textMuted }}
+      >
         {room.topic || `Hosted by ${room.host?.nickname ?? 'someone'}`}
       </Text>
 
-      <View className="mt-3 flex-row items-center">
-        {(room.participants ?? []).slice(0, 4).map((participant, index) => (
-          <View key={participant.userId} style={{ marginLeft: index === 0 ? 0 : -10 }}>
-            <Avatar
-              name={participant.nickname}
-              gender={participant.gender}
-              emoji={participant.avatarEmoji}
-              color={participant.avatarColor}
-              size={26}
-            />
-          </View>
-        ))}
-        <Text className="ml-auto text-xs font-bold" style={{ color: colors.primary }}>
-          Join →
-        </Text>
+      <View className="mt-3 flex-row items-center justify-between">
+        <View className="flex-row items-center">
+          {(room.participants ?? []).slice(0, 3).map((participant, index) => (
+            <View
+              key={participant.userId || index}
+              style={{ marginLeft: index === 0 ? 0 : -8, zIndex: 3 - index }}
+              className="rounded-full border-2 border-white"
+            >
+              <Avatar
+                name={participant.nickname}
+                gender={participant.gender}
+                emoji={participant.avatarEmoji}
+                color={participant.avatarColor}
+                size={24}
+              />
+            </View>
+          ))}
+        </View>
+
+        <View
+          className="px-2.5 py-1 rounded-full flex-row items-center gap-1"
+          style={{ backgroundColor: `${colors.primary}15` }}
+        >
+          <Text className="text-[11px] font-bold" style={{ color: colors.primary }}>
+            Join →
+          </Text>
+        </View>
       </View>
     </Pressable>
   );
@@ -207,28 +236,34 @@ function CreateRoomCard() {
       onPress={() => router.push('/(tabs)/rooms?create=true')}
       accessibilityRole="button"
       accessibilityLabel="Start a room"
-      className="items-center justify-center px-4"
+      className="items-center justify-center px-4 py-4 mr-3 border shadow-sm active:scale-95 transition"
       style={{
         width: 150,
-        backgroundColor: colors.surface,
+        backgroundColor: `${colors.primary}0F`,
         borderRadius: radius + 4,
-        borderWidth: 2,
-        borderColor: colors.primary,
-        borderStyle: 'dashed',
+        borderColor: `${colors.primary}35`,
       }}
     >
       <View
-        className="mb-2 h-11 w-11 items-center justify-center rounded-full"
+        className="mb-2 h-10 w-10 items-center justify-center rounded-2xl shadow-sm"
         style={{ backgroundColor: colors.primary }}
       >
-        <Text style={{ color: colors.onPrimary, fontSize: 22, lineHeight: 26 }}>+</Text>
+        <Ionicons name="add" size={22} color={colors.onPrimary || '#FFFFFF'} />
       </View>
-      <Text className="text-center text-sm font-bold" style={{ color: colors.primary }}>
-        Start a room
+      <Text
+        className="text-center text-xs font-black tracking-wide"
+        style={{ color: colors.primary }}
+      >
+        Start a Room
       </Text>
-      <Text className="mt-0.5 text-center text-[11px]" style={{ color: colors.textMuted }}>
-        Free to host
-      </Text>
+      <View
+        className="mt-1 px-2 py-0.5 rounded-full"
+        style={{ backgroundColor: `${colors.primary}18` }}
+      >
+        <Text className="text-[10px] font-bold" style={{ color: colors.primary }}>
+          Free to host
+        </Text>
+      </View>
     </Pressable>
   );
 }

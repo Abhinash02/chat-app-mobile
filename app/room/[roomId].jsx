@@ -23,6 +23,7 @@ import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
+import { useScreenCaptureProtection } from '../../src/hooks/useScreenCaptureProtection.js';
 
 /**
  * What actually sits inside a bubble, chosen by message type.
@@ -96,6 +97,7 @@ function RoomMessage({ message, isMine }) {
 }
 
 export default function RoomScreen() {
+  useScreenCaptureProtection();
   const { roomId } = useLocalSearchParams();
   const { colors } = useTheme();
   const { user } = useAuth();

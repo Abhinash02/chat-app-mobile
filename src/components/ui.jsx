@@ -15,10 +15,12 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
 
 export function Button({
   title,
+  children,
   onPress,
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  loading = false,
   disabled = false,
   icon,
   className = '',
@@ -26,29 +28,42 @@ export function Button({
 }) {
   const { colors, radius } = useTheme();
 
-  const palette = {
-    primary: { background: colors.primary, text: colors.onPrimary, border: 'transparent' },
-    secondary: { background: colors.surfaceAlt, text: colors.textPrimary, border: 'transparent' },
-    outline: { background: 'transparent', text: colors.textPrimary, border: colors.border },
-    ghost: { background: 'transparent', text: colors.textSecondary, border: 'transparent' },
-    danger: { background: colors.danger, text: '#FFFFFF', border: 'transparent' },
-  }[variant];
+  const primaryBg = colors?.primary || '#FF4E88';
+  const primaryText = colors?.onPrimary || '#FFFFFF';
+  const textPri = colors?.textPrimary || '#1B1024';
+  const textSec = colors?.textSecondary || '#5C4A63';
+  const surfAlt = colors?.surfaceAlt || '#FDEDF3';
+  const borderColor = colors?.border || '#F3D7E2';
+  const dangerColor = colors?.danger || '#F5325B';
+
+  const palettes = {
+    primary: { background: primaryBg, text: primaryText, border: 'transparent' },
+    brand: { background: primaryBg, text: primaryText, border: 'transparent' },
+    secondary: { background: surfAlt, text: textPri, border: 'transparent' },
+    outline: { background: 'transparent', text: textPri, border: borderColor },
+    ghost: { background: 'transparent', text: textSec, border: 'transparent' },
+    danger: { background: dangerColor, text: '#FFFFFF', border: 'transparent' },
+  };
+
+  const palette = palettes[variant] || palettes.primary;
 
   const sizing = {
     sm: 'px-3.5 py-2',
     md: 'px-5 py-3.5',
     lg: 'px-6 py-4',
-  }[size];
+  }[size] || 'px-5 py-3.5';
 
-  const isDisabled = disabled || isLoading;
+  const isBusy = isLoading || loading;
+  const isDisabled = disabled || isBusy;
+  const buttonLabel = title || children;
 
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityState={{ disabled: isDisabled, busy: isLoading }}
+      accessibilityLabel={typeof buttonLabel === 'string' ? buttonLabel : 'Button'}
+      accessibilityState={{ disabled: isDisabled, busy: isBusy }}
       className={`flex-row items-center justify-center gap-2 ${sizing} ${className}`}
       style={({ pressed }) => [
         {
@@ -57,23 +72,26 @@ export function Button({
           borderWidth: variant === 'outline' ? 1 : 0,
           borderColor: palette.border,
           opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1,
-          // A pressed button should feel like it moved, not just dimmed.
           transform: [{ scale: pressed && !isDisabled ? 0.985 : 1 }],
         },
         style,
       ]}
     >
-      {isLoading ? (
+      {isBusy ? (
         <ActivityIndicator size="small" color={palette.text} />
       ) : (
         <>
           {icon ? <Text className="text-base">{icon}</Text> : null}
-          <Text
-            className={`font-semibold ${size === 'sm' ? 'text-sm' : 'text-base'}`}
-            style={{ color: palette.text }}
-          >
-            {title}
-          </Text>
+          {typeof buttonLabel === 'string' ? (
+            <Text
+              className={`font-semibold ${size === 'sm' ? 'text-sm' : 'text-base'}`}
+              style={{ color: palette.text }}
+            >
+              {buttonLabel}
+            </Text>
+          ) : (
+            buttonLabel
+          )}
         </>
       )}
     </Pressable>
@@ -260,29 +278,45 @@ export function Avatar({
   );
 }
 
-export function Badge({ label, tone = 'neutral', className = '' }) {
+export function Badge({
+  label,
+  children,
+  tone,
+  variant = 'neutral',
+  size = 'md',
+  className = '',
+  style,
+}) {
   const { colors } = useTheme();
+  const currentTone = tone || variant || 'neutral';
 
-  const background = {
-    neutral: colors.surfaceAlt,
-    success: `${colors.success}22`,
-    warning: `${colors.warning}22`,
-    danger: `${colors.danger}22`,
-    brand: `${colors.primary}22`,
-  }[tone];
+  const badgeColors = {
+    neutral: { bg: colors.surfaceAlt || '#F3F4F6', text: colors.textSecondary || '#6B7280' },
+    purple: { bg: '#8B5CF622', text: '#8B5CF6' },
+    pending: { bg: '#8B5CF622', text: '#8B5CF6' },
+    open: { bg: '#F59E0B22', text: '#D97706' },
+    in_progress: { bg: `${colors.primary || '#FF4E88'}22`, text: colors.primary || '#FF4E88' },
+    warning: { bg: `${colors.warning || '#F59E0B'}22`, text: colors.warning || '#F59E0B' },
+    success: { bg: `${colors.success || '#22C55E'}22`, text: colors.success || '#16A34A' },
+    danger: { bg: `${colors.danger || '#EF4444'}22`, text: colors.danger || '#EF4444' },
+    brand: { bg: `${colors.primary || '#FF4E88'}22`, text: colors.primary || '#FF4E88' },
+  };
 
-  const text = {
-    neutral: colors.textSecondary,
-    success: colors.success,
-    warning: colors.warning,
-    danger: colors.danger,
-    brand: colors.primary,
-  }[tone];
+  const selected = badgeColors[currentTone] || badgeColors.neutral;
+  const content = label || children;
 
   return (
-    <View className={`rounded-full px-2.5 py-1 ${className}`} style={{ backgroundColor: background }}>
-      <Text className="text-xs font-semibold" style={{ color: text }}>
-        {label}
+    <View
+      className={`rounded-full items-center justify-center ${className}`}
+      style={[{ backgroundColor: selected.bg }, style]}
+    >
+      <Text
+        className={`font-bold uppercase tracking-wider ${
+          size === 'sm' ? 'text-[10px] px-2 py-0.5' : 'text-xs px-2.5 py-1'
+        }`}
+        style={{ color: selected.text }}
+      >
+        {content}
       </Text>
     </View>
   );

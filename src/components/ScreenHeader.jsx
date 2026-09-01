@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
@@ -54,15 +55,18 @@ export function ScreenHeader({
         onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel={variant === 'close' ? 'Close' : 'Go back'}
-        // A generous hit area: this is the control people reach for most, and
-        // a 24px glyph is an unkind target on a phone.
         hitSlop={12}
-        className="h-10 w-10 items-center justify-center rounded-full"
-        style={{ backgroundColor: colors.surfaceAlt }}
+        className="h-10 w-10 items-center justify-center rounded-2xl border shadow-sm active:scale-95 transition"
+        style={{
+          backgroundColor: colors.surfaceAlt,
+          borderColor: colors.border,
+        }}
       >
-        <Text style={{ color: colors.textPrimary, fontSize: 18, lineHeight: 22 }}>
-          {variant === 'close' ? '✕' : '‹'}
-        </Text>
+        <Ionicons
+          name={variant === 'close' ? 'close' : 'arrow-back'}
+          size={20}
+          color={colors.textPrimary}
+        />
       </Pressable>
 
       <View className="min-w-0 flex-1">

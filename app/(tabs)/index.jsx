@@ -420,15 +420,36 @@ export default function Discover() {
           {/* Always shown: the create tile is what makes an empty room list
               useful rather than a dead end. */}
           <View className="mb-5">
-              <View className="px-4">
-                <SectionHeader
-                  title={nearbyCoordinates ? 'Rooms near you' : 'Voice Rooms'}
-                  action="Start one"
-                  onAction={() => router.push('/(tabs)/rooms?create=true')}
-                />
-              </View>
+            <View className="px-4">
+              <SectionHeader
+                title={nearbyCoordinates ? 'Rooms near you' : 'Voice Rooms'}
+                action="Start one"
+                onAction={() => router.push('/(tabs)/rooms?create=true')}
+              />
+            </View>
             <View className="pl-4">
               <LiveRoomsRow rooms={liveRooms?.items} isLoading={isLoadingRooms} />
+            </View>
+          </View>
+
+          {/* Browse Everyone (Moved right after Voice Rooms) */}
+          <View className="mb-5">
+            <View className="px-4">
+              <SectionHeader
+                title="Browse everyone"
+                action="See all"
+                onAction={() => router.push('/browse')}
+              />
+            </View>
+            <View className="pl-4">
+              <BrowseRow
+                people={people}
+                total={data?.meta?.total}
+                isLoading={isLoading}
+                presence={presence}
+                openingId={openingId}
+                onOpen={openChat}
+              />
             </View>
           </View>
 
@@ -447,24 +468,56 @@ export default function Discover() {
             </View>
           ) : null}
 
-          <View className="mb-2">
-            <View className="px-4">
-              <SectionHeader
-                title="Browse everyone"
-                action="See all"
-                onAction={() => router.push('/browse')}
-              />
-            </View>
-            <View className="pl-4">
-              <BrowseRow
-                people={people}
-                total={data?.meta?.total}
-                isLoading={isLoading}
-                presence={presence}
-                openingId={openingId}
-                onOpen={openChat}
-              />
-            </View>
+          {/* Nearby Random Call Section */}
+          <View className="mb-6 px-4">
+            <Pressable
+              onPress={() => router.push('/random-call')}
+              className="flex-row items-center justify-between p-3.5 rounded-2xl shadow-sm border active:scale-95 transition"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              }}
+            >
+              <View className="flex-row items-center gap-3 flex-1">
+                <View
+                  className="h-11 w-11 items-center justify-center rounded-2xl shadow-md"
+                  style={{ backgroundColor: colors.primary }}
+                >
+                  <Text className="text-xl">📞</Text>
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-1.5">
+                    <Text
+                      className="text-xs font-black uppercase tracking-wider"
+                      style={{ color: colors.textPrimary }}
+                    >
+                      Nearby Random Call
+                    </Text>
+                    <View className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <Text className="text-[10px] font-bold text-emerald-500">1-on-1</Text>
+                  </View>
+                  <Text
+                    className="text-[11px] mt-0.5"
+                    style={{ color: colors.textSecondary }}
+                    numberOfLines={1}
+                  >
+                    Talk 1-on-1 with people closest to your location instantly
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                className="px-3 py-1.5 rounded-xl ml-2 shadow-sm"
+                style={{ backgroundColor: colors.primary }}
+              >
+                <Text
+                  className="text-xs font-bold"
+                  style={{ color: colors.onPrimary || '#FFFFFF' }}
+                >
+                  Call Now →
+                </Text>
+              </View>
+            </Pressable>
           </View>
         </ScrollView>
       )}

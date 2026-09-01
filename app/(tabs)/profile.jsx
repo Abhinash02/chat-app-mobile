@@ -1,12 +1,15 @@
+
+
 import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Avatar, Badge, Button, Card, CoinIcon, Field, Input, Loading } from '../../src/components/ui.jsx';
-import { feedbackApi, usersApi } from '../../src/api/endpoints.js';
+import { feedbackApi, supportApi, usersApi } from '../../src/api/endpoints.js';
 import { formatCoins } from '../../src/lib/format.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
@@ -14,17 +17,17 @@ import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
 
 const FEEDBACK_CATEGORIES = [
-  { label: '💡 Suggestion', value: 'suggestion' },
-  { label: '🐛 Bug Issue', value: 'bug' },
-  { label: '❤️ Love App', value: 'compliment' },
-  { label: '❓ Other', value: 'other' },
+  { label: 'Suggestion', value: 'suggestion', icon: 'bulb-outline' },
+  { label: 'Bug Issue', value: 'bug', icon: 'bug-outline' },
+  { label: 'Love App', value: 'compliment', icon: 'heart-outline' },
+  { label: 'Other', value: 'other', icon: 'help-circle-outline' },
 ];
 
 const AGE_GROUPS = [
-  { label: '18–21', value: '18-21', emoji: '🎓' },
-  { label: '22–25', value: '22-25', emoji: '🚀' },
-  { label: '26–29', value: '26-29', emoji: '🌟' },
-  { label: '30+', value: '30+', emoji: '👑' },
+  { label: '18–21', value: '18-21', icon: 'school-outline' },
+  { label: '22–25', value: '22-25', icon: 'rocket-outline' },
+  { label: '26–29', value: '26-29', icon: 'star-outline' },
+  { label: '30+', value: '30+', icon: 'ribbon-outline' },
 ];
 
 const ZODIAC_SIGNS = [
@@ -41,6 +44,44 @@ const ZODIAC_SIGNS = [
   { label: 'Aquarius', symbol: '♒', value: 'Aquarius ♒' },
   { label: 'Pisces', symbol: '♓', value: 'Pisces ♓' },
 ];
+
+// Grouped menu configuration — declarative, so the render pass stays simple
+// and every row gets consistent icon-chip + chevron treatment.
+function useMenuSections({ router, unreadSupportCount, onOpenFeedback }) {
+  return [
+    {
+      title: 'Account',
+      items: [
+        { icon: 'wallet-outline', tint: '#f59e0b', label: 'Get Coins', onPress: () => router.push('/coins') },
+        { icon: 'time-outline', tint: '#3b82f6', label: 'Transaction History', onPress: () => router.push('/transactions') },
+        { icon: 'shield-checkmark-outline', tint: '#ef4444', label: 'Blocked Accounts', onPress: () => router.push('/blocked') },
+        { icon: 'trophy-outline', tint: '#eab308', label: 'Leaderboard', onPress: () => router.push('/leaderboard') },
+      ],
+    },
+    {
+      title: 'Support',
+      items: [
+        { icon: 'chatbubble-ellipses-outline', tint: '#8b5cf6', label: 'Send Feedback & Ideas', onPress: onOpenFeedback },
+        {
+          icon: 'headset-outline',
+          tint: '#10b981',
+          label: 'Help & Customer Support',
+          onPress: () => router.push('/support'),
+          badge: unreadSupportCount > 0 ? { text: `${unreadSupportCount} New`, tone: 'danger' } : { text: '24/7 Live', tone: 'brand' },
+        },
+        { icon: 'settings-outline', tint: '#6b7280', label: 'Settings', onPress: () => router.push('/settings') },
+      ],
+    },
+    {
+      title: 'Legal',
+      items: [
+        { icon: 'document-text-outline', tint: '#6b7280', label: 'Terms of Use', onPress: () => router.push('/terms') },
+        { icon: 'lock-closed-outline', tint: '#6b7280', label: 'Privacy Policy', onPress: () => router.push('/privacy') },
+        { icon: 'card-outline', tint: '#6b7280', label: 'Refund Policy', onPress: () => router.push('/refund') },
+      ],
+    },
+  ];
+}
 
 export default function Profile() {
   const { colors, radius } = useTheme();
@@ -91,6 +132,12 @@ export default function Profile() {
     queryKey: ['my-profile'],
     queryFn: usersApi.me,
   });
+
+  const { data: mySupportTickets = [] } = useQuery({
+    queryKey: ['my-support-tickets'],
+    queryFn: supportApi.myTickets,
+  });
+  const unreadSupportCount = (mySupportTickets ?? []).filter((t) => t.unreadByUser).length;
 
   const save = useMutation({
     mutationFn: () =>
@@ -162,148 +209,194 @@ export default function Profile() {
     }
   }
 
+  const menuSections = useMenuSections({
+    router,
+    unreadSupportCount,
+    onOpenFeedback: () => setIsFeedbackOpen(true),
+  });
+
   if (isLoading) {
     return (
-      <View className="flex-1" style={{ backgroundColor: colors.background }}>
-        <Loading />
+      <View className="flex-1 justify-center" style={{ backgroundColor: colors.background }}>
+        <Loading label="Loading profile…" />
       </View>
     );
   }
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
-        <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-          You
-        </Text>
-        <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings" className="p-2">
-          <Text className="text-xl">⚙️</Text>
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 pb-3 pt-2">
+        <View>
+          <Text className="text-[26px] font-extrabold tracking-tight" style={{ color: colors.textPrimary }}>
+            Profile
+          </Text>
+          <Text className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
+            Manage your account
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => router.push('/settings')}
+          accessibilityRole="button"
+          accessibilityLabel="Settings"
+          className="h-10 w-10 items-center justify-center"
+          style={{ backgroundColor: colors.surfaceAlt, borderRadius: 20 }}
+        >
+          <Ionicons name="settings-outline" size={19} color={colors.textSecondary} />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <View className="items-center">
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        {/* ---------- Identity card ---------- */}
+        <View
+          className="items-center pt-7 pb-6 px-5"
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: radius + 8,
+            borderWidth: 1,
+            borderColor: colors.border,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.05,
+            shadowRadius: 14,
+            elevation: 2,
+          }}
+        >
           <Pressable onPress={pickPhoto} disabled={isUploading} accessibilityRole="button" accessibilityLabel="Change your photo">
-            <Avatar
-              uri={profile?.avatarUrl}
-              name={profile?.nickname}
-              gender={profile?.gender}
-              emoji={profile?.avatarEmoji}
-              color={profile?.avatarColor}
-              size={96}
-            />
             <View
-              className="absolute -bottom-1 -right-1 h-8 w-8 items-center justify-center rounded-full"
-              style={{ backgroundColor: colors.primary, borderWidth: 3, borderColor: colors.background }}
+              style={{
+                padding: 3,
+                borderRadius: 999,
+                borderWidth: 2,
+                borderColor: colors.primary,
+              }}
             >
-              <Text style={{ fontSize: 13 }}>{isUploading ? '⏳' : '📷'}</Text>
+              <Avatar
+                uri={profile?.avatarUrl}
+                name={profile?.nickname}
+                gender={profile?.gender}
+                emoji={profile?.avatarEmoji}
+                color={profile?.avatarColor}
+                size={92}
+              />
+            </View>
+            <View
+              className="absolute -bottom-1 -right-1 h-8 w-8 items-center justify-center"
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 16,
+                borderWidth: 3,
+                borderColor: colors.surface,
+              }}
+            >
+              {isUploading ? (
+                <ActivityIndicator size="small" color={colors.onPrimary} />
+              ) : (
+                <Ionicons name="camera" size={14} color={colors.onPrimary} />
+              )}
             </View>
           </Pressable>
 
-          <Text className="mt-3 text-xl font-bold" style={{ color: colors.textPrimary }}>
+          <Text className="mt-3.5 text-xl font-bold" style={{ color: colors.textPrimary }}>
             {profile?.nickname}
           </Text>
-          <Text className="text-sm" style={{ color: colors.textMuted }}>
+          <Text className="text-sm mt-0.5" style={{ color: colors.textMuted }}>
             {profile?.email}
           </Text>
 
-          <View className="mt-2.5 flex-row flex-wrap justify-center gap-2">
+          <View className="mt-3 flex-row flex-wrap justify-center gap-2">
             <Badge
               label={profile?.gender === 'female' ? '👧 Girl' : '👦 Boy'}
               tone={profile?.gender === 'female' ? 'brand' : 'neutral'}
             />
-            {profile?.ageGroup ? (
-              <Badge label={`🎂 ${profile.ageGroup}`} tone="neutral" />
-            ) : null}
-            {profile?.zodiacSign ? (
-              <Badge label={profile.zodiacSign} tone="brand" />
-            ) : null}
-            {profile?.location?.city ? (
-              <Badge label={`🏙️ ${profile.location.city}`} tone="neutral" />
-            ) : null}
+            {profile?.ageGroup ? <Badge label={`🎂 ${profile.ageGroup}`} tone="neutral" /> : null}
+            {profile?.zodiacSign ? <Badge label={profile.zodiacSign} tone="brand" /> : null}
+            {profile?.location?.city ? <Badge label={`🏙️ ${profile.location.city}`} tone="neutral" /> : null}
             {wallet?.isUnlimited ? <Badge label="Unlimited chat" tone="success" /> : null}
           </View>
 
           {profile?.bio && !isEditing ? (
-            <Text className="mt-3 px-6 text-center text-sm leading-5" style={{ color: colors.textSecondary }}>
+            <Text className="mt-4 px-4 text-center text-sm leading-5" style={{ color: colors.textSecondary }}>
               {profile.bio}
             </Text>
           ) : null}
+
+          {!isEditing && (
+            <Pressable
+              onPress={startEditing}
+              className="mt-5 flex-row items-center gap-1.5 px-5 py-2.5"
+              style={{ backgroundColor: colors.surfaceAlt, borderRadius: 999, borderWidth: 1, borderColor: colors.border }}
+            >
+              <Ionicons name="create-outline" size={15} color={colors.textPrimary} />
+              <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                Edit Profile
+              </Text>
+            </Pressable>
+          )}
         </View>
 
-        <View className="mt-6 flex-row gap-2.5">
-          <Pressable
+        {/* ---------- Stats row ---------- */}
+        <View className="mt-4 flex-row gap-2.5">
+          <StatTile
+            colors={colors}
+            radius={radius}
+            value={profile?.followersCount ?? 0}
+            label="Followers"
+            icon="people-outline"
             onPress={() => router.push('/follows?tab=followers')}
-            className="flex-1 items-center py-3"
-            style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius }}
-          >
-            <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-              {profile?.followersCount ?? 0}
-            </Text>
-            <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-              Followers
-            </Text>
-          </Pressable>
-
-          <Pressable
+          />
+          <StatTile
+            colors={colors}
+            radius={radius}
+            value={profile?.followingCount ?? 0}
+            label="Following"
+            icon="person-add-outline"
             onPress={() => router.push('/follows?tab=following')}
-            className="flex-1 items-center py-3"
-            style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius }}
-          >
-            <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-              {profile?.followingCount ?? 0}
-            </Text>
-            <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-              Following
-            </Text>
-          </Pressable>
-
-          <View
-            className="flex-1 items-center py-3"
-            style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius }}
-          >
-            <View className="flex-row items-center gap-1">
-              <CoinIcon size={14} />
-              <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-                {wallet?.isUnlimited ? '∞' : formatCoins(wallet?.coinBalance ?? 0)}
-              </Text>
-            </View>
-            <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-              Coins
-            </Text>
-          </View>
-
-          <View
-            className="flex-1 items-center py-3"
-            style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius }}
-          >
-            <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-              {formatCoins(profile?.gamePoints ?? 0)}
-            </Text>
-            <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-              Points
-            </Text>
-          </View>
+          />
+          <StatTile
+            colors={colors}
+            radius={radius}
+            value={wallet?.isUnlimited ? '∞' : formatCoins(wallet?.coinBalance ?? 0)}
+            label="Coins"
+            icon={<CoinIcon size={16} />}
+            onPress={() => router.push('/coins')}
+          />
+          <StatTile
+            colors={colors}
+            radius={radius}
+            value={formatCoins(profile?.gamePoints ?? 0)}
+            label="Points"
+            icon="game-controller-outline"
+            onPress={() => router.push('/(tabs)/games')}
+          />
         </View>
 
+        {/* ---------- Edit form ---------- */}
         {isEditing ? (
-          <Card className="mt-5" style={{ borderWidth: 1.5, borderColor: colors.primary }}>
-            <View className="flex-row items-center justify-between pb-2.5 mb-3" style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}>
-              <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-                ✏️ Edit Profile
-              </Text>
+          <View
+            className="mt-4 p-5"
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: radius + 6,
+              borderWidth: 1.5,
+              borderColor: colors.primary,
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.12,
+              shadowRadius: 16,
+              elevation: 3,
+            }}
+          >
+            <View className="flex-row items-center justify-between pb-3 mb-4" style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}>
               <View className="flex-row items-center gap-2">
-                <Button
-                  title="Save"
-                  size="sm"
-                  variant="primary"
-                  isLoading={save.isPending}
-                  onPress={() => save.mutate()}
-                />
-                <Pressable onPress={() => setIsEditing(false)} className="p-1">
-                  <Text style={{ fontSize: 18, color: colors.textMuted }}>✕</Text>
-                </Pressable>
+                <Ionicons name="create-outline" size={17} color={colors.primary} />
+                <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
+                  Edit Profile
+                </Text>
               </View>
+              <Pressable onPress={() => setIsEditing(false)} className="h-7 w-7 items-center justify-center" style={{ backgroundColor: colors.surfaceAlt, borderRadius: 14 }}>
+                <Ionicons name="close" size={15} color={colors.textMuted} />
+              </Pressable>
             </View>
 
             <Field label="Nickname" hint="This is what everyone sees in chats and discovery.">
@@ -336,7 +429,7 @@ export default function Profile() {
                     <Pressable
                       key={ag.value}
                       onPress={() => setAgeGroup(ag.value)}
-                      className="flex-1 min-w-[45%] py-2 px-3 items-center flex-row justify-center gap-1.5"
+                      className="flex-1 min-w-[45%] py-2.5 px-3 items-center flex-row justify-center gap-1.5"
                       style={{
                         backgroundColor: isSelected ? `${colors.primary}18` : colors.surfaceAlt,
                         borderRadius: radius,
@@ -344,11 +437,8 @@ export default function Profile() {
                         borderColor: isSelected ? colors.primary : colors.border,
                       }}
                     >
-                      <Text style={{ fontSize: 16 }}>{ag.emoji}</Text>
-                      <Text
-                        className="text-xs font-bold"
-                        style={{ color: isSelected ? colors.primary : colors.textPrimary }}
-                      >
+                      <Ionicons name={ag.icon} size={14} color={isSelected ? colors.primary : colors.textMuted} />
+                      <Text className="text-xs font-bold" style={{ color: isSelected ? colors.primary : colors.textPrimary }}>
                         {ag.label}
                       </Text>
                     </Pressable>
@@ -362,19 +452,16 @@ export default function Profile() {
                 <View className="flex-row gap-1.5 px-1">
                   <Pressable
                     onPress={() => setZodiacSign(null)}
-                    className="py-1.5 px-2.5 items-center flex-row gap-1"
+                    className="py-1.5 px-3 items-center flex-row gap-1"
                     style={{
                       backgroundColor: !zodiacSign ? colors.primary : colors.surfaceAlt,
-                      borderRadius: radius,
+                      borderRadius: 999,
                       borderWidth: 1,
                       borderColor: !zodiacSign ? colors.primary : colors.border,
                     }}
                   >
-                    <Text style={{ fontSize: 13 }}>✨</Text>
-                    <Text
-                      className="text-xs font-semibold"
-                      style={{ color: !zodiacSign ? colors.onPrimary : colors.textPrimary }}
-                    >
+                    <Ionicons name="sparkles-outline" size={13} color={!zodiacSign ? colors.onPrimary : colors.textMuted} />
+                    <Text className="text-xs font-semibold" style={{ color: !zodiacSign ? colors.onPrimary : colors.textPrimary }}>
                       None
                     </Text>
                   </Pressable>
@@ -385,19 +472,16 @@ export default function Profile() {
                       <Pressable
                         key={z.value}
                         onPress={() => setZodiacSign(isSelected ? null : z.value)}
-                        className="py-1.5 px-2.5 items-center flex-row gap-1"
+                        className="py-1.5 px-3 items-center flex-row gap-1"
                         style={{
                           backgroundColor: isSelected ? colors.primary : colors.surfaceAlt,
-                          borderRadius: radius,
+                          borderRadius: 999,
                           borderWidth: 1,
                           borderColor: isSelected ? colors.primary : colors.border,
                         }}
                       >
                         <Text style={{ fontSize: 13 }}>{z.symbol}</Text>
-                        <Text
-                          className="text-xs font-semibold"
-                          style={{ color: isSelected ? colors.onPrimary : colors.textPrimary }}
-                        >
+                        <Text className="text-xs font-semibold" style={{ color: isSelected ? colors.onPrimary : colors.textPrimary }}>
                           {z.label}
                         </Text>
                       </Pressable>
@@ -407,7 +491,7 @@ export default function Profile() {
               </ScrollView>
             </Field>
 
-            <View className="gap-3 pt-3">
+            <View className="gap-2.5 pt-4">
               <Pressable
                 onPress={() => save.mutate()}
                 disabled={save.isPending}
@@ -427,7 +511,7 @@ export default function Profile() {
                   <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
                   <>
-                    <Text style={{ fontSize: 16 }}>💾</Text>
+                    <Ionicons name="checkmark-circle-outline" size={17} color={colors.onPrimary} />
                     <Text className="text-base font-bold" style={{ color: colors.onPrimary }}>
                       Save Changes
                     </Text>
@@ -437,183 +521,79 @@ export default function Profile() {
 
               <Pressable
                 onPress={() => setIsEditing(false)}
-                className="items-center justify-center py-3 px-4 flex-row gap-2"
+                className="items-center justify-center py-3 px-4"
                 style={{
-                  backgroundColor: '#ef444415',
-                  borderWidth: 1,
-                  borderColor: '#ef444440',
+                  backgroundColor: colors.surfaceAlt,
                   borderRadius: radius,
                 }}
               >
-                <Text className="text-sm font-semibold" style={{ color: '#ef4444' }}>
-                  ✕ Cancel
+                <Text className="text-sm font-semibold" style={{ color: colors.textMuted }}>
+                  Cancel
                 </Text>
               </Pressable>
             </View>
-          </Card>
-        ) : (
-          <Button
-            title="✏️ Edit Profile"
-            variant="outline"
-            className="mt-5"
-            onPress={startEditing}
-          />
-        )}
+          </View>
+        ) : null}
 
-        <Card className="mt-4">
-          <Pressable
-            onPress={() => router.push('/coins')}
-            accessibilityRole="button"
-            className="flex-row items-center gap-3 py-1"
-          >
-            <CoinIcon size={20} />
-            <Text className="flex-1 text-base font-medium" style={{ color: colors.textPrimary }}>
-              Get coins
+        {/* ---------- Menu sections ---------- */}
+        {menuSections.map((section) => (
+          <View key={section.title} className="mt-6">
+            <Text className="mb-2 ml-1 text-xs font-bold uppercase tracking-wider" style={{ color: colors.textMuted }}>
+              {section.title}
             </Text>
-            <Text style={{ color: colors.textMuted }}>›</Text>
-          </Pressable>
-
-          <View className="my-2 h-px" style={{ backgroundColor: colors.border }} />
-
-          <Pressable
-            onPress={() => router.push('/transactions')}
-            accessibilityRole="button"
-            className="flex-row items-center gap-3 py-1"
-          >
-            <Text className="text-xl">📜</Text>
-            <Text className="flex-1 text-base" style={{ color: colors.textPrimary }}>
-              Transaction History
-            </Text>
-            <Text style={{ color: colors.textMuted }}>›</Text>
-          </Pressable>
-
-          <View className="my-2 h-px" style={{ backgroundColor: colors.border }} />
-
-          <Pressable
-            onPress={() => router.push('/blocked')}
-            accessibilityRole="button"
-            className="flex-row items-center gap-3 py-1"
-          >
-            <Text className="text-xl">🛡️</Text>
-            <Text className="flex-1 text-base" style={{ color: colors.textPrimary }}>
-              Blocked Accounts
-            </Text>
-            <Text style={{ color: colors.textMuted }}>›</Text>
-          </Pressable>
-
-          <View className="my-2 h-px" style={{ backgroundColor: colors.border }} />
-
-          <Pressable
-            onPress={() => router.push('/leaderboard')}
-            accessibilityRole="button"
-            className="flex-row items-center gap-3 py-1"
-          >
-            <Text className="text-xl">🏆</Text>
-            <Text className="flex-1 text-base" style={{ color: colors.textPrimary }}>
-              Leaderboard
-            </Text>
-            <Text style={{ color: colors.textMuted }}>›</Text>
-          </Pressable>
-
-          <View className="my-2 h-px" style={{ backgroundColor: colors.border }} />
-
-          <Pressable
-            onPress={() => setIsFeedbackOpen(true)}
-            accessibilityRole="button"
-            className="flex-row items-center gap-3 py-1"
-          >
-            <Text className="text-xl">💬</Text>
-            <Text className="flex-1 text-base" style={{ color: colors.textPrimary }}>
-              Send Feedback & Ideas
-            </Text>
-            <Text style={{ color: colors.textMuted }}>›</Text>
-          </Pressable>
-
-          <View className="my-2 h-px" style={{ backgroundColor: colors.border }} />
-
-          <Pressable
-            onPress={() => router.push('/settings')}
-            accessibilityRole="button"
-            className="flex-row items-center gap-3 py-1"
-          >
-            <Text className="text-xl">⚙️</Text>
-            <Text className="flex-1 text-base" style={{ color: colors.textPrimary }}>
-              Settings
-            </Text>
-            <Text style={{ color: colors.textMuted }}>›</Text>
-          </Pressable>
-
-          <View className="my-2 h-px" style={{ backgroundColor: colors.border }} />
-
-          <Pressable
-            onPress={() => router.push('/terms')}
-            accessibilityRole="button"
-            className="flex-row items-center gap-3 py-1"
-          >
-            <Text className="text-xl">📜</Text>
-            <Text className="flex-1 text-base" style={{ color: colors.textPrimary }}>
-              Terms of Use
-            </Text>
-            <Text style={{ color: colors.textMuted }}>›</Text>
-          </Pressable>
-
-          <View className="my-2 h-px" style={{ backgroundColor: colors.border }} />
-
-          <Pressable
-            onPress={() => router.push('/privacy')}
-            accessibilityRole="button"
-            className="flex-row items-center gap-3 py-1"
-          >
-            <Text className="text-xl">🔒</Text>
-            <Text className="flex-1 text-base" style={{ color: colors.textPrimary }}>
-              Privacy Policy
-            </Text>
-            <Text style={{ color: colors.textMuted }}>›</Text>
-          </Pressable>
-
-          <View className="my-2 h-px" style={{ backgroundColor: colors.border }} />
-
-          <Pressable
-            onPress={() => router.push('/refund')}
-            accessibilityRole="button"
-            className="flex-row items-center gap-3 py-1"
-          >
-            <Text className="text-xl">💳</Text>
-            <Text className="flex-1 text-base" style={{ color: colors.textPrimary }}>
-              Refund Policy
-            </Text>
-            <Text style={{ color: colors.textMuted }}>›</Text>
-          </Pressable>
-        </Card>
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderRadius: radius + 4,
+                borderWidth: 1,
+                borderColor: colors.border,
+                overflow: 'hidden',
+              }}
+            >
+              {section.items.map((item, idx) => (
+                <View key={item.label}>
+                  <MenuRow colors={colors} item={item} />
+                  {idx < section.items.length - 1 ? (
+                    <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 58 }} />
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
       </ScrollView>
 
-      {/* 2-3 Click Feedback Modal */}
-      <Modal
-        visible={isFeedbackOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsFeedbackOpen(false)}
-      >
-        <Pressable
-          className="flex-1 justify-center bg-black/60 px-4"
-          onPress={() => setIsFeedbackOpen(false)}
-        >
+      {/* ---------- Feedback Modal ---------- */}
+      <Modal visible={isFeedbackOpen} transparent animationType="fade" onRequestClose={() => setIsFeedbackOpen(false)}>
+        <Pressable className="flex-1 justify-center bg-black/60 px-4" onPress={() => setIsFeedbackOpen(false)}>
           <Pressable
             onPress={(e) => e.stopPropagation()}
             style={{
               backgroundColor: colors.surface,
-              borderRadius: radius + 4,
+              borderRadius: radius + 6,
               padding: 20,
               borderWidth: 1,
               borderColor: colors.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.2,
+              shadowRadius: 24,
+              elevation: 8,
             }}
           >
             <View className="flex-row items-center justify-between pb-3">
-              <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
-                💬 User Feedback & Ideas
-              </Text>
-              <Pressable onPress={() => setIsFeedbackOpen(false)} className="p-1">
-                <Text style={{ fontSize: 16, color: colors.textMuted }}>✕</Text>
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
+                <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
+                  Feedback & Ideas
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setIsFeedbackOpen(false)}
+                className="h-7 w-7 items-center justify-center"
+                style={{ backgroundColor: colors.surfaceAlt, borderRadius: 14 }}
+              >
+                <Ionicons name="close" size={15} color={colors.textMuted} />
               </Pressable>
             </View>
 
@@ -621,30 +601,22 @@ export default function Profile() {
             <View className="flex-row rounded-xl p-1 mb-4" style={{ backgroundColor: colors.surfaceAlt }}>
               <Pressable
                 onPress={() => setFeedbackTab('new')}
-                className="flex-1 py-1.5 items-center rounded-lg"
-                style={{
-                  backgroundColor: feedbackTab === 'new' ? colors.surface : 'transparent',
-                }}
+                className="flex-1 py-2 items-center rounded-lg flex-row justify-center gap-1.5"
+                style={{ backgroundColor: feedbackTab === 'new' ? colors.surface : 'transparent' }}
               >
-                <Text
-                  className="text-xs font-semibold"
-                  style={{ color: feedbackTab === 'new' ? colors.primary : colors.textMuted }}
-                >
-                  ✍️ Submit New
+                <Ionicons name="create-outline" size={13} color={feedbackTab === 'new' ? colors.primary : colors.textMuted} />
+                <Text className="text-xs font-semibold" style={{ color: feedbackTab === 'new' ? colors.primary : colors.textMuted }}>
+                  Submit New
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => setFeedbackTab('history')}
-                className="flex-1 py-1.5 items-center rounded-lg"
-                style={{
-                  backgroundColor: feedbackTab === 'history' ? colors.surface : 'transparent',
-                }}
+                className="flex-1 py-2 items-center rounded-lg flex-row justify-center gap-1.5"
+                style={{ backgroundColor: feedbackTab === 'history' ? colors.surface : 'transparent' }}
               >
-                <Text
-                  className="text-xs font-semibold"
-                  style={{ color: feedbackTab === 'history' ? colors.primary : colors.textMuted }}
-                >
-                  📋 My Status ({myFeedback.length})
+                <Ionicons name="list-outline" size={13} color={feedbackTab === 'history' ? colors.primary : colors.textMuted} />
+                <Text className="text-xs font-semibold" style={{ color: feedbackTab === 'history' ? colors.primary : colors.textMuted }}>
+                  My Status ({myFeedback.length})
                 </Text>
               </Pressable>
             </View>
@@ -662,18 +634,16 @@ export default function Profile() {
                       <Pressable
                         key={cat.value}
                         onPress={() => setFeedbackCategory(cat.value)}
-                        className="px-3 py-1.5"
+                        className="flex-row items-center gap-1.5 px-3 py-1.5"
                         style={{
                           backgroundColor: isSelected ? colors.primary : colors.surfaceAlt,
-                          borderRadius: radius,
+                          borderRadius: 999,
                           borderWidth: 1,
                           borderColor: isSelected ? colors.primary : colors.border,
                         }}
                       >
-                        <Text
-                          className="text-xs font-semibold"
-                          style={{ color: isSelected ? colors.onPrimary : colors.textPrimary }}
-                        >
+                        <Ionicons name={cat.icon} size={13} color={isSelected ? colors.onPrimary : colors.textMuted} />
+                        <Text className="text-xs font-semibold" style={{ color: isSelected ? colors.onPrimary : colors.textPrimary }}>
                           {cat.label}
                         </Text>
                       </Pressable>
@@ -687,14 +657,12 @@ export default function Profile() {
 
                 <View className="flex-row gap-3 mb-4">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <Pressable
-                      key={star}
-                      onPress={() => setFeedbackRating(star)}
-                      className="p-1"
-                    >
-                      <Text style={{ fontSize: 26, opacity: star <= feedbackRating ? 1 : 0.25 }}>
-                        ⭐
-                      </Text>
+                    <Pressable key={star} onPress={() => setFeedbackRating(star)} className="p-1">
+                      <Ionicons
+                        name={star <= feedbackRating ? 'star' : 'star-outline'}
+                        size={26}
+                        color={star <= feedbackRating ? '#f59e0b' : colors.textMuted}
+                      />
                     </Pressable>
                   ))}
                 </View>
@@ -724,16 +692,11 @@ export default function Profile() {
                 <View className="flex-row gap-3 mt-5">
                   <Pressable
                     onPress={() => setIsFeedbackOpen(false)}
-                    className="flex-1 items-center justify-center py-3 px-4 flex-row gap-1.5"
-                    style={{
-                      backgroundColor: '#ef444415',
-                      borderWidth: 1,
-                      borderColor: '#ef444440',
-                      borderRadius: radius,
-                    }}
+                    className="flex-1 items-center justify-center py-3 px-4"
+                    style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius }}
                   >
-                    <Text className="text-sm font-semibold" style={{ color: '#ef4444' }}>
-                      ✕ Cancel
+                    <Text className="text-sm font-semibold" style={{ color: colors.textMuted }}>
+                      Cancel
                     </Text>
                   </Pressable>
                   <Pressable
@@ -755,7 +718,7 @@ export default function Profile() {
                       <ActivityIndicator size="small" color={colors.onPrimary} />
                     ) : (
                       <>
-                        <Text style={{ fontSize: 15 }}>🚀</Text>
+                        <Ionicons name="send" size={14} color={colors.onPrimary} />
                         <Text className="text-sm font-bold" style={{ color: colors.onPrimary }}>
                           Submit
                         </Text>
@@ -765,10 +728,15 @@ export default function Profile() {
                 </View>
               </>
             ) : (
-              <ScrollView style={{ maxHeight: 320 }}>
+              <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
                 {myFeedback.length === 0 ? (
-                  <View className="py-8 items-center justify-center">
-                    <Text className="text-3xl mb-2">📬</Text>
+                  <View className="py-10 items-center justify-center">
+                    <View
+                      className="h-14 w-14 items-center justify-center mb-3"
+                      style={{ backgroundColor: colors.surfaceAlt, borderRadius: 28 }}
+                    >
+                      <Ionicons name="mail-open-outline" size={22} color={colors.textMuted} />
+                    </View>
                     <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
                       No feedback submitted yet
                     </Text>
@@ -790,35 +758,19 @@ export default function Profile() {
                         }}
                       >
                         <View className="flex-row items-center justify-between mb-1.5">
-                          <Badge
-                            label={item.category?.toUpperCase()}
-                            tone={item.category === 'bug' ? 'danger' : 'brand'}
-                          />
+                          <Badge label={item.category?.toUpperCase()} tone={item.category === 'bug' ? 'danger' : 'brand'} />
                           <Badge
                             label={
-                              item.status === 'resolved'
-                                ? '🟢 Resolved ✓'
-                                : item.status === 'reviewed'
-                                  ? '🔵 Under Review'
-                                  : '🟡 New'
+                              item.status === 'resolved' ? 'Resolved' : item.status === 'reviewed' ? 'Under Review' : 'New'
                             }
-                            tone={
-                              item.status === 'resolved'
-                                ? 'success'
-                                : item.status === 'reviewed'
-                                  ? 'brand'
-                                  : 'warning'
-                            }
+                            tone={item.status === 'resolved' ? 'success' : item.status === 'reviewed' ? 'brand' : 'warning'}
                           />
                         </View>
                         <Text className="text-sm leading-5 mt-1" style={{ color: colors.textPrimary }}>
                           {item.message}
                         </Text>
                         {item.adminNote ? (
-                          <View
-                            className="mt-2.5 p-2.5 rounded-lg"
-                            style={{ backgroundColor: `${colors.success}18` }}
-                          >
+                          <View className="mt-2.5 p-2.5 rounded-lg" style={{ backgroundColor: `${colors.success}18` }}>
                             <Text className="text-xs font-semibold" style={{ color: colors.success }}>
                               Admin Response:
                             </Text>
@@ -837,5 +789,50 @@ export default function Profile() {
         </Pressable>
       </Modal>
     </View>
+  );
+}
+
+/** Single stat tile used in the profile header stats row. */
+function StatTile({ colors, radius, value, label, icon, onPress }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-1 items-center py-3.5"
+      style={{
+        backgroundColor: colors.surface,
+        borderRadius: radius,
+        borderWidth: 1,
+        borderColor: colors.border,
+      }}
+    >
+      <View className="flex-row items-center gap-1">
+        {typeof icon === 'string' ? <Ionicons name={icon} size={13} color={colors.textMuted} /> : icon}
+        <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
+          {value}
+        </Text>
+      </View>
+      <Text className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Single row inside a grouped menu card — icon chip, label, optional badge, chevron. */
+function MenuRow({ colors, item }) {
+  return (
+    <Pressable onPress={item.onPress} accessibilityRole="button" className="flex-row items-center gap-3 px-4 py-3.5">
+      <View
+        className="h-8 w-8 items-center justify-center"
+        style={{ backgroundColor: `${item.tint}18`, borderRadius: 10 }}
+      >
+        <Ionicons name={item.icon} size={16} color={item.tint} />
+      </View>
+      <Text className="flex-1 text-[15px] font-medium" style={{ color: colors.textPrimary }}>
+        {item.label}
+      </Text>
+      {item.badge ? <Badge label={item.badge.text} tone={item.badge.tone} /> : null}
+      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+    </Pressable>
   );
 }

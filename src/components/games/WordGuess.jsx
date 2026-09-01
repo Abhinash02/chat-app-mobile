@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 
 import { GameShell } from './GameShell.jsx';
 import { useGameSession } from '../../hooks/useGameSession.js';
@@ -11,34 +12,52 @@ const MAX_WRONG = 6;
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 /**
- * Words are embedded rather than fetched: the list is small, it never changes,
- * and a word game that needs a network round trip to start a round would stall
- * on exactly the flaky connections this app runs on.
- *
- * Everyday words with a hint each, so the game rewards a guess rather than
- * vocabulary trivia.
+ * Words with rich descriptive hints and categories to make guessing intuitive and fun.
  */
 const WORDS = [
-  { word: 'GUITAR', hint: 'Six strings' },
-  { word: 'MONSOON', hint: 'Season of rain' },
-  { word: 'CRICKET', hint: 'Bat and ball' },
-  { word: 'BIRYANI', hint: 'Rice and spice' },
-  { word: 'MOUNTAIN', hint: 'Very tall ground' },
-  { word: 'FRIEND', hint: 'What you came here for' },
-  { word: 'SUNRISE', hint: 'Start of the day' },
-  { word: 'JOURNEY', hint: 'A long trip' },
-  { word: 'LIBRARY', hint: 'Full of books' },
-  { word: 'DIAMOND', hint: 'Hardest gem' },
-  { word: 'ELEPHANT', hint: 'Never forgets' },
-  { word: 'RAINBOW', hint: 'Seven colours' },
-  { word: 'CHOCOLATE', hint: 'Sweet and brown' },
-  { word: 'FESTIVAL', hint: 'Lights and sweets' },
-  { word: 'TEACHER', hint: 'Stands at the board' },
-  { word: 'PAINTING', hint: 'Hangs on a wall' },
-  { word: 'MARKET', hint: 'Where you haggle' },
-  { word: 'WINTER', hint: 'Coldest season' },
-  { word: 'PUZZLE', hint: 'Pieces that fit' },
-  { word: 'CAMERA', hint: 'Captures a moment' },
+  // Food & Drinks
+  { word: 'BIRYANI', category: '🍛 Food & Cuisine', hint: 'Fragrant spiced rice dish cooked with herbs & aroma' },
+  { word: 'CHOCOLATE', category: '🍫 Sweets & Treats', hint: 'Delicious sweet brown treat made from roasted cocoa' },
+  { word: 'PIZZA', category: '🍕 Food & Snacks', hint: 'Cheesy oven-baked crust loaded with savoury toppings' },
+  { word: 'BURGER', category: '🍔 Fast Food', hint: 'Juicy patty layered with fresh veggies in a round bun' },
+  { word: 'COFFEE', category: '☕ Beverages', hint: 'Popular morning drink brewed from roasted dark beans' },
+  { word: 'MANGO', category: '🥭 Fruits', hint: 'Sweet yellow summer fruit known as the King of Fruits' },
+  { word: 'SAMOSA', category: '🥟 Crispy Snacks', hint: 'Triangular fried crispy pastry filled with spiced potatoes' },
+
+  // Sports & Games
+  { word: 'CRICKET', category: '🏏 Sports', hint: 'Bat & ball game played on pitch with wickets & overs' },
+  { word: 'FOOTBALL', category: '⚽ Sports', hint: 'World game played on grass kicking ball into goal post' },
+  { word: 'CHESS', category: '♟️ Board Game', hint: 'Strategic board game with King, Queen, Knights & Pawns' },
+  { word: 'TENNIS', category: '🎾 Racket Sport', hint: 'Game played over a net with rackets & fuzzy yellow ball' },
+  { word: 'BADMINTON', category: '🏸 Racket Sport', hint: 'Fast indoor game played with feathered shuttlecock' },
+
+  // Music & Entertainment
+  { word: 'GUITAR', category: '🎸 Music', hint: 'String instrument played by strumming or plucking' },
+  { word: 'PIANO', category: '🎹 Instruments', hint: 'Musical instrument with 88 black and white keys' },
+  { word: 'DRUMS', category: '🥁 Rhythm & Beats', hint: 'Percussion instrument struck with wooden drumsticks' },
+  { word: 'CINEMA', category: '🎬 Entertainment', hint: 'Movie theatre with large screen and popcorn' },
+
+  // Nature & Animals
+  { word: 'ELEPHANT', category: '🐘 Wildlife', hint: 'Largest land mammal with big ears & long trunk' },
+  { word: 'DOLPHIN', category: '🐬 Ocean Life', hint: 'Intelligent friendly sea mammal known for high flips' },
+  { word: 'RAINBOW', category: '🌈 Sky & Nature', hint: 'Arch of seven vibrant colours appearing after rainfall' },
+  { word: 'MONSOON', category: '🌧️ Weather Season', hint: 'Rainy season bringing cloudy skies and cool showers' },
+  { word: 'MOUNTAIN', category: '⛰️ Landscapes', hint: 'Giant natural elevation of the earth with snowy peaks' },
+  { word: 'BUTTERFLY', category: '🦋 Insects', hint: 'Beautiful winged insect with colourful patterned wings' },
+  { word: 'SUNRISE', category: '🌅 Daily Sky', hint: 'Morning moment when golden sun rises on horizon' },
+  { word: 'PEACOCK', category: '🦚 Birds', hint: 'Graceful bird famous for dancing with eye-spotted feathers' },
+
+  // Objects & Daily Life
+  { word: 'CAMERA', category: '📸 Technology', hint: 'Device used to take photos and record memories' },
+  { word: 'DIAMOND', category: '💎 Precious Gems', hint: 'Hardest sparkling gemstone used in rings and jewellery' },
+  { word: 'LIBRARY', category: '📚 Books & Study', hint: 'Quiet building with shelves full of books to read' },
+  { word: 'AIRPLANE', category: '✈️ Travel', hint: 'Large winged vehicle flying through clouds across cities' },
+  { word: 'PAINTING', category: '🎨 Fine Arts', hint: 'Artwork created on canvas using brushes and colours' },
+  { word: 'SMARTPHONE', category: '📱 Gadgets', hint: 'Touchscreen handheld phone used for calls and apps' },
+  { word: 'FESTIVAL', category: '🎉 Celebrations', hint: 'Joyful holiday celebration with lights and sweets' },
+  { word: 'FRIEND', category: '👥 Relationships', hint: 'Someone you cherish sharing laughs, chats & secrets' },
+  { word: 'WINTER', category: '❄️ Seasons', hint: 'Coldest time of year with sweaters, fog & hot tea' },
+  { word: 'PUZZLE', category: '🧩 Brain Games', hint: 'Mind game of fitting interlocking pieces together' },
 ];
 
 function pickWord() {
@@ -94,11 +113,6 @@ export function WordGuess({ game, onExit }) {
   const isComplete = letters.every((letter) => guessed.includes(letter));
   const isOut = wrong >= MAX_WRONG;
 
-  /**
-   * Moving on is handled here rather than in an effect watching the board,
-   * because the guess is what causes it — and a fresh word must not be dealt
-   * before the player sees the one they just finished.
-   */
   function guess(letter) {
     if (guessed.includes(letter) || isComplete || isOut) return;
 
@@ -110,7 +124,6 @@ export function WordGuess({ game, onExit }) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
 
       if (letters.every((l) => nextGuessed.includes(l))) {
-        // Fewer wrong guesses is worth more, so a clean solve beats a lucky one.
         setScore((current) => current + 20 + (MAX_WRONG - wrong) * 5);
         setSolved((current) => current + 1);
         setTimeout(() => {
@@ -127,14 +140,19 @@ export function WordGuess({ game, onExit }) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
 
     if (nextWrong >= MAX_WRONG) {
-      // Show the answer briefly, then deal another word rather than ending the
-      // whole round on one bad guess.
       setTimeout(() => {
         setTarget(pickWord());
         setGuessed([]);
         setWrong(0);
       }, 1400);
     }
+  }
+
+  function revealHintLetter() {
+    const unrevealed = target.word.split('').filter((l) => !guessed.includes(l));
+    if (unrevealed.length === 0) return;
+    const randomLetter = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+    guess(randomLetter);
   }
 
   return (
@@ -147,7 +165,7 @@ export function WordGuess({ game, onExit }) {
       isStarting={isStarting}
       howToPlay={{
         emoji: '🔤',
-        text: 'Guess the hidden word one letter at a time. Six wrong letters and you move on to the next word — solve it with guesses to spare and it counts for more.',
+        text: 'Guess the hidden word using the clue and category. Tap "Reveal 1 Letter" if you get stuck!',
       }}
       stats={[
         { label: 'score', value: score },
@@ -156,29 +174,71 @@ export function WordGuess({ game, onExit }) {
       ]}
     >
       <View className="flex-1 justify-between px-4 pb-4">
-        <View className="items-center pt-4">
-          <Text className="text-xs uppercase" style={{ color: colors.textMuted }}>
-            {target.hint}
-          </Text>
+        <View className="items-center pt-2">
+          {/* Helpful Category & Clue Card */}
+          <View
+            className="w-full px-4 py-3 rounded-2xl border shadow-sm items-center"
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            }}
+          >
+            {/* Category Badge */}
+            <View
+              className="px-3 py-1 rounded-full mb-1.5"
+              style={{ backgroundColor: `${colors.primary}18` }}
+            >
+              <Text className="text-xs font-black uppercase tracking-wider" style={{ color: colors.primary }}>
+                {target.category || '💡 Word Clue'}
+              </Text>
+            </View>
 
-          <View className="mt-5 flex-row flex-wrap justify-center">
+            {/* Hint Clue Text */}
+            <Text
+              className="text-xs font-semibold text-center leading-4"
+              style={{ color: colors.textPrimary }}
+            >
+              "{target.hint}"
+            </Text>
+
+            {/* Reveal Letter Clue Button */}
+            {!isComplete && !isOut && (
+              <Pressable
+                onPress={revealHintLetter}
+                accessibilityRole="button"
+                className="mt-2.5 flex-row items-center gap-1 px-3 py-1 rounded-full border shadow-sm active:scale-95 transition"
+                style={{
+                  backgroundColor: colors.surfaceAlt,
+                  borderColor: colors.border,
+                }}
+              >
+                <Ionicons name="bulb" size={13} color={colors.warning || '#F5A524'} />
+                <Text className="text-[11px] font-bold" style={{ color: colors.textSecondary }}>
+                  Reveal 1 Letter Hint
+                </Text>
+              </Pressable>
+            )}
+          </View>
+
+          {/* Letter Slots */}
+          <View className="mt-4 flex-row flex-wrap justify-center">
             {target.word.split('').map((letter, index) => {
               const isRevealed = guessed.includes(letter) || isOut;
 
               return (
                 <View
                   key={`${letter}-${index}`}
-                  className="m-1 items-center justify-center"
+                  className="m-1 items-center justify-center shadow-sm"
                   style={{
                     width: 34,
                     height: 44,
-                    borderRadius: 8,
+                    borderRadius: 10,
                     backgroundColor: isRevealed ? colors.surface : colors.surfaceAlt,
                     borderBottomWidth: 3,
                     borderBottomColor: isOut && !guessed.includes(letter) ? colors.danger : colors.primary,
                   }}
                 >
-                  <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+                  <Text className="text-xl font-black" style={{ color: colors.textPrimary }}>
                     {isRevealed ? letter : ''}
                   </Text>
                 </View>
@@ -186,7 +246,8 @@ export function WordGuess({ game, onExit }) {
             })}
           </View>
 
-          <View className="mt-4 flex-row gap-1.5">
+          {/* Wrong Guesses Bar */}
+          <View className="mt-3 flex-row gap-1.5">
             {Array.from({ length: MAX_WRONG }).map((_, index) => (
               <View
                 key={index}
@@ -197,12 +258,13 @@ export function WordGuess({ game, onExit }) {
           </View>
 
           {isComplete ? (
-            <Text className="mt-3 text-sm font-bold" style={{ color: colors.success }}>
-              Solved!
+            <Text className="mt-2 text-sm font-black" style={{ color: colors.success || '#10B981' }}>
+              🎉 Solved!
             </Text>
           ) : null}
         </View>
 
+        {/* Alphabet Keyboard */}
         <View className="flex-row flex-wrap justify-center">
           {ALPHABET.map((letter) => {
             const isUsed = guessed.includes(letter);
@@ -215,24 +277,24 @@ export function WordGuess({ game, onExit }) {
                 disabled={isUsed}
                 accessibilityRole="button"
                 accessibilityLabel={`Guess ${letter}`}
-                className="m-1 items-center justify-center"
+                className="m-1 items-center justify-center active:scale-95 transition shadow-sm"
                 style={{
                   width: 34,
                   height: 42,
                   borderRadius: radius - 2,
                   backgroundColor: isUsed
                     ? isHit
-                      ? `${colors.success}33`
+                      ? `${colors.success || '#10B981'}33`
                       : colors.surfaceAlt
                     : colors.surface,
                   borderWidth: 1,
                   borderColor: isUsed ? 'transparent' : colors.border,
-                  opacity: isUsed && !isHit ? 0.4 : 1,
+                  opacity: isUsed && !isHit ? 0.35 : 1,
                 }}
               >
                 <Text
-                  className="text-base font-bold"
-                  style={{ color: isHit ? colors.success : colors.textPrimary }}
+                  className="text-base font-black"
+                  style={{ color: isHit ? (colors.success || '#10B981') : colors.textPrimary }}
                 >
                   {letter}
                 </Text>

@@ -4,15 +4,50 @@ import Constants from 'expo-constants';
 import { storage } from '../lib/storage.js';
 
 export function getApiOrigin() {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+  const liveUrl = process.env.EXPO_PUBLIC_API_URL_LIVE
+    ? process.env.EXPO_PUBLIC_API_URL_LIVE.replace(/\/+$/, '')
+    : null;
+  const localUrl = process.env.EXPO_PUBLIC_API_URL
+    ? process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, '')
+    : null;
+
+  // 1. Web Browser Environment
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const hostname = window.location.hostname;
+    const isLocalHost =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.');
+
+    // If browsing on local computer / local network, connect to local backend
+    if (isLocalHost) {
+      return localUrl || `http://${hostname}:5000`;
+    }
+
+    // If deployed on Render / Vercel / Live domain, use the live backend URL
+    if (liveUrl) return liveUrl;
+    if (localUrl && localUrl.startsWith('https://')) return localUrl;
   }
+
+  // 2. Native Mobile / Expo Go Environment
+  // If localUrl is provided and you're testing locally, use localUrl
+  if (localUrl && (localUrl.startsWith('http://192.168.') || localUrl.startsWith('http://10.') || localUrl.startsWith('http://localhost'))) {
+    return localUrl;
+  }
+
+  // If liveUrl is provided, connect to live backend
+  if (liveUrl) return liveUrl;
+
+  // Auto-detect local computer Wi-Fi IP in Expo Go during local dev
   const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
   if (hostUri) {
     const ip = hostUri.split(':')[0];
     return `http://${ip}:5000`;
   }
-  return 'http://localhost:5000';
+
+  // Fallback
+  return localUrl || 'http://localhost:5000';
 }
 
 export const BASE_URL = `${getApiOrigin()}/api/v1`;

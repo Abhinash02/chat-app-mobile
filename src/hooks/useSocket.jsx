@@ -126,6 +126,22 @@ export function SocketProvider({ children }) {
         queryClient.invalidateQueries({ queryKey: ['my-feedback'] });
       });
 
+      socket.on('support:message:new', (data) => {
+        if (data.message?.senderType === 'admin') {
+          handlersRef.current.playMessage();
+          handlersRef.current.toast.info('🎧 Support team replied to your ticket!');
+        }
+        queryClient.invalidateQueries({ queryKey: ['my-support-tickets'] });
+        queryClient.invalidateQueries({ queryKey: ['support-ticket-details'] });
+      });
+
+      socket.on('event:new', (newEvent) => {
+        handlersRef.current.playCoin();
+        handlersRef.current.toast.info(`🎉 New Event: ${newEvent.title}`);
+        queryClient.invalidateQueries({ queryKey: ['events'] });
+        queryClient.invalidateQueries({ queryKey: ['banners'] });
+      });
+
       socket.on(SOCKET_EVENT.THEME_UPDATED, (theme) => {
         handlersRef.current.applyTheme(theme);
       });

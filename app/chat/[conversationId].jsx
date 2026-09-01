@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -32,8 +33,74 @@ import { useIsForeground } from '../../src/hooks/useIsForeground.js';
 import { useSounds } from '../../src/hooks/useSounds.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
+import { Ionicons } from '@expo/vector-icons';
+import { useScreenCaptureProtection } from '../../src/hooks/useScreenCaptureProtection.js';
 
-const EMOJI_ROW = ['😊', '😂', '❤️', '😍', '👍', '🙌', '🔥', '😅', '🥰', '😎', '🤔', '👋'];
+const EMOJI_CATEGORIES = [
+  {
+    id: 'smileys',
+    icon: '😀',
+    name: 'Smileys',
+    emojis: [
+      '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
+      '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😋',
+      '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐',
+      '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌',
+      '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧',
+      '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐',
+      '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦',
+      '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞',
+      '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿',
+      '💀', '☠️', '💩', '🤡', '👻', '👽', '👾', '🤖', '🙈', '🙉', '🙊'
+    ],
+  },
+  {
+    id: 'love',
+    icon: '❤️',
+    name: 'Love & Hearts',
+    emojis: [
+      '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
+      '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '💌',
+      '💋', '🫂', '😻', '😽', '🌹', '💐', '🌺', '🌸', '🌼', '🌷',
+      '🌻', '🥀', '🌾', '🌱', '🌿', '🍀', '✨', '💍', '💎', '💒'
+    ],
+  },
+  {
+    id: 'gestures',
+    icon: '👍',
+    name: 'Gestures',
+    emojis: [
+      '👍', '👎', '👊', '✊', '🤛', '🤜', '👏', '🙌', '👐', '🤲',
+      '🤝', '🙏', '✍️', '💅', '🤳', '💪', '👈', '👉', '👆', '🖕',
+      '👇', '☝️', '✌️', '🤞', '🖖', '🤘', '🤙', '🖐️', '✋', '👌',
+      '🤌', '🤏', '🤟', '👋', '🫶', '👀', '👁️', '👅', '👄', '👣'
+    ],
+  },
+  {
+    id: 'vibes',
+    icon: '🔥',
+    name: 'Fun & Vibes',
+    emojis: [
+      '🔥', '✨', '🎉', '🎊', '🎈', '🎁', '🏆', '🥇', '🥈', '🥉',
+      '💯', '👑', '💎', '⭐', '🌟', '💫', '⚡', '💥', '🍿', '🍕',
+      '🍔', '🍟', '🍩', '🍦', '🥂', '🍻', '☕', '🧋', '🎮', '🎲',
+      '🎸', '🎵', '🎶', '🎤', '🎧', '🚀', '🏖️', '🕶️', '💃', '🕺',
+      '🚗', '🏎️', '🏍️', '✈️', '⛵', '🎆', '🎇', '🎯', '🔮', '🧿'
+    ],
+  },
+  {
+    id: 'nature',
+    icon: '🐶',
+    name: 'Animals',
+    emojis: [
+      '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+      '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🦆', '🦅',
+      '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌',
+      '🐞', '🐢', '🐍', '🐙', '🐬', '🐳', '🦈', '🌴', '🌲', '🌈',
+      '☀️', '🌙', '⭐', '☁️', '❄️', '🔥', '🌊', '🍁', '🍂', '🍄'
+    ],
+  },
+];
 
 function MessageBubble({ message, isMine, showTime, onLongPress }) {
   const { colors, radius } = useTheme();
@@ -45,9 +112,9 @@ function MessageBubble({ message, isMine, showTime, onLongPress }) {
 
   if (isEmojiOnly && !message.isDeleted) {
     return (
-      <View className={`mb-1.5 px-4 ${isMine ? 'items-end' : 'items-start'}`}>
+      <View className={`mb-1 px-4 ${isMine ? 'items-end' : 'items-start'}`}>
         <Pressable onLongPress={() => onLongPress(message)} delayLongPress={280}>
-          <Text className="text-5xl">{message.text}</Text>
+          <Text className="text-3xl">{message.text}</Text>
         </Pressable>
 
         <ReactionChips
@@ -57,7 +124,7 @@ function MessageBubble({ message, isMine, showTime, onLongPress }) {
         />
 
         {showTime ? (
-          <View className="mt-1 flex-row items-center gap-1">
+          <View className="mt-0.5 flex-row items-center gap-1">
             <Text className="text-[10px]" style={{ color: colors.textMuted }}>
               {formatMessageTime(message.createdAt)}
             </Text>
@@ -69,14 +136,14 @@ function MessageBubble({ message, isMine, showTime, onLongPress }) {
   }
 
   return (
-    <View className={`mb-1.5 px-4 ${isMine ? 'items-end' : 'items-start'}`}>
+    <View className={`mb-1 px-4 ${isMine ? 'items-end' : 'items-start'}`}>
       <Pressable
         // A withdrawn message has nothing left to react to or delete twice.
         onLongPress={message.isDeleted ? undefined : () => onLongPress(message)}
         delayLongPress={280}
         accessibilityRole={message.isDeleted ? 'text' : 'button'}
         accessibilityHint={message.isDeleted ? undefined : 'Long press for reactions and delete'}
-        className={`max-w-[80%] ${isPhoto ? 'p-1' : 'px-3.5 py-2.5'}`}
+        className={`max-w-[78%] ${isPhoto ? 'p-1' : 'px-3.5 py-2'}`}
         style={{
           backgroundColor: isMine ? colors.primary : colors.surface,
           borderRadius: radius,
@@ -91,7 +158,7 @@ function MessageBubble({ message, isMine, showTime, onLongPress }) {
           <ImageBubble url={message.media.url} caption={message.text} isMine={isMine} />
         ) : (
           <Text
-            className={`text-[15px] leading-5 ${message.isDeleted ? 'italic' : ''}`}
+            className={`text-[14px] leading-5 ${message.isDeleted ? 'italic' : ''}`}
             style={{ color: isMine ? colors.onPrimary : colors.textPrimary }}
           >
             {message.isDeleted ? 'This message was deleted' : message.text}
@@ -130,6 +197,7 @@ function TypingIndicator({ nickname }) {
 }
 
 export default function ChatScreen() {
+  useScreenCaptureProtection();
   const { conversationId } = useLocalSearchParams();
   const { colors, radius } = useTheme();
   const { user } = useAuth();
@@ -144,6 +212,7 @@ export default function ChatScreen() {
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState('smileys');
   const [partnerTyping, setPartnerTyping] = useState(false);
 
   const listRef = useRef(null);
@@ -661,87 +730,165 @@ export default function ChatScreen() {
 
       {partnerTyping ? <TypingIndicator nickname={partner?.nickname ?? 'They'} /> : null}
 
+      {/* Full Multi-Category Google Style Emoji Keyboard Drawer */}
       {showEmoji ? (
         <View
-          className="flex-row flex-wrap gap-1 px-3 py-2"
-          style={{ backgroundColor: colors.surfaceAlt, borderTopWidth: 1, borderTopColor: colors.border }}
+          style={{
+            backgroundColor: colors.surface,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            maxHeight: 260,
+          }}
         >
-          {EMOJI_ROW.map((emoji) => (
+          {/* Category Tabs Header */}
+          <View
+            className="flex-row items-center justify-between px-3 py-1.5 border-b"
+            style={{
+              backgroundColor: colors.surfaceAlt,
+              borderColor: colors.border,
+            }}
+          >
+            <View className="flex-row items-center gap-1">
+              {EMOJI_CATEGORIES.map((cat) => {
+                const isActive = activeEmojiCategory === cat.id;
+                return (
+                  <Pressable
+                    key={cat.id}
+                    onPress={() => setActiveEmojiCategory(cat.id)}
+                    className="px-3 py-1 rounded-xl transition"
+                    style={{
+                      backgroundColor: isActive ? `${colors.primary}20` : 'transparent',
+                    }}
+                  >
+                    <Text className="text-lg">{cat.icon}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Quick Backspace Button */}
             <Pressable
-              key={emoji}
-              onPress={() => send(emoji)}
-              accessibilityRole="button"
-              accessibilityLabel={`Send ${emoji}`}
-              className="p-1.5"
+              onPress={() => {
+                setDraft((prev) => Array.from(prev).slice(0, -1).join(''));
+              }}
+              className="h-8 w-9 items-center justify-center rounded-xl active:scale-90"
+              style={{ backgroundColor: colors.surface }}
             >
-              <Text className="text-3xl">{emoji}</Text>
+              <Ionicons name="backspace-outline" size={19} color={colors.textSecondary} />
             </Pressable>
-          ))}
+          </View>
+
+          {/* Scrollable Emojis Grid */}
+          <ScrollView
+            className="px-2 py-2"
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="always"
+          >
+            <View className="flex-row flex-wrap justify-start">
+              {(
+                EMOJI_CATEGORIES.find((c) => c.id === activeEmojiCategory)?.emojis ||
+                EMOJI_CATEGORIES[0].emojis
+              ).map((emoji, index) => (
+                <Pressable
+                  key={`${emoji}-${index}`}
+                  onPress={() => setDraft((prev) => prev + emoji)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Insert ${emoji}`}
+                  className="w-[12.5%] h-11 items-center justify-center rounded-xl active:bg-black/10"
+                >
+                  <Text className="text-2xl">{emoji}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
         </View>
       ) : null}
 
+      {/* Professional Chat Input Composer Bar */}
       <View
-        className="flex-row items-end gap-2 px-3 pt-2"
+        className="flex-row items-center gap-2 px-3 pt-2.5"
         style={{
-          paddingBottom: insets.bottom + 8,
+          paddingBottom: Math.max(insets.bottom, 10),
           backgroundColor: colors.surface,
           borderTopWidth: 1,
           borderTopColor: colors.border,
         }}
       >
+        {/* Emoji / Keyboard Toggle Button */}
         <Pressable
           onPress={() => setShowEmoji((open) => !open)}
           accessibilityRole="button"
           accessibilityLabel={showEmoji ? 'Hide emoji' : 'Show emoji'}
-          className="pb-2.5"
+          className="h-10 w-10 items-center justify-center rounded-full active:scale-95 transition"
+          style={{
+            backgroundColor: showEmoji ? `${colors.primary}18` : colors.surfaceAlt,
+          }}
         >
-          <Text className="text-2xl">{showEmoji ? '⌨️' : '😊'}</Text>
+          <Ionicons
+            name={showEmoji ? 'keypad' : 'happy-outline'}
+            size={22}
+            color={showEmoji ? colors.primary : colors.textSecondary}
+          />
         </Pressable>
 
-        <TextInput
-          value={draft}
-          onChangeText={handleTyping}
-          placeholder="Message…"
-          placeholderTextColor={colors.textMuted}
-          multiline
-          maxLength={1000}
-          className="max-h-28 flex-1 px-4 py-2.5 text-[15px]"
+        {/* Text Input Pill Box */}
+        <View
+          className="flex-1 flex-row items-center px-3.5 py-1 rounded-2xl border shadow-sm"
           style={{
             backgroundColor: colors.surfaceAlt,
-            borderRadius: radius,
-            color: colors.textPrimary,
+            borderColor: colors.border,
+            minHeight: 42,
           }}
-        />
-
-        <Pressable
-          onPress={choosePhoto}
-          disabled={isUploading || isSending}
-          accessibilityRole="button"
-          accessibilityLabel="Send a photo"
-          className="h-11 w-10 items-center justify-center"
         >
-          <Text className="text-xl" style={{ opacity: isUploading ? 0.4 : 1 }}>
-            📷
-          </Text>
-        </Pressable>
+          <TextInput
+            value={draft}
+            onChangeText={handleTyping}
+            placeholder="Type a message…"
+            placeholderTextColor={colors.textMuted}
+            multiline
+            maxLength={1000}
+            className="flex-1 py-1.5 text-[15px]"
+            style={{
+              color: colors.textPrimary,
+              maxHeight: 110,
+            }}
+          />
 
+          {/* Camera / Photo Attachment Button */}
+          <Pressable
+            onPress={choosePhoto}
+            disabled={isUploading || isSending}
+            accessibilityRole="button"
+            accessibilityLabel="Send a photo"
+            className="h-8 w-8 items-center justify-center rounded-full ml-1 active:scale-90"
+            style={{ opacity: isUploading ? 0.4 : 1 }}
+          >
+            <Ionicons name="camera-outline" size={21} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+
+        {/* Send Action Button */}
         <Pressable
           onPress={() => send(draft)}
           disabled={!draft.trim() || isSending}
           accessibilityRole="button"
           accessibilityLabel="Send message"
-          className="h-11 w-11 items-center justify-center rounded-full"
+          className="h-10 w-10 items-center justify-center rounded-full shadow-sm active:scale-95 transition"
           style={{
             backgroundColor: draft.trim() ? colors.primary : colors.surfaceAlt,
             opacity: isSending ? 0.6 : 1,
+            boxShadow: draft.trim() ? `0 4px 12px ${colors.primary}50` : 'none',
           }}
         >
           {isUploading ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={{ color: draft.trim() ? colors.onPrimary : colors.textMuted, fontSize: 18 }}>
-              ➤
-            </Text>
+            <Ionicons
+              name="send"
+              size={17}
+              color={draft.trim() ? (colors.onPrimary || '#FFFFFF') : colors.textMuted}
+              style={{ marginLeft: 2 }}
+            />
           )}
         </Pressable>
       </View>

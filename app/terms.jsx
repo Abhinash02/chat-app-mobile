@@ -53,11 +53,13 @@ export default function TermsOfUse() {
         {/* Section 3 */}
         <Card className="mb-3.5">
           <Text className="text-base font-bold mb-2" style={{ color: colors.textPrimary }}>
-            3. User Conduct & Community Guidelines
+            3. User Conduct & Strict Safety Rules
           </Text>
           <Text className="text-xs leading-5" style={{ color: colors.textSecondary }}>
             To maintain a safe and respectful community, you agree NOT to:
-            {'\n'}• Harass, intimidate, stalk, or abuse any user.
+            {'\n'}• <Text className="font-bold text-red-500">Do Not Share Contact Details:</Text> You are strictly prohibited from sharing phone numbers, WhatsApp, social media handles, personal emails, or home addresses.
+            {'\n'}• <Text className="font-bold text-red-500">Do Not Share or Solicit OTPs:</Text> Never ask for or share verification OTPs, passwords, or banking details. Vibe Chat staff will never request your OTP.
+            {'\n'}• Harass, intimidate, stalk, impersonate, or abuse any user.
             {'\n'}• Transmit sexually explicit, obscene, or non-consensual media.
             {'\n'}• Engage in fraud, scamming, commercial solicitation, or unauthorized bot traffic.
             {'\n'}• Use hate speech or vulgarity. Automated profanity filters actively moderate chat texts.

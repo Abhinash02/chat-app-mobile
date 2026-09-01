@@ -2,9 +2,6 @@ import { request, requestList } from './client.js';
 
 /**
  * Every server call the app makes, in one place.
- *
- * Screens import from here rather than assembling URLs inline, so a route that
- * changes on the server is a one-line fix rather than a search across screens.
  */
 export const usersApi = {
   discover: (params) => requestList({ method: 'GET', url: '/users/discover', params }),
@@ -41,7 +38,6 @@ export const chatApi = {
   send: (id, data) => request({ method: 'POST', url: `/chat/conversations/${id}/messages`, data }),
   markRead: (id) => request({ method: 'POST', url: `/chat/conversations/${id}/read` }),
 
-  /** A photo, already shrunk on the device. Billed exactly like a message. */
   sendMedia: (id, formData) =>
     request({
       method: 'POST',
@@ -50,7 +46,6 @@ export const chatApi = {
       timeout: 90_000,
     }),
 
-  /** `scope` is 'me' or 'everyone'; the server defaults to the safer 'me'. */
   deleteMessage: (messageId, scope) =>
     request({ method: 'DELETE', url: `/chat/messages/${messageId}`, params: { scope } }),
 
@@ -70,11 +65,16 @@ export const coinsApi = {
 
 export const paymentsApi = {
   options: () => request({ method: 'GET', url: '/payments/options' }),
+  createCashfreeOrder: (packageId, returnUrl) =>
+    request({ method: 'POST', url: '/payments/orders/cashfree', data: { packageId, returnUrl } }),
+  verifyCashfree: (orderId) =>
+    request({ method: 'POST', url: '/payments/orders/cashfree/verify', data: { orderId } }),
   createUpiOrder: (packageId) =>
     request({ method: 'POST', url: '/payments/orders/upi', data: { packageId } }),
   submitProof: (orderId, data) =>
     request({ method: 'POST', url: `/payments/orders/${orderId}/proof`, data }),
   orders: (params) => requestList({ method: 'GET', url: '/payments/orders', params }),
+  getInvoice: (orderId) => request({ method: 'GET', url: `/payments/orders/${orderId}/invoice?format=json` }),
   redeemCode: (code) => request({ method: 'POST', url: '/payments/redeem', data: { code } }),
   validateCoupon: (code, priceInRupees) =>
     request({ method: 'POST', url: '/payments/coupon/validate', data: { code, priceInRupees } }),
@@ -93,12 +93,6 @@ export const roomsApi = {
   messages: (roomId, params) => requestList({ method: 'GET', url: `/rooms/${roomId}/messages`, params }),
   send: (roomId, data) => request({ method: 'POST', url: `/rooms/${roomId}/messages`, data }),
 
-  /**
-   * A photo, voice note or short video.
-   *
-   * Media uploads get a longer timeout than everything else: twenty seconds is
-   * generous for JSON and not enough for a 12MB video on a train.
-   */
   sendMedia: (roomId, formData) =>
     request({
       method: 'POST',
@@ -132,6 +126,8 @@ export const gamesApi = {
   complete: (sessionId, score) =>
     request({ method: 'POST', url: `/games/sessions/${sessionId}/complete`, data: { score } }),
   leaderboard: (params) => request({ method: 'GET', url: '/games/leaderboard', params }),
+  getPointsConversion: () => request({ method: 'GET', url: '/games/points-conversion' }),
+  convertPoints: (points) => request({ method: 'POST', url: '/games/convert-points', data: { points } }),
 };
 
 export const reportsApi = {
@@ -153,4 +149,20 @@ export const feedbackApi = {
   submit: (data) => request({ method: 'POST', url: '/feedback', data }),
   list: () => request({ method: 'GET', url: '/feedback' }),
   my: () => request({ method: 'GET', url: '/feedback/my' }),
+};
+
+export const supportApi = {
+  createTicket: (data) => request({ method: 'POST', url: '/support/tickets', data }),
+  myTickets: () => request({ method: 'GET', url: '/support/my-tickets' }),
+  ticketDetails: (ticketId) => request({ method: 'GET', url: `/support/tickets/${ticketId}` }),
+  sendMessage: (ticketId, data) =>
+    request({ method: 'POST', url: `/support/tickets/${ticketId}/messages`, data }),
+  uploadImage: (formData) =>
+    request({
+      method: 'POST',
+      url: '/support/upload',
+      data: formData,
+      timeout: 60_000,
+    }),
+  cannedResponses: () => request({ method: 'GET', url: '/support/canned-responses' }),
 };

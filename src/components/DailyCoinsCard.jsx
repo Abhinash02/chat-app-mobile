@@ -80,35 +80,40 @@ export function DailyCoinsCard() {
 
   return (
     <View
-      className="mb-4 p-4"
+      className="mb-3 p-3"
       style={{
         backgroundColor: colors.surfaceAlt,
-        borderRadius: radius + 4,
+        borderRadius: radius + 2,
         borderWidth: 1,
         borderColor: colors.border,
       }}
     >
-      <Text
-        className="mb-3 text-xs font-bold uppercase"
-        style={{ color: colors.textSecondary, letterSpacing: 1.2 }}
-      >
-        ✦ Daily free coins
-      </Text>
+      <View className="flex-row items-center justify-between mb-2">
+        <Text
+          className="text-[11px] font-bold uppercase tracking-wider"
+          style={{ color: colors.textSecondary }}
+        >
+          ✦ Daily Free Coins
+        </Text>
+        <Text
+          className="text-[11px] font-semibold"
+          style={{ color: isReady ? colors.success : colors.textMuted }}
+        >
+          {isReady ? '● Ready to claim' : '● Claimed'}
+        </Text>
+      </View>
 
-      <View className="flex-row items-center gap-3">
+      <View className="flex-row items-center gap-2.5">
         <View
-          className="h-14 w-14 items-center justify-center rounded-full"
+          className="h-10 w-10 items-center justify-center rounded-xl shadow-sm"
           style={{ backgroundColor: `${colors.coinGold}25` }}
         >
-          <CoinIcon size={34} />
+          <CoinIcon size={24} />
         </View>
 
         <View className="min-w-0 flex-1">
-          <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-            {status.amount} coins
-          </Text>
-          <Text className="text-sm font-medium" style={{ color: isReady ? colors.success : colors.textMuted }}>
-            {isReady ? 'ready to claim' : 'claimed'}
+          <Text className="text-base font-extrabold" style={{ color: colors.textPrimary }}>
+            +{status.amount} Coins
           </Text>
         </View>
 
@@ -117,11 +122,15 @@ export function DailyCoinsCard() {
             onPress={() => claim.mutate()}
             disabled={claim.isPending}
             accessibilityRole="button"
-            className="px-5 py-3"
-            style={{ backgroundColor: colors.primary, borderRadius: radius, opacity: claim.isPending ? 0.6 : 1 }}
+            className="px-4 py-2 shadow-sm active:scale-95"
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: radius - 4,
+              opacity: claim.isPending ? 0.6 : 1,
+            }}
           >
-            <Text className="text-sm font-bold" style={{ color: colors.onPrimary }}>
-              {claim.isPending ? 'Claiming…' : 'Claim'}
+            <Text className="text-xs font-bold" style={{ color: colors.onPrimary }}>
+              {claim.isPending ? 'Claiming…' : 'Claim Now'}
             </Text>
           </Pressable>
         ) : null}
@@ -129,11 +138,11 @@ export function DailyCoinsCard() {
 
       {!isReady ? (
         <View
-          className="mt-3 flex-row items-center justify-center gap-2 py-2.5"
-          style={{ backgroundColor: colors.surface, borderRadius: radius }}
+          className="mt-2 flex-row items-center justify-center gap-1.5 py-1.5 rounded-xl"
+          style={{ backgroundColor: colors.surface }}
         >
-          <Text style={{ fontSize: 13 }}>🕐</Text>
-          <Text className="text-sm" style={{ color: colors.textSecondary }}>
+          <Text style={{ fontSize: 11 }}>🕐</Text>
+          <Text className="text-xs" style={{ color: colors.textSecondary }}>
             Next reward in{' '}
             <Text className="font-bold" style={{ color: colors.textPrimary }}>
               {formatCountdown(remaining)}
