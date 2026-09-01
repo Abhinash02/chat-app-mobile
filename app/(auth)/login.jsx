@@ -3,6 +3,8 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } fro
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Ionicons } from '@expo/vector-icons';
+
 import { Field, GradientButton, Input } from '../../src/components/ui.jsx';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
@@ -52,9 +54,31 @@ export default function Login() {
         keyboardShouldPersistTaps="handled"
         className="px-6"
       >
-        <Pressable onPress={() => router.back()} className="mb-6 self-start" accessibilityRole="button">
-          <Text className="text-base" style={{ color: colors.textSecondary }}>
-            ← Back
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/welcome'))}
+          className="mb-6 flex-row items-center gap-2 self-start px-3.5 py-2 active:opacity-75"
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: colors.border,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 6,
+            elevation: 2,
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <View
+            className="h-6 w-6 items-center justify-center rounded-full"
+            style={{ backgroundColor: `${colors.primary}18` }}
+          >
+            <Ionicons name="chevron-back" size={15} color={colors.primary} />
+          </View>
+          <Text className="text-xs font-bold tracking-tight pr-1" style={{ color: colors.textPrimary }}>
+            Back
           </Text>
         </Pressable>
 
