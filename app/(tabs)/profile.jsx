@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Badge, Button, Card, CoinIcon, Field, Input, Loading } from '../../src/components/ui.jsx';
 import { feedbackApi, supportApi, usersApi } from '../../src/api/endpoints.js';
 import { formatCoins } from '../../src/lib/format.js';
+import { appendFile } from '../../src/lib/media.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
@@ -192,16 +193,14 @@ export default function Profile() {
       setIsUploading(true);
 
       const formData = new FormData();
-      formData.append('avatar', {
+      await appendFile(formData, {
         uri: asset.uri,
-        // The server re-derives the extension from the MIME type, so a wrong
-        // filename here cannot smuggle anything past it.
-        name: `avatar.${asset.uri.split('.').pop() ?? 'jpg'}`,
-        type: asset.mimeType ?? 'image/jpeg',
+        mimeType: asset.mimeType ?? 'image/jpeg',
+        fieldName: 'avatar',
       });
 
       await usersApi.uploadAvatar(formData);
-      toast.success('Photo updated');
+      toast.success('Photo updated successfully! ✨');
       queryClient.invalidateQueries({ queryKey: ['my-profile'] });
       await refreshUser();
     } catch (uploadError) {
