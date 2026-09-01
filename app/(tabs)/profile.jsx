@@ -47,7 +47,7 @@ const ZODIAC_SIGNS = [
 
 // Grouped menu configuration — declarative, so the render pass stays simple
 // and every row gets consistent icon-chip + chevron treatment.
-function useMenuSections({ router, unreadSupportCount, onOpenFeedback }) {
+function useMenuSections({ router, unreadSupportCount, onOpenFeedback, onLogout }) {
   return [
     {
       title: 'Account',
@@ -78,6 +78,7 @@ function useMenuSections({ router, unreadSupportCount, onOpenFeedback }) {
         { icon: 'document-text-outline', tint: '#6b7280', label: 'Terms of Use', onPress: () => router.push('/terms') },
         { icon: 'lock-closed-outline', tint: '#6b7280', label: 'Privacy Policy', onPress: () => router.push('/privacy') },
         { icon: 'card-outline', tint: '#6b7280', label: 'Refund Policy', onPress: () => router.push('/refund') },
+        { icon: 'log-out-outline', tint: '#ef4444', label: 'Log Out', isDestructive: true, onPress: onLogout },
       ],
     },
   ];
@@ -85,13 +86,14 @@ function useMenuSections({ router, unreadSupportCount, onOpenFeedback }) {
 
 export default function Profile() {
   const { colors, radius } = useTheme();
-  const { refreshUser } = useAuth();
+  const { refreshUser, signOut } = useAuth();
   const { wallet } = useSocket();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [bio, setBio] = useState('');
   const [nickname, setNickname] = useState('');
   const [ageGroup, setAgeGroup] = useState('18-21');
@@ -213,6 +215,7 @@ export default function Profile() {
     router,
     unreadSupportCount,
     onOpenFeedback: () => setIsFeedbackOpen(true),
+    onLogout: () => setIsLogoutModalOpen(true),
   });
 
   if (isLoading) {
@@ -788,6 +791,73 @@ export default function Profile() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ---------- Logout Confirmation Modal ---------- */}
+      <Modal visible={isLogoutModalOpen} transparent animationType="fade" onRequestClose={() => setIsLogoutModalOpen(false)}>
+        <Pressable className="flex-1 justify-center bg-black/60 px-5" onPress={() => setIsLogoutModalOpen(false)}>
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: radius + 8,
+              padding: 24,
+              borderWidth: 1,
+              borderColor: colors.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.25,
+              shadowRadius: 24,
+              elevation: 10,
+            }}
+          >
+            <View className="items-center mb-4">
+              <View
+                className="h-14 w-14 items-center justify-center mb-3"
+                style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', borderRadius: 28 }}
+              >
+                <Ionicons name="log-out-outline" size={26} color="#ef4444" />
+              </View>
+              <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+                Log out of Vibe Chat?
+              </Text>
+              <Text className="text-xs text-center mt-1.5 leading-4" style={{ color: colors.textMuted }}>
+                You can log back in anytime with your registered credentials.
+              </Text>
+            </View>
+
+            <View className="flex-row gap-3 mt-3">
+              <Pressable
+                onPress={() => setIsLogoutModalOpen(false)}
+                className="flex-1 items-center justify-center py-3 px-4 rounded-xl border"
+                style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
+              >
+                <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                  Cancel
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={async () => {
+                  setIsLogoutModalOpen(false);
+                  try {
+                    await signOut();
+                    toast.success('Logged out successfully');
+                  } catch {
+                    toast.error('Could not log out');
+                  }
+                }}
+                className="flex-1 items-center justify-center py-3 px-4 rounded-xl flex-row gap-1.5"
+                style={{ backgroundColor: '#ef4444' }}
+              >
+                <Ionicons name="log-out-outline" size={16} color="#ffffff" />
+                <Text className="text-sm font-bold text-white">
+                  Log Out
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -821,18 +891,39 @@ function StatTile({ colors, radius, value, label, icon, onPress }) {
 /** Single row inside a grouped menu card — icon chip, label, optional badge, chevron. */
 function MenuRow({ colors, item }) {
   return (
-    <Pressable onPress={item.onPress} accessibilityRole="button" className="flex-row items-center gap-3 px-4 py-3.5">
+    <Pressable
+      onPress={item.onPress}
+      accessibilityRole="button"
+      className="flex-row items-center gap-3 px-4 py-3.5 active:opacity-75"
+    >
       <View
         className="h-8 w-8 items-center justify-center"
-        style={{ backgroundColor: `${item.tint}18`, borderRadius: 10 }}
+        style={{
+          backgroundColor: item.isDestructive ? 'rgba(239, 68, 68, 0.12)' : `${item.tint}18`,
+          borderRadius: 10,
+        }}
       >
-        <Ionicons name={item.icon} size={16} color={item.tint} />
+        <Ionicons
+          name={item.icon}
+          size={16}
+          color={item.isDestructive ? '#ef4444' : item.tint}
+        />
       </View>
-      <Text className="flex-1 text-[15px] font-medium" style={{ color: colors.textPrimary }}>
+      <Text
+        className="flex-1 text-[15px]"
+        style={{
+          color: item.isDestructive ? '#ef4444' : colors.textPrimary,
+          fontWeight: item.isDestructive ? '700' : '500',
+        }}
+      >
         {item.label}
       </Text>
       {item.badge ? <Badge label={item.badge.text} tone={item.badge.tone} /> : null}
-      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+      <Ionicons
+        name="chevron-forward"
+        size={16}
+        color={item.isDestructive ? '#ef4444' : colors.textMuted}
+      />
     </Pressable>
   );
 }
