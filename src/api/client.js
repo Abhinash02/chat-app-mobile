@@ -13,15 +13,9 @@ export function getApiOrigin() {
 
   // 1. Web Browser Environment
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-    const hostname = window.location.hostname;
-    const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
-
-    if (isLocalHost) {
-      return `http://${hostname}:5000`;
-    }
-
     if (liveUrl) return liveUrl;
     if (localUrl && localUrl.startsWith('https://')) return localUrl;
+    return `http://${window.location.hostname}:5000`;
   }
 
   // 2. Native Mobile (Standalone APK vs Expo Go)
