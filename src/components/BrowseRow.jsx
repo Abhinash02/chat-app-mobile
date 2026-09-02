@@ -5,8 +5,8 @@ import { PersonCard } from './PersonCard.jsx';
 import { Skeleton } from './Loader.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
-const CARD_WIDTH = 155;
-const CARD_GAP = 10;
+const CARD_WIDTH = 150;
+const CARD_GAP = 12;
 const PAGE_SIZE = 10; // how many to show at first, then load more
 
 /**
@@ -18,8 +18,7 @@ function LoadingMoreCard() {
     <View
       style={{
         width: 80,
-        alignSelf: 'stretch',
-        minHeight: 200,
+        height: 230,
         alignItems: 'center',
         justifyContent: 'center',
         marginLeft: CARD_GAP,
@@ -41,17 +40,16 @@ function EndCard() {
   return (
     <View
       style={{
-        width: 120,
-        alignSelf: 'stretch',
-        minHeight: 200,
+        width: 130,
+        height: 230,
         marginLeft: CARD_GAP,
         borderRadius: 24,
         overflow: 'hidden',
         shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.18,
-        shadowRadius: 14,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.16,
+        shadowRadius: 12,
+        elevation: 4,
       }}
     >
       {/* Background gradient layers */}

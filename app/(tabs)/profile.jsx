@@ -399,6 +399,7 @@ export default function Profile() {
         <View
           style={{
             marginTop: 16,
+            marginBottom: 16,
             backgroundColor: colors.surface,
             borderRadius: radius + 8,
             borderWidth: 1.5,
