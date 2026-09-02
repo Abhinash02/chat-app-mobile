@@ -16,6 +16,19 @@ import { useTheme } from '../../theme/ThemeProvider.jsx';
 export function MessageTicks({ state, tint }) {
   const { colors } = useTheme();
 
+  if (state === 'sending') {
+    return (
+      <View
+        className="flex-row items-center"
+        accessibilityRole="image"
+        accessibilityLabel="Sending…"
+        style={{ width: 12 }}
+      >
+        <Text style={{ color: tint ?? colors.textMuted, fontSize: 9, lineHeight: 11 }}>🕒</Text>
+      </View>
+    );
+  }
+
   const isPair = state === 'delivered' || state === 'read';
   const color = state === 'read' ? colors.info : (tint ?? colors.textMuted);
 

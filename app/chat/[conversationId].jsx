@@ -543,41 +543,53 @@ export default function ChatScreen() {
 
   async function send(text) {
     const trimmed = text.trim();
-    if (!trimmed || isSending) return;
+    if (!trimmed) return;
 
-    setIsSending(true);
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const optimisticMessage = {
+      id: tempId,
+      conversationId,
+      senderId: user?.id,
+      text: trimmed,
+      type: 'text',
+      createdAt: new Date().toISOString(),
+      deliveryState: 'sending',
+      isMine: true,
+      reactions: [],
+      isDeleted: false,
+    };
+
+    // 1. Instant 0ms Optimistic UI Append & Chime
+    setMessages((current) => [...current, optimisticMessage]);
     setDraft('');
+    playSent();
     emit(SOCKET_EVENT.TYPING_STOP, { conversationId });
 
     try {
       const result = await chatApi.send(conversationId, { text: trimmed });
 
+      // 2. Seamlessly update temp message to confirmed server message
       setMessages((current) =>
-        current.some((existing) => existing.id === result.message.id)
-          ? current
-          : [...current, result.message],
+        current.map((msg) => (msg.id === tempId ? { ...result.message, isMine: true } : msg)),
       );
 
-      playSent();
-
-      // Tell the user the moment a block was bought, so the balance dropping
-      // is explained rather than mysterious.
+      // Tell the user the moment a block was bought
       if (result.billing?.outcome === 'block_purchased') {
         toast.coins(
           `${result.billing.coinsCharged} coins — ${result.billing.wallet.pricing.messagesPerBlock} more messages`,
         );
       }
     } catch (sendError) {
+      // 3. Rollback on failure & restore draft
+      setMessages((current) => current.filter((msg) => msg.id !== tempId));
+      setDraft(trimmed);
+
       if (sendError.code === 'INSUFFICIENT_COINS') {
-        setDraft(trimmed); // Give the message back rather than losing it.
         toast.error('You are out of coins');
         router.push('/coins');
       } else {
-        setDraft(trimmed);
         toast.error(sendError.message ?? 'Could not send that message');
       }
-    } finally {
-      setIsSending(false);
     }
   }
 
@@ -858,7 +870,18 @@ export default function ChatScreen() {
             onChangeText={handleTyping}
             placeholder="Type a message…"
             placeholderTextColor={colors.textMuted}
-            multiline
+            multiline={Platform.OS !== 'web'}
+            returnKeyType="send"
+            blurOnSubmit={false}
+            onSubmitEditing={() => {
+              if (draft.trim()) send(draft);
+            }}
+            onKeyPress={(e) => {
+              if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+                e.preventDefault?.();
+                if (draft.trim()) send(draft);
+              }
+            }}
             maxLength={1000}
             className="flex-1 py-1.5 text-[15px]"
             style={{
@@ -870,7 +893,7 @@ export default function ChatScreen() {
           {/* Camera / Photo Attachment Button */}
           <Pressable
             onPress={choosePhoto}
-            disabled={isUploading || isSending}
+            disabled={isUploading}
             accessibilityRole="button"
             accessibilityLabel="Send a photo"
             className="h-8 w-8 items-center justify-center rounded-full ml-1 active:scale-90"
@@ -883,13 +906,12 @@ export default function ChatScreen() {
         {/* Send Action Button */}
         <Pressable
           onPress={() => send(draft)}
-          disabled={!draft.trim() || isSending}
+          disabled={!draft.trim()}
           accessibilityRole="button"
           accessibilityLabel="Send message"
           className="h-10 w-10 items-center justify-center rounded-full shadow-sm active:scale-95 transition"
           style={{
             backgroundColor: draft.trim() ? colors.primary : colors.surfaceAlt,
-            opacity: isSending ? 0.6 : 1,
             boxShadow: draft.trim() ? `0 4px 12px ${colors.primary}50` : 'none',
           }}
         >
