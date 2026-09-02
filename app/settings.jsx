@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Switch, Text
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 
 import { goBack } from '../src/components/ScreenHeader.jsx';
 import { Button, Card, Loading } from '../src/components/ui.jsx';
@@ -101,15 +102,33 @@ export default function Settings() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View className="flex-row items-center gap-3 px-4 pb-3 pt-2">
-        <Pressable onPress={() => goBack()} accessibilityRole="button" accessibilityLabel="Back" className="px-1">
-          <Text className="text-2xl" style={{ color: colors.textPrimary }}>
-            ‹
-          </Text>
-        </Pressable>
-        <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-          Settings
-        </Text>
+      {/* Professional Top Bar */}
+      <View
+        className="flex-row items-center justify-between px-4 pb-3.5 pt-2 border-b"
+        style={{ borderBottomColor: colors.border, backgroundColor: colors.surface }}
+      >
+        <View className="flex-row items-center gap-3">
+          <Pressable
+            onPress={() => goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            className="h-10 w-10 items-center justify-center rounded-2xl border shadow-sm active:scale-95 transition"
+            style={{
+              backgroundColor: colors.surfaceAlt,
+              borderColor: colors.border,
+            }}
+          >
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          </Pressable>
+          <View>
+            <Text className="text-xl font-bold tracking-tight" style={{ color: colors.textPrimary }}>
+              Settings
+            </Text>
+            <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+              Preferences & Account
+            </Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}>
