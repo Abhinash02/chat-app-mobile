@@ -82,24 +82,6 @@ async function configureAndroidChannels() {
 export async function registerForPushNotifications() {
   if (Platform.OS === 'web') return null;
 
-  const isExpoGo =
-    Constants?.appOwnership === 'expo' ||
-    Constants?.executionEnvironment === 'storeClient';
-
-  // Expo Go on Android removed remote FCM push tokens in SDK 53.
-  // We log info and safely bypass getExpoPushTokenAsync so the app doesn't crash.
-  if (isExpoGo && Platform.OS === 'android') {
-    console.info(
-      '[PushNotifications] Running inside Expo Go. Native FCM push token requires an APK or Development Build.',
-    );
-    try {
-      await configureAndroidChannels();
-    } catch {
-      // Ignored in Expo Go
-    }
-    return null;
-  }
-
   const Notifications = await getNotifications();
   if (!Notifications) return null;
 
@@ -107,14 +89,14 @@ export async function registerForPushNotifications() {
     await configureAndroidChannels();
 
     const existing = await Notifications.getPermissionsAsync();
-    let status = existing.status;
+    let status = existing?.status;
 
     if (status !== 'granted') {
       const requested = await Notifications.requestPermissionsAsync({
         ios: { allowAlert: true, allowBadge: true, allowSound: true },
         android: {},
       });
-      status = requested.status;
+      status = requested?.status;
     }
 
     if (status !== 'granted') {
