@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { goBack } from '../src/components/ScreenHeader.jsx';
 import { Button, Card, Loading } from '../src/components/ui.jsx';
-import { usersApi } from '../src/api/endpoints.js';
+import { notificationsApi, usersApi } from '../src/api/endpoints.js';
 import { useAuth } from '../src/hooks/useAuth.jsx';
 import { useSounds } from '../src/hooks/useSounds.jsx';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
@@ -133,6 +133,66 @@ export default function Settings() {
             onChange={(value) => setPreference('soundEnabled', value)}
             onPreview={playMessage}
           />
+
+          <View className="h-px" style={{ backgroundColor: colors.border }} />
+
+          <View className="py-2.5 flex-row items-center justify-between">
+            <View className="flex-1 mr-3">
+              <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                Test Notifications
+              </Text>
+              <Text className="text-xs" style={{ color: colors.textMuted }}>
+                {Platform.OS === 'web'
+                  ? 'Send a desktop notification to your browser.'
+                  : 'Send an immediate test notification to this phone.'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={async () => {
+                try {
+                  toast.info('Sending test notification...');
+
+                  // If testing in Web Browser, trigger Browser Desktop Notification API
+                  if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window) {
+                    let perm = window.Notification.permission;
+                    if (perm !== 'granted') {
+                      perm = await window.Notification.requestPermission();
+                    }
+                    if (perm === 'granted') {
+                      new window.Notification('Test Notification 🚀', {
+                        body: 'Push notifications are working smoothly on Vibe!',
+                        icon: '/favicon.ico',
+                      });
+                      playMessage?.();
+                      toast.success('Desktop notification sent! 🎉 (On phones, push will appear in your status bar)');
+                      return;
+                    }
+                  }
+
+                  const res = await notificationsApi.testPush({
+                    title: 'Test Notification 🚀',
+                    body: 'Push notifications are working smoothly on your device!',
+                  });
+
+                  if (res?.sent > 0) {
+                    toast.success('Test notification sent! Check your notification bar.');
+                  } else if (res?.skipped === 'NO_DEVICES') {
+                    toast.info('Open the Vibe app on your Android/iOS phone to register mobile push.');
+                  } else {
+                    toast.success('Test push requested!');
+                  }
+                } catch (err) {
+                  toast.error(err.message || 'Could not send test push');
+                }
+              }}
+              className="px-3 py-1.5 rounded-xl items-center justify-center"
+              style={{ backgroundColor: `${colors.primary}18`, borderWidth: 1, borderColor: colors.primary }}
+            >
+              <Text className="text-xs font-bold" style={{ color: colors.primary }}>
+                Test Push 🔔
+              </Text>
+            </Pressable>
+          </View>
         </Card>
 
         <Text className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.textMuted }}>

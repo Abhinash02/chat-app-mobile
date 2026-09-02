@@ -18,11 +18,12 @@ export function getApiOrigin() {
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
       hostname.startsWith('192.168.') ||
-      hostname.startsWith('10.');
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.');
 
-    // If browsing on local computer / local network, connect to local backend
+    // If browsing in web browser on local computer / local network, connect to that hostname's backend
     if (isLocalHost) {
-      return localUrl || `http://${hostname}:5000`;
+      return `http://${hostname}:5000`;
     }
 
     // If deployed on Render / Vercel / Live domain, use the live backend URL

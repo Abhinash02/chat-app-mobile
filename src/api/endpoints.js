@@ -135,6 +135,10 @@ export const reportsApi = {
   create: (data) => request({ method: 'POST', url: '/reports', data }),
 };
 
+export const notificationsApi = {
+  testPush: (data) => request({ method: 'POST', url: '/notifications/test', data }),
+};
+
 export const settingsApi = {
   public: () => request({ method: 'GET', url: '/settings/public' }),
 };
@@ -167,3 +171,10 @@ export const supportApi = {
     }),
   cannedResponses: () => request({ method: 'GET', url: '/support/canned-responses' }),
 };
+
+export const withdrawalsApi = {
+  getMyWithdrawals: (params) => requestList({ method: 'GET', url: '/withdrawals/my', params }),
+  getEarningsStatus: () => request({ method: 'GET', url: '/withdrawals/earnings-status' }),
+  requestWithdrawal: (data) => request({ method: 'POST', url: '/withdrawals/request', data }),
+};
+

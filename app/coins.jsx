@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { goBack } from '../src/components/ScreenHeader.jsx';
 import { Badge, Button, Card, CoinIcon, Field, GradientButton, Input, Loading } from '../src/components/ui.jsx';
-import { coinsApi, paymentsApi } from '../src/api/endpoints.js';
+import { coinsApi, paymentsApi, withdrawalsApi } from '../src/api/endpoints.js';
 import { formatCoins, formatCountdown, formatRupees } from '../src/lib/format.js';
 import { launchCashfreeCheckout } from '../src/lib/cashfree.js';
 import { useAuth } from '../src/hooks/useAuth.jsx';
@@ -179,6 +179,451 @@ function RedeemCouponCard({ onDiscountApplied, appliedCoupon, onClearCoupon }) {
         </View>
       )}
     </Card>
+  );
+}
+
+function WithdrawalModal({ isOpen, onClose, wallet }) {
+  const { colors } = useTheme();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const earnings = wallet?.earnings || {};
+  const coinsPerRupee = earnings.coinsPerRupee || 25;
+  const minCoins = earnings.minWithdrawalCoins || 25;
+  const userBalance = wallet?.coinBalance || 0;
+
+  const [coinAmount, setCoinAmount] = useState(String(Math.max(minCoins, Math.min(100, userBalance))));
+  const [method, setMethod] = useState('upi');
+  const [upiId, setUpiId] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [ifsc, setIfsc] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
+  const [phone, setPhone] = useState('');
+
+  const numCoins = parseInt(coinAmount, 10) || 0;
+  const inrValue = (numCoins / coinsPerRupee).toFixed(2);
+
+  const withdraw = useMutation({
+    mutationFn: (payload) => withdrawalsApi.requestWithdrawal(payload),
+    onSuccess: (res) => {
+      toast.coins(res.message || 'Withdrawal request submitted! 🎉');
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['my-withdrawals'] });
+      onClose();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Could not submit withdrawal request');
+    },
+  });
+
+  function handleSubmit() {
+    if (numCoins < minCoins) {
+      toast.error(`Minimum withdrawal is ${minCoins} coins (₹${(minCoins / coinsPerRupee).toFixed(2)})`);
+      return;
+    }
+    if (numCoins > userBalance) {
+      toast.error(`Insufficient balance. You have ${userBalance} coins.`);
+      return;
+    }
+
+    if (method === 'upi') {
+      if (!upiId.trim() || !upiId.includes('@')) {
+        toast.error('Please enter a valid UPI ID (e.g. name@okhdfcbank)');
+        return;
+      }
+      withdraw.mutate({
+        coins: numCoins,
+        payoutMethod: 'upi',
+        upiId: upiId.trim(),
+      });
+    } else {
+      if (!accountHolderName.trim()) {
+        toast.error('Please enter Account Holder Name');
+        return;
+      }
+      if (!accountNumber.trim() || accountNumber.length < 6) {
+        toast.error('Please enter a valid Bank Account Number');
+        return;
+      }
+      if (!ifsc.trim() || ifsc.length !== 11) {
+        toast.error('Please enter a valid 11-digit IFSC Code');
+        return;
+      }
+      withdraw.mutate({
+        coins: numCoins,
+        payoutMethod: 'bank_transfer',
+        bankDetails: {
+          accountHolderName: accountHolderName.trim(),
+          accountNumber: accountNumber.trim(),
+          ifsc: ifsc.trim().toUpperCase(),
+          phone: phone.trim() || undefined,
+        },
+      });
+    }
+  }
+
+  return (
+    <Modal visible={isOpen} transparent animationType="slide" onRequestClose={onClose}>
+      <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}>
+        <View
+          className="p-5 rounded-t-3xl max-h-[85%]"
+          style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.border }}
+        >
+          {/* Header */}
+          <View className="flex-row items-center justify-between pb-3 border-b" style={{ borderBottomColor: colors.border }}>
+            <View>
+              <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
+                Convert Coins to Rupees 💸
+              </Text>
+              <Text className="text-xs" style={{ color: colors.textMuted }}>
+                {coinsPerRupee} Coins = ₹1.00 INR • Fast Cashfree Payout
+              </Text>
+            </View>
+            <Pressable onPress={onClose} className="p-1">
+              <Text className="text-xl font-bold" style={{ color: colors.textSecondary }}>✕</Text>
+            </Pressable>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} className="py-3">
+            {/* Conversion calculator card */}
+            <View
+              className="p-4 rounded-2xl mb-4"
+              style={{
+                backgroundColor: `${colors.primary}10`,
+                borderWidth: 1,
+                borderColor: `${colors.primary}30`,
+              }}
+            >
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-xs font-semibold" style={{ color: colors.textSecondary }}>
+                  Your Coin Balance:
+                </Text>
+                <Text className="text-xs font-bold" style={{ color: colors.primary }}>
+                  🪙 {userBalance} Coins (≈ ₹{((userBalance) / coinsPerRupee).toFixed(2)})
+                </Text>
+              </View>
+
+              <Field label="Coins to Convert">
+                <Input
+                  value={coinAmount}
+                  onChangeText={setCoinAmount}
+                  keyboardType="number-pad"
+                  placeholder={`Min ${minCoins} coins`}
+                />
+              </Field>
+
+              {/* Quick preset chips */}
+              <View className="flex-row items-center gap-2 mt-2">
+                {[minCoins, 50, 100, 250].filter(c => c <= userBalance || c === minCoins).map((val) => (
+                  <Pressable
+                    key={val}
+                    onPress={() => setCoinAmount(String(val))}
+                    className="px-2.5 py-1 rounded-lg"
+                    style={{
+                      backgroundColor: numCoins === val ? colors.primary : colors.surfaceAlt,
+                      borderWidth: 1,
+                      borderColor: numCoins === val ? colors.primary : colors.border,
+                    }}
+                  >
+                    <Text
+                      className="text-xs font-bold"
+                      style={{ color: numCoins === val ? '#FFFFFF' : colors.textPrimary }}
+                    >
+                      {val}
+                    </Text>
+                  </Pressable>
+                ))}
+                {userBalance >= minCoins && (
+                  <Pressable
+                    onPress={() => setCoinAmount(String(userBalance))}
+                    className="px-2.5 py-1 rounded-lg"
+                    style={{
+                      backgroundColor: numCoins === userBalance ? colors.primary : colors.surfaceAlt,
+                      borderWidth: 1,
+                      borderColor: numCoins === userBalance ? colors.primary : colors.border,
+                    }}
+                  >
+                    <Text
+                      className="text-xs font-bold"
+                      style={{ color: numCoins === userBalance ? '#FFFFFF' : colors.textPrimary }}
+                    >
+                      Max ({userBalance})
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {/* Calculated Rupee Output */}
+              <View
+                className="mt-3 p-3 rounded-xl flex-row items-center justify-between"
+                style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>
+                  You Will Receive:
+                </Text>
+                <Text className="text-lg font-black text-emerald-600">
+                  ₹{inrValue}
+                </Text>
+              </View>
+            </View>
+
+            {/* Payout method tab */}
+            <Text className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>
+              Select Payout Method
+            </Text>
+            <View className="flex-row gap-2 mb-3">
+              <Pressable
+                onPress={() => setMethod('upi')}
+                className="flex-1 p-3 rounded-xl items-center"
+                style={{
+                  backgroundColor: method === 'upi' ? `${colors.primary}18` : colors.surfaceAlt,
+                  borderWidth: 1.5,
+                  borderColor: method === 'upi' ? colors.primary : colors.border,
+                }}
+              >
+                <Text className="text-sm font-bold" style={{ color: method === 'upi' ? colors.primary : colors.textPrimary }}>
+                  ⚡ UPI ID (VPA)
+                </Text>
+                <Text className="text-[10px]" style={{ color: colors.textMuted }}>GPay, PhonePe, Paytm</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setMethod('bank_transfer')}
+                className="flex-1 p-3 rounded-xl items-center"
+                style={{
+                  backgroundColor: method === 'bank_transfer' ? `${colors.primary}18` : colors.surfaceAlt,
+                  borderWidth: 1.5,
+                  borderColor: method === 'bank_transfer' ? colors.primary : colors.border,
+                }}
+              >
+                <Text className="text-sm font-bold" style={{ color: method === 'bank_transfer' ? colors.primary : colors.textPrimary }}>
+                  🏦 Bank Account
+                </Text>
+                <Text className="text-[10px]" style={{ color: colors.textMuted }}>Direct IMPS/NEFT</Text>
+              </Pressable>
+            </View>
+
+            {method === 'upi' ? (
+              <Field label="Your UPI ID" hint="e.g. yourname@okhdfcbank or 9876543210@paytm">
+                <Input
+                  value={upiId}
+                  onChangeText={setUpiId}
+                  placeholder="Enter UPI VPA"
+                  autoCapitalize="none"
+                />
+              </Field>
+            ) : (
+              <View className="space-y-2.5">
+                <Field label="Account Holder Name">
+                  <Input
+                    value={accountHolderName}
+                    onChangeText={setAccountHolderName}
+                    placeholder="Full name as in bank passbook"
+                  />
+                </Field>
+                <Field label="Bank Account Number">
+                  <Input
+                    value={accountNumber}
+                    onChangeText={setAccountNumber}
+                    keyboardType="number-pad"
+                    placeholder="e.g. 0123456789012"
+                  />
+                </Field>
+                <Field label="IFSC Code">
+                  <Input
+                    value={ifsc}
+                    onChangeText={(t) => setIfsc(t.toUpperCase())}
+                    autoCapitalize="characters"
+                    placeholder="e.g. HDFC0001234"
+                    maxLength={11}
+                  />
+                </Field>
+              </View>
+            )}
+
+            <View className="mt-4 mb-6">
+              <GradientButton
+                title={`Transfer ₹${inrValue} to Account`}
+                isLoading={withdraw.isPending}
+                onPress={handleSubmit}
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function GirlsEarningsCard({ wallet }) {
+  const { colors } = useTheme();
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const earnings = wallet?.earnings || {};
+  const coinsPerRupee = earnings.coinsPerRupee || 25;
+  const messagesPerReward = earnings.messagesPerReward || 25;
+  const rewardCoins = earnings.rewardCoins || 1;
+  const currentProgress = earnings.currentProgress || 0;
+  const progressInCycle = currentProgress % messagesPerReward;
+  const progressPercent = Math.min(100, Math.round((progressInCycle / messagesPerReward) * 100));
+
+  const { data: withdrawalsData } = useQuery({
+    queryKey: ['my-withdrawals'],
+    queryFn: () => withdrawalsApi.getMyWithdrawals({ limit: 5 }),
+    refetchInterval: 30_000,
+  });
+
+  const recentList = withdrawalsData?.items || [];
+
+  return (
+    <View className="mb-5">
+      <Card
+        style={{
+          borderColor: colors.primary,
+          borderWidth: 1.5,
+          backgroundColor: `${colors.primary}08`,
+        }}
+      >
+        {/* Header */}
+        <View className="flex-row items-center justify-between mb-3">
+          <View className="flex-row items-center gap-2">
+            <Text className="text-2xl">💖</Text>
+            <View>
+              <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
+                Girls Chat Earnings & Cashout
+              </Text>
+              <Text className="text-xs" style={{ color: colors.primary }}>
+                {messagesPerReward} messages with boys = +{rewardCoins} coin (₹1 = {coinsPerRupee} coins)
+              </Text>
+            </View>
+          </View>
+          <Badge label="Girls Club" tone="brand" />
+        </View>
+
+        {/* Live Message Progress to Next Coin */}
+        <View
+          className="p-3.5 rounded-2xl mb-3"
+          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+        >
+          <View className="flex-row items-center justify-between mb-1.5">
+            <Text className="text-xs font-semibold" style={{ color: colors.textSecondary }}>
+              💬 Chat Progress ({messagesPerReward} messages = +{rewardCoins} Coin)
+            </Text>
+            <Text className="text-xs font-bold" style={{ color: colors.primary }}>
+              {progressInCycle} / {messagesPerReward} msgs
+            </Text>
+          </View>
+
+          {/* Progress bar */}
+          <View className="h-2.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: colors.surfaceAlt }}>
+            <View
+              className="h-full rounded-full"
+              style={{ width: `${Math.max(5, progressPercent)}%`, backgroundColor: colors.primary }}
+            />
+          </View>
+
+          <Text className="text-[11px] mt-1.5" style={{ color: colors.textMuted }}>
+            {messagesPerReward - progressInCycle === 0
+              ? '🎉 Coin reward ready!'
+              : `${messagesPerReward - progressInCycle} more messages with boys to earn +${rewardCoins} coin`}
+          </Text>
+        </View>
+
+        {/* Balance & Cashout CTA */}
+        <View
+          className="p-4 rounded-2xl mb-3 flex-row items-center justify-between"
+          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+        >
+          <View>
+            <Text className="text-xs" style={{ color: colors.textMuted }}>Your Convertable Cash</Text>
+            <View className="flex-row items-baseline gap-1.5 mt-0.5">
+              <Text className="text-2xl font-black text-emerald-600">
+                ₹{((wallet?.coinBalance || 0) / coinsPerRupee).toFixed(2)}
+              </Text>
+              <Text className="text-xs font-semibold" style={{ color: colors.textMuted }}>
+                ({wallet?.coinBalance || 0} Coins)
+              </Text>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={() => setModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl flex-row items-center gap-1.5 shadow-sm"
+            style={{ backgroundColor: colors.primary }}
+          >
+            <Text className="text-sm font-bold text-white">Withdraw 💸</Text>
+          </Pressable>
+        </View>
+
+        {/* Withdrawal History list */}
+        {recentList.length > 0 && (
+          <View className="pt-2 border-t" style={{ borderTopColor: colors.border }}>
+            <Text className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>
+              Recent Payout Requests
+            </Text>
+            {recentList.map((item) => {
+              const isPending = item.status === 'pending';
+              const isSuccess = item.status === 'success';
+              const isRejected = item.status === 'rejected';
+
+              return (
+                <View
+                  key={item._id}
+                  className="flex-row items-center justify-between py-2 border-b border-dashed"
+                  style={{ borderBottomColor: `${colors.border}60` }}
+                >
+                  <View>
+                    <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>
+                      ₹{item.amountInRupees?.toFixed(2)} ({item.coins} Coins)
+                    </Text>
+                    <Text className="text-[10px]" style={{ color: colors.textMuted }}>
+                      {item.payoutMethod === 'upi' ? `UPI: ${item.upiId}` : `A/C: ${item.bankDetails?.accountNumber}`}
+                    </Text>
+                  </View>
+
+                  <View className="items-end">
+                    <View
+                      className="px-2 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: isPending
+                          ? '#FEF3C7'
+                          : isSuccess
+                            ? '#D1FAE5'
+                            : '#FEE2E2',
+                      }}
+                    >
+                      <Text
+                        className="text-[10px] font-bold"
+                        style={{
+                          color: isPending
+                            ? '#B45309'
+                            : isSuccess
+                              ? '#047857'
+                              : '#B91C1C',
+                        }}
+                      >
+                        {isPending ? '⏳ Under Review' : isSuccess ? '✅ Transferred' : '❌ Rejected & Refunded'}
+                      </Text>
+                    </View>
+                    {isRejected && item.rejectionReason && (
+                      <Text className="text-[9px] text-red-600 mt-0.5" numberOfLines={1}>
+                        {item.rejectionReason}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </Card>
+
+      <WithdrawalModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        wallet={wallet}
+      />
+    </View>
   );
 }
 
@@ -487,6 +932,39 @@ export default function Coins() {
     onError: (error) => toast.error(error.message ?? 'Could not verify payment yet'),
   });
 
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const onCoinsEarned = (data) => {
+      toast.coins(data.reason || `+${data.amount} coins earned! 🎉`);
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+    };
+
+    const onWithdrawalApproved = (data) => {
+      toast.success(`Withdrawal of ₹${data.amountInRupees} approved & transferred! 🎉`);
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['my-withdrawals'] });
+    };
+
+    const onWithdrawalRejected = (data) => {
+      toast.error(`Withdrawal update: ${data.reason}. ${data.coinsRefunded} coins refunded.`);
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['my-withdrawals'] });
+    };
+
+    socket.on('coins:earned', onCoinsEarned);
+    socket.on('withdrawal:approved', onWithdrawalApproved);
+    socket.on('withdrawal:rejected', onWithdrawalRejected);
+
+    return () => {
+      socket.off('coins:earned', onCoinsEarned);
+      socket.off('withdrawal:approved', onWithdrawalApproved);
+      socket.off('withdrawal:rejected', onWithdrawalRejected);
+    };
+  }, [socket, queryClient]);
+
   if (isLoading) {
     return (
       <View className="flex-1" style={{ backgroundColor: colors.background }}>
@@ -581,6 +1059,11 @@ export default function Coins() {
             </View>
           ) : null}
         </Card>
+
+        {/* Girls Chat Earnings & Cash Conversion Card */}
+        {Boolean(wallet?.isUnlimited || user?.gender === 'female' || wallet?.earnings?.enabled) && (
+          <GirlsEarningsCard wallet={wallet} />
+        )}
 
         {activeOrder?.isCashfree ? (
           <Card className="mb-5 p-4" style={{ borderColor: `${colors.primary}40`, backgroundColor: colors.surface }}>
