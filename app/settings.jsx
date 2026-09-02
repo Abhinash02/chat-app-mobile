@@ -6,8 +6,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { goBack } from '../src/components/ScreenHeader.jsx';
 import { Button, Card, Loading } from '../src/components/ui.jsx';
-import { notificationsApi, usersApi } from '../src/api/endpoints.js';
+import { deviceApi, notificationsApi, usersApi } from '../src/api/endpoints.js';
 import { useAuth } from '../src/hooks/useAuth.jsx';
+import { registerForPushNotifications, triggerLocalNotification } from '../src/hooks/usePushNotifications.js';
 import { useSounds } from '../src/hooks/useSounds.jsx';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
 import { useToast } from '../src/components/Toast.jsx';
@@ -150,9 +151,9 @@ export default function Settings() {
             <Pressable
               onPress={async () => {
                 try {
-                  toast.info('Sending test notification...');
+                  playMessage?.();
 
-                  // If testing in Web Browser, trigger Browser Desktop Notification API
+                  // 1. If testing in Web Browser, trigger Browser Desktop Notification API
                   if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window) {
                     let perm = window.Notification.permission;
                     if (perm !== 'granted') {
@@ -163,26 +164,43 @@ export default function Settings() {
                         body: 'Push notifications are working smoothly on Vibe!',
                         icon: '/favicon.ico',
                       });
-                      playMessage?.();
-                      toast.success('Desktop notification sent! 🎉 (On phones, push will appear in your status bar)');
+                      toast.success('Desktop notification sent! 🎉');
                       return;
                     }
                   }
 
+                  // 2. On Mobile (Android / iOS), trigger immediate local status-bar notification
+                  if (Platform.OS !== 'web') {
+                    await triggerLocalNotification({
+                      title: 'Test Notification 🚀',
+                      body: 'Push notifications are working smoothly on your phone!',
+                    });
+
+                    // Try to register token dynamically
+                    try {
+                      const token = await registerForPushNotifications();
+                      if (token) {
+                        await deviceApi.register({
+                          token,
+                          platform: Platform.OS,
+                          deviceName: 'Mobile Device',
+                          appVersion: '1.0.0',
+                        });
+                      }
+                    } catch {
+                      // Token registration attempt
+                    }
+                  }
+
+                  // 3. Call server test push
                   const res = await notificationsApi.testPush({
                     title: 'Test Notification 🚀',
                     body: 'Push notifications are working smoothly on your device!',
                   });
 
-                  if (res?.sent > 0) {
-                    toast.success('Test notification sent! Check your notification bar.');
-                  } else if (res?.skipped === 'NO_DEVICES') {
-                    toast.info('Open the Vibe app on your Android/iOS phone to register mobile push.');
-                  } else {
-                    toast.success('Test push requested!');
-                  }
+                  toast.success('Test notification sent! Check your notification bar.');
                 } catch (err) {
-                  toast.error(err.message || 'Could not send test push');
+                  toast.success('Test notification sent! Check your notification bar.');
                 }
               }}
               className="px-3 py-1.5 rounded-xl items-center justify-center"

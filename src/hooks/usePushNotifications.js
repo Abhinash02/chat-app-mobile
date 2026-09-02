@@ -79,7 +79,7 @@ async function configureAndroidChannels() {
   }
 }
 
-async function registerForPushNotifications() {
+export async function registerForPushNotifications() {
   if (Platform.OS === 'web') return null;
 
   const isExpoGo =
@@ -136,6 +136,26 @@ async function registerForPushNotifications() {
   } catch (err) {
     console.warn('[PushNotifications] Push token registration skipped:', err?.message);
     return null;
+  }
+}
+
+export async function triggerLocalNotification({ title, body, data = {} }) {
+  if (Platform.OS === 'web') return;
+  const Notifications = await getNotifications();
+  if (!Notifications) return;
+  try {
+    await configureAndroidChannels();
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data,
+        sound: 'default',
+      },
+      trigger: null,
+    });
+  } catch (err) {
+    console.warn('[PushNotifications] Local notification schedule error:', err?.message);
   }
 }
 
