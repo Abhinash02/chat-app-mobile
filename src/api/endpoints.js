@@ -135,6 +135,11 @@ export const reportsApi = {
   create: (data) => request({ method: 'POST', url: '/reports', data }),
 };
 
+export const deviceApi = {
+  register: (data) => request({ method: 'POST', url: '/notifications/devices', data }),
+  unregister: (token) => request({ method: 'DELETE', url: '/notifications/devices', data: { token } }),
+};
+
 export const notificationsApi = {
   testPush: (data) => request({ method: 'POST', url: '/notifications/test', data }),
 };
