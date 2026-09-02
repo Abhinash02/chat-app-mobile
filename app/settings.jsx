@@ -141,10 +141,47 @@ export default function Settings() {
 
         <Card className="mb-5">
           <View className="py-1">
-            <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-              {t('settings.languageDesc')}
-            </Text>
-            <View className="flex-row gap-2 mt-3">
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary }}
+                >
+                  {t('settings.appLanguage')}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}
+                >
+                  {t('settings.languageDesc')}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 5,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  backgroundColor: `${colors.primary}18`,
+                  borderWidth: 1,
+                  borderColor: `${colors.primary}35`,
+                  shrink: 0,
+                }}
+              >
+                <Text style={{ fontSize: 12 }}>{currentLanguage.flag}</Text>
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}
+                >
+                  {currentLanguage.nativeName}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 6 }}>
               {availableLanguages.map((lang) => {
                 const isSelected = language === lang.code;
                 return (
@@ -154,8 +191,14 @@ export default function Settings() {
                       setLanguage(lang.code);
                       toast.success(`${lang.flag} ${lang.nativeName}`);
                     }}
-                    className="flex-1 py-2.5 px-1.5 items-center justify-center rounded-xl active:scale-95 transition"
-                    style={{
+                    accessibilityRole="button"
+                    accessibilityLabel={`Switch language to ${lang.name}`}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      height: 50,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 14,
                       backgroundColor: isSelected ? colors.primary : colors.surfaceAlt,
                       borderWidth: 1.5,
                       borderColor: isSelected ? colors.primary : colors.border,
@@ -163,13 +206,19 @@ export default function Settings() {
                       shadowOpacity: isSelected ? 0.3 : 0,
                       shadowRadius: 6,
                       elevation: isSelected ? 3 : 0,
-                    }}
+                      transform: [{ scale: pressed ? 0.96 : 1 }],
+                    })}
                   >
                     <Text style={{ fontSize: 16 }}>{lang.flag}</Text>
                     <Text
-                      className="text-xs font-bold mt-1 text-center"
-                      style={{ color: isSelected ? colors.onPrimary || '#fff' : colors.textPrimary }}
                       numberOfLines={1}
+                      style={{
+                        fontSize: 10,
+                        fontWeight: '800',
+                        marginTop: 2,
+                        textAlign: 'center',
+                        color: isSelected ? (colors.onPrimary || '#fff') : colors.textPrimary,
+                      }}
                     >
                       {lang.nativeName}
                     </Text>

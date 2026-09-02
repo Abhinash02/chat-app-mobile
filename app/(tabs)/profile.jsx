@@ -401,10 +401,11 @@ export default function Profile() {
             marginTop: 16,
             marginBottom: 16,
             backgroundColor: colors.surface,
-            borderRadius: radius + 8,
+            borderRadius: 22,
             borderWidth: 1.5,
             borderColor: `${colors.primary}35`,
             padding: 16,
+            overflow: 'hidden',
             shadowColor: colors.primary,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.1,
@@ -412,36 +413,65 @@ export default function Profile() {
             elevation: 3,
           }}
         >
-          <View className="flex-row items-center justify-between mb-3">
-            <View className="flex-row items-center gap-2.5">
+          {/* Header Strip with Top-Right Active Badge */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, marginRight: 8 }}>
               <View
-                className="w-8 h-8 rounded-xl items-center justify-center"
-                style={{ backgroundColor: `${colors.primary}18` }}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: `${colors.primary}18`,
+                  shrink: 0,
+                }}
               >
-                <Text style={{ fontSize: 16 }}>🌐</Text>
+                <Text style={{ fontSize: 18 }}>🌐</Text>
               </View>
-              <View>
-                <Text className="text-sm font-bold" style={{ color: colors.textPrimary }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary }}
+                >
                   {t('profile.appLanguage')}
                 </Text>
-                <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: 10.5, color: colors.textMuted, marginTop: 1 }}
+                >
                   {t('profile.languageSub')}
                 </Text>
               </View>
             </View>
+
+            {/* Top-Right Active Language Indicator */}
             <View
-              className="px-2.5 py-1 rounded-full flex-row items-center gap-1"
-              style={{ backgroundColor: `${colors.primary}15`, borderWidth: 1, borderColor: `${colors.primary}30` }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                paddingHorizontal: 10,
+                paddingVertical: 4.5,
+                borderRadius: 14,
+                backgroundColor: `${colors.primary}18`,
+                borderWidth: 1,
+                borderColor: `${colors.primary}35`,
+                shrink: 0,
+              }}
             >
-              <Text style={{ fontSize: 11 }}>{currentLanguage.flag}</Text>
-              <Text className="text-[11px] font-bold" style={{ color: colors.primary }}>
+              <Text style={{ fontSize: 12 }}>{currentLanguage.flag}</Text>
+              <Text
+                numberOfLines={1}
+                style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}
+              >
                 {currentLanguage.nativeName}
               </Text>
             </View>
           </View>
 
           {/* Quick 1-Click Language Chips */}
-          <View className="flex-row gap-2">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
             {availableLanguages.map((lang) => {
               const isSelected = language === lang.code;
               return (
@@ -451,8 +481,14 @@ export default function Profile() {
                     setLanguage(lang.code);
                     toast.success(`${lang.flag} ${lang.nativeName}`);
                   }}
-                  className="flex-1 py-2 px-1 items-center justify-center rounded-xl active:scale-95 transition"
-                  style={{
+                  accessibilityRole="button"
+                  accessibilityLabel={`Switch language to ${lang.name}`}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    height: 50,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 14,
                     backgroundColor: isSelected ? colors.primary : colors.surfaceAlt,
                     borderWidth: 1.5,
                     borderColor: isSelected ? colors.primary : colors.border,
@@ -460,13 +496,19 @@ export default function Profile() {
                     shadowOpacity: isSelected ? 0.3 : 0,
                     shadowRadius: 6,
                     elevation: isSelected ? 3 : 0,
-                  }}
+                    transform: [{ scale: pressed ? 0.96 : 1 }],
+                  })}
                 >
-                  <Text style={{ fontSize: 15 }}>{lang.flag}</Text>
+                  <Text style={{ fontSize: 16 }}>{lang.flag}</Text>
                   <Text
-                    className="text-[11px] font-bold mt-0.5 text-center"
-                    style={{ color: isSelected ? colors.onPrimary || '#fff' : colors.textPrimary }}
                     numberOfLines={1}
+                    style={{
+                      fontSize: 10,
+                      fontWeight: '800',
+                      marginTop: 2,
+                      textAlign: 'center',
+                      color: isSelected ? (colors.onPrimary || '#FFFFFF') : colors.textPrimary,
+                    }}
                   >
                     {lang.nativeName}
                   </Text>
