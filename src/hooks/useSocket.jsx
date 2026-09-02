@@ -98,11 +98,56 @@ export function SocketProvider({ children }) {
       });
 
       socket.on(SOCKET_EVENT.MESSAGE_NEW, (message) => {
-        // Only chime for messages from the other person.
-        if (String(message.senderId) !== String(handlersRef.current.user?.id)) {
+        const isMine = String(message.senderId) === String(handlersRef.current.user?.id);
+        if (!isMine) {
           handlersRef.current.playMessage();
           setUnreadCount((count) => count + 1);
         }
+
+        // Realtime instant update for conversation list cache without reloading!
+        queryClient.setQueryData(['conversations'], (oldData) => {
+          if (!oldData?.items) return oldData;
+          let found = false;
+          const updatedItems = oldData.items.map((conv) => {
+            if (String(conv.id) === String(message.conversationId)) {
+              found = true;
+              return {
+                ...conv,
+                lastMessageAt: message.createdAt || new Date().toISOString(),
+                lastMessage: {
+                  id: message.id,
+                  text: message.text,
+                  type: message.type,
+                  isMine,
+                  createdAt: message.createdAt,
+                },
+                unreadCount: isMine ? (conv.unreadCount || 0) : (conv.unreadCount || 0) + 1,
+              };
+            }
+            return conv;
+          });
+
+          // Sort latest conversation to the top
+          updatedItems.sort(
+            (a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0),
+          );
+
+          return { ...oldData, items: updatedItems };
+        });
+      });
+
+      socket.on(SOCKET_EVENT.MESSAGE_READ_RECEIPT, (payload) => {
+        queryClient.setQueryData(['conversations'], (oldData) => {
+          if (!oldData?.items) return oldData;
+          return {
+            ...oldData,
+            items: oldData.items.map((conv) =>
+              String(conv.id) === String(payload.conversationId)
+                ? { ...conv, unreadCount: 0 }
+                : conv,
+            ),
+          };
+        });
       });
 
       socket.on(SOCKET_EVENT.PRESENCE_UPDATED, ({ userId, isOnline, lastSeenAt }) => {

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Pressable, RefreshControl, SectionList, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { StatusRow } from '../../src/components/status/StatusRow.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { chatApi } from '../../src/api/endpoints.js';
 import { formatRelativeTime } from '../../src/lib/format.js';
+import { SOCKET_EVENT } from '../../src/constants/events.js';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 
@@ -84,7 +85,7 @@ function ConversationRow({ conversation, presence, onPress }) {
 
 export default function Chats() {
   const { colors } = useTheme();
-  const { presence, setUnreadCount } = useSocket();
+  const { presence, setUnreadCount, on } = useSocket();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
@@ -92,6 +93,20 @@ export default function Chats() {
     queryKey: ['conversations'],
     queryFn: () => chatApi.conversations({ limit: 30 }),
   });
+
+  useEffect(() => {
+    if (!on) return undefined;
+    const offMessage = on(SOCKET_EVENT.MESSAGE_NEW, () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
+    const offReceipt = on(SOCKET_EVENT.MESSAGE_READ_RECEIPT, () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
+    return () => {
+      offMessage?.();
+      offReceipt?.();
+    };
+  }, [on, queryClient]);
 
   /**
    * Refetch on focus. Coming back from a chat means at least the unread count
