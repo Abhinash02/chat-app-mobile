@@ -1219,9 +1219,7 @@ export default function Coins() {
 
   const isGirl =
     String(user?.gender).toLowerCase() === 'female' ||
-    String(user?.gender).toLowerCase() === 'girl' ||
-    Boolean(wallet?.isUnlimited) ||
-    Boolean(wallet?.earnings?.enabled);
+    String(user?.gender).toLowerCase() === 'girl';
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background, paddingTop: insets.top }}>

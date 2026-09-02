@@ -340,7 +340,7 @@ export default function Transactions() {
         className="px-4 py-3 border-b flex-row items-center gap-2"
         style={{ backgroundColor: colors.surface, borderBottomColor: colors.border }}
       >
-        {isGirl || withdrawals.length > 0 ? (
+        {isGirl ? (
           <>
             <View
               className="flex-1 px-3 py-2.5 rounded-2xl border"
@@ -452,8 +452,8 @@ export default function Transactions() {
           className="p-1 rounded-2xl flex-row items-center"
           style={{ backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border }}
         >
-          {/* Tab 0: Cashouts (Always visible for girls or users with withdrawals) */}
-          {(isGirl || withdrawals.length > 0) && (
+          {/* Tab 0: Cashouts (Only for girls) */}
+          {isGirl && (
             <Pressable
               onPress={() => setActiveTab('cashouts')}
               className="flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1"

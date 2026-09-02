@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 
 import { CoinIcon } from './CoinIcon.jsx';
 import { formatCoins, formatFreeTalk } from '../lib/format.js';
+import { useAuth } from '../hooks/useAuth.jsx';
 import { useSocket } from '../hooks/useSocket.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
@@ -17,7 +18,12 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
  */
 export function WalletHeader({ compact = false }) {
   const { colors, radius } = useTheme();
+  const { user } = useAuth();
   const { wallet, isConnected, isFreeTalkRunning } = useSocket();
+
+  const isGirl =
+    String(user?.gender).toLowerCase() === 'female' ||
+    String(user?.gender).toLowerCase() === 'girl';
 
   const serverSeconds = wallet?.freeTalkSecondsRemaining ?? 0;
 
@@ -55,7 +61,7 @@ export function WalletHeader({ compact = false }) {
 
   if (!wallet) return null;
 
-  if (wallet.isUnlimited) {
+  if (isGirl && wallet.isUnlimited) {
     return (
       <Pressable
         onPress={() => router.push('/coins')}

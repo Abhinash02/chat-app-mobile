@@ -52,9 +52,7 @@ const ZODIAC_SIGNS = [
 function useMenuSections({ router, user, wallet, unreadSupportCount, onOpenFeedback, onLogout, t }) {
   const isGirl =
     String(user?.gender).toLowerCase() === 'female' ||
-    String(user?.gender).toLowerCase() === 'girl' ||
-    Boolean(wallet?.isUnlimited) ||
-    Boolean(wallet?.earnings?.enabled);
+    String(user?.gender).toLowerCase() === 'girl';
 
   return [
     {
@@ -227,9 +225,7 @@ export default function Profile() {
 
   const isGirl =
     String(profile?.gender || user?.gender).toLowerCase() === 'female' ||
-    String(profile?.gender || user?.gender).toLowerCase() === 'girl' ||
-    Boolean(wallet?.isUnlimited) ||
-    Boolean(wallet?.earnings?.enabled);
+    String(profile?.gender || user?.gender).toLowerCase() === 'girl';
 
   const { language, currentLanguage, availableLanguages, setLanguage, t } = useLanguage();
 
