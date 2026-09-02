@@ -17,13 +17,16 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenHeader } from '../src/components/ScreenHeader.jsx';
 import { Badge, Card, CoinIcon, EmptyState, Loading } from '../src/components/ui.jsx';
-import { coinsApi, paymentsApi } from '../src/api/endpoints.js';
+import { coinsApi, paymentsApi, withdrawalsApi } from '../src/api/endpoints.js';
 import { formatCoins, formatRelativeTime, formatRupees } from '../src/lib/format.js';
+import { useAuth } from '../src/hooks/useAuth.jsx';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
 import { useToast } from '../src/components/Toast.jsx';
 
 const FILTER_TYPES = [
   { label: 'All', value: undefined },
+  { label: '💸 Cashouts', value: 'withdrawal' },
+  { label: '💖 Chat Earn', value: 'chat_earning' },
   { label: '🪙 Purchases', value: 'purchase' },
   { label: '↩️ Refunds', value: 'admin_deduct' },
   { label: '🎁 Bonuses', value: 'daily_bonus' },
@@ -79,6 +82,9 @@ function orderStatusKey(item) {
 
 function transactionIcon(type, amount) {
   if (type === 'admin_deduct' || type === 'refund') return '↩️';
+  if (type === 'withdrawal') return '💸';
+  if (type === 'withdrawal_refund') return '↩️';
+  if (type === 'chat_earning') return '💖';
   if (amount > 0) {
     if (type === 'purchase') return '💳';
     if (type === 'daily_bonus') return '🎁';
@@ -94,6 +100,9 @@ function transactionIcon(type, amount) {
 function transactionTitle(item) {
   if (item.description) return item.description;
   const map = {
+    withdrawal: 'Rupee Cashout / Withdrawal',
+    withdrawal_refund: 'Withdrawal Refunded',
+    chat_earning: 'Chat-to-Earn Reward',
     purchase: 'Coins Purchase',
     daily_bonus: 'Daily Bonus Reward',
     message_charge: 'Message Sent',
@@ -200,11 +209,16 @@ function RejectedNotice({ item, colors }) {
 
 export default function Transactions() {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const toast = useToast();
   const insets = useSafeAreaInsets();
 
-  // 3 dedicated tabs: 'invoices' | 'refunds' | 'ledger'
-  const [activeTab, setActiveTab] = useState('invoices');
+  const isGirl =
+    String(user?.gender).toLowerCase() === 'female' ||
+    String(user?.gender).toLowerCase() === 'girl';
+
+  // 4 dedicated tabs: 'cashouts' | 'invoices' | 'refunds' | 'ledger'
+  const [activeTab, setActiveTab] = useState(isGirl ? 'cashouts' : 'invoices');
   const [selectedType, setSelectedType] = useState(undefined);
   const [downloadingId, setDownloadingId] = useState(null);
 
@@ -219,6 +233,17 @@ export default function Transactions() {
     queryFn: () => paymentsApi.orders({ limit: 50 }),
   });
 
+  // Withdrawals Query (Cashouts for girls)
+  const {
+    data: withdrawalsData,
+    isLoading: isWithdrawalsLoading,
+    isRefetching: isWithdrawalsRefetching,
+    refetch: refetchWithdrawals,
+  } = useQuery({
+    queryKey: ['my-withdrawals'],
+    queryFn: () => withdrawalsApi.getMyWithdrawals({ limit: 50 }),
+  });
+
   // Coin Ledger Query
   const {
     data: ledgerData,
@@ -230,13 +255,28 @@ export default function Transactions() {
     queryFn: () => coinsApi.transactions({ type: selectedType, limit: 50 }),
   });
 
-  const orders = ordersData?.items ?? [];
-  const transactions = ledgerData?.items ?? [];
+  const extractItems = (data) => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.withdrawals)) return data.withdrawals;
+    if (Array.isArray(data.data)) return data.data;
+    if (data.items && Array.isArray(data.items.items)) return data.items.items;
+    return [];
+  };
+
+  const orders = extractItems(ordersData);
+  const withdrawals = extractItems(withdrawalsData);
+  const transactions = extractItems(ledgerData);
 
   // Segment orders into Paid Invoices vs Refunds & Issues
   const paidOrders = orders.filter((o) => o.status === 'paid');
   const issueOrders = orders.filter((o) => o.status === 'refunded' || o.status === 'failed' || o.status === 'expired' || o.status === 'rejected');
   const refundedOrders = orders.filter((o) => o.status === 'refunded');
+
+  const successfulWithdrawals = withdrawals.filter((w) => w.status === 'success' || w.status === 'approved');
+  const totalWithdrawnAmount = successfulWithdrawals.reduce((sum, w) => sum + (w.amountInRupees || 0), 0);
+  const totalWithdrawnCoins = successfulWithdrawals.reduce((sum, w) => sum + (w.coins || 0), 0);
 
   const totalRefundAmount = refundedOrders.reduce(
     (acc, curr) => acc + (curr.amountInRupees || curr.amountInPaise / 100 || 0),
@@ -290,8 +330,8 @@ export default function Transactions() {
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
       {/* Executive Attractive Screen Header */}
       <ScreenHeader
-        title="Transaction History"
-        subtitle="Official tax invoices, refund records & coin ledger"
+        title={isGirl ? 'Earnings & Cashout History' : 'Transaction History'}
+        subtitle="Official payout invoices, refund records & coin ledger"
         fallback="/(tabs)/profile"
       />
 
@@ -300,120 +340,204 @@ export default function Transactions() {
         className="px-4 py-3 border-b flex-row items-center gap-2"
         style={{ backgroundColor: colors.surface, borderBottomColor: colors.border }}
       >
-        <View
-          className="flex-1 px-3 py-2.5 rounded-2xl border"
-          style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
-        >
-          <View className="flex-row items-center gap-1.5 mb-0.5">
-            <Ionicons name="receipt-outline" size={13} color={colors.primary} />
-            <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: colors.textMuted }}>
-              Paid
-            </Text>
-          </View>
-          <Text className="text-sm font-black" style={{ color: colors.textPrimary }}>
-            {paidOrders.length} Invoices
-          </Text>
-        </View>
-
-        <View
-          className="flex-1 px-3 py-2.5 rounded-2xl border"
-          style={{
-            backgroundColor: refundedOrders.length > 0 ? '#10B9810C' : colors.surfaceAlt,
-            borderColor: refundedOrders.length > 0 ? '#10B98130' : colors.border,
-          }}
-        >
-          <View className="flex-row items-center gap-1.5 mb-0.5">
-            <Ionicons name="arrow-undo" size={13} color={refundedOrders.length > 0 ? '#10B981' : colors.textMuted} />
-            <Text
-              className="text-[10px] uppercase font-bold tracking-wider"
-              style={{ color: refundedOrders.length > 0 ? '#10B981' : colors.textMuted }}
+        {isGirl || withdrawals.length > 0 ? (
+          <>
+            <View
+              className="flex-1 px-3 py-2.5 rounded-2xl border"
+              style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
             >
-              Refunds
-            </Text>
-          </View>
-          <Text
-            className="text-sm font-black"
-            style={{ color: refundedOrders.length > 0 ? '#10B981' : colors.textPrimary }}
-          >
-            {formatRupees(totalRefundAmount)}
-          </Text>
-        </View>
+              <View className="flex-row items-center gap-1.5 mb-0.5">
+                <Ionicons name="cash-outline" size={13} color="#10B981" />
+                <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: colors.textMuted }}>
+                  Withdrawn
+                </Text>
+              </View>
+              <Text className="text-sm font-black text-emerald-600">
+                ₹{totalWithdrawnAmount.toFixed(2)}
+              </Text>
+            </View>
 
-        <View
-          className="flex-1 px-3 py-2.5 rounded-2xl border"
-          style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
-        >
-          <View className="flex-row items-center gap-1.5 mb-0.5">
-            <CoinIcon size={12} />
-            <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: colors.textMuted }}>
-              Coins
-            </Text>
-          </View>
-          <Text className="text-sm font-black" style={{ color: colors.coinGold || '#F59E0B' }}>
-            +{formatCoins(totalCoinsBought)}
-          </Text>
-        </View>
+            <View
+              className="flex-1 px-3 py-2.5 rounded-2xl border"
+              style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
+            >
+              <View className="flex-row items-center gap-1.5 mb-0.5">
+                <Ionicons name="checkmark-done-circle-outline" size={13} color={colors.primary} />
+                <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: colors.textMuted }}>
+                  Completed
+                </Text>
+              </View>
+              <Text className="text-sm font-black" style={{ color: colors.textPrimary }}>
+                {successfulWithdrawals.length} Cashouts
+              </Text>
+            </View>
+
+            <View
+              className="flex-1 px-3 py-2.5 rounded-2xl border"
+              style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
+            >
+              <View className="flex-row items-center gap-1.5 mb-0.5">
+                <CoinIcon size={12} />
+                <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: colors.textMuted }}>
+                  Coins Conv.
+                </Text>
+              </View>
+              <Text className="text-sm font-black" style={{ color: colors.coinGold || '#F59E0B' }}>
+                {formatCoins(totalWithdrawnCoins)}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View
+              className="flex-1 px-3 py-2.5 rounded-2xl border"
+              style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
+            >
+              <View className="flex-row items-center gap-1.5 mb-0.5">
+                <Ionicons name="receipt-outline" size={13} color={colors.primary} />
+                <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: colors.textMuted }}>
+                  Paid
+                </Text>
+              </View>
+              <Text className="text-sm font-black" style={{ color: colors.textPrimary }}>
+                {paidOrders.length} Invoices
+              </Text>
+            </View>
+
+            <View
+              className="flex-1 px-3 py-2.5 rounded-2xl border"
+              style={{
+                backgroundColor: refundedOrders.length > 0 ? '#10B9810C' : colors.surfaceAlt,
+                borderColor: refundedOrders.length > 0 ? '#10B98130' : colors.border,
+              }}
+            >
+              <View className="flex-row items-center gap-1.5 mb-0.5">
+                <Ionicons name="arrow-undo" size={13} color={refundedOrders.length > 0 ? '#10B981' : colors.textMuted} />
+                <Text
+                  className="text-[10px] uppercase font-bold tracking-wider"
+                  style={{ color: refundedOrders.length > 0 ? '#10B981' : colors.textMuted }}
+                >
+                  Refunds
+                </Text>
+              </View>
+              <Text
+                className="text-sm font-black"
+                style={{ color: refundedOrders.length > 0 ? '#10B981' : colors.textPrimary }}
+              >
+                {formatRupees(totalRefundAmount)}
+              </Text>
+            </View>
+
+            <View
+              className="flex-1 px-3 py-2.5 rounded-2xl border"
+              style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
+            >
+              <View className="flex-row items-center gap-1.5 mb-0.5">
+                <CoinIcon size={12} />
+                <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: colors.textMuted }}>
+                  Coins
+                </Text>
+              </View>
+              <Text className="text-sm font-black" style={{ color: colors.coinGold || '#F59E0B' }}>
+                +{formatCoins(totalCoinsBought)}
+              </Text>
+            </View>
+          </>
+        )}
       </View>
 
-      {/* 3 Dedicated Segmented Tabs: Invoices | Refunds & Failed | Coin Ledger */}
+      {/* Segmented Tabs */}
       <View className="px-3 py-2.5 border-b" style={{ borderBottomColor: colors.border, backgroundColor: colors.surface }}>
         <View
           className="p-1 rounded-2xl flex-row items-center"
           style={{ backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border }}
         >
-          {/* Tab 1: Invoices */}
-          <Pressable
-            onPress={() => setActiveTab('invoices')}
-            className="flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1"
-            style={{
-              backgroundColor: activeTab === 'invoices' ? colors.primary : 'transparent',
-              shadowColor: activeTab === 'invoices' ? colors.primary : 'transparent',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: activeTab === 'invoices' ? 0.3 : 0,
-              shadowRadius: 4,
-              elevation: activeTab === 'invoices' ? 2 : 0,
-            }}
-          >
-            <Ionicons
-              name="receipt"
-              size={13}
-              color={activeTab === 'invoices' ? colors.onPrimary : colors.textMuted}
-            />
-            <Text
-              className="text-[11px] font-bold"
-              style={{ color: activeTab === 'invoices' ? colors.onPrimary : colors.textPrimary }}
-              numberOfLines={1}
+          {/* Tab 0: Cashouts (Always visible for girls or users with withdrawals) */}
+          {(isGirl || withdrawals.length > 0) && (
+            <Pressable
+              onPress={() => setActiveTab('cashouts')}
+              className="flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1"
+              style={{
+                backgroundColor: activeTab === 'cashouts' ? colors.primary : 'transparent',
+                shadowColor: activeTab === 'cashouts' ? colors.primary : 'transparent',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: activeTab === 'cashouts' ? 0.3 : 0,
+                shadowRadius: 4,
+                elevation: activeTab === 'cashouts' ? 2 : 0,
+              }}
             >
-              Invoices ({paidOrders.length})
-            </Text>
-          </Pressable>
+              <Ionicons
+                name="cash"
+                size={13}
+                color={activeTab === 'cashouts' ? colors.onPrimary : colors.textMuted}
+              />
+              <Text
+                className="text-[11px] font-bold"
+                style={{ color: activeTab === 'cashouts' ? colors.onPrimary : colors.textPrimary }}
+                numberOfLines={1}
+              >
+                Cashouts ({withdrawals.length})
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Tab 1: Invoices */}
+          {!isGirl && (
+            <Pressable
+              onPress={() => setActiveTab('invoices')}
+              className="flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1"
+              style={{
+                backgroundColor: activeTab === 'invoices' ? colors.primary : 'transparent',
+                shadowColor: activeTab === 'invoices' ? colors.primary : 'transparent',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: activeTab === 'invoices' ? 0.3 : 0,
+                shadowRadius: 4,
+                elevation: activeTab === 'invoices' ? 2 : 0,
+              }}
+            >
+              <Ionicons
+                name="receipt"
+                size={13}
+                color={activeTab === 'invoices' ? colors.onPrimary : colors.textMuted}
+              />
+              <Text
+                className="text-[11px] font-bold"
+                style={{ color: activeTab === 'invoices' ? colors.onPrimary : colors.textPrimary }}
+                numberOfLines={1}
+              >
+                Invoices ({paidOrders.length})
+              </Text>
+            </Pressable>
+          )}
 
           {/* Tab 2: Refunds & Failed */}
-          <Pressable
-            onPress={() => setActiveTab('refunds')}
-            className="flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1"
-            style={{
-              backgroundColor: activeTab === 'refunds' ? colors.primary : 'transparent',
-              shadowColor: activeTab === 'refunds' ? colors.primary : 'transparent',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: activeTab === 'refunds' ? 0.3 : 0,
-              shadowRadius: 4,
-              elevation: activeTab === 'refunds' ? 2 : 0,
-            }}
-          >
-            <Ionicons
-              name="arrow-undo-circle"
-              size={13}
-              color={activeTab === 'refunds' ? colors.onPrimary : colors.textMuted}
-            />
-            <Text
-              className="text-[11px] font-bold"
-              style={{ color: activeTab === 'refunds' ? colors.onPrimary : colors.textPrimary }}
-              numberOfLines={1}
+          {!isGirl && (
+            <Pressable
+              onPress={() => setActiveTab('refunds')}
+              className="flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1"
+              style={{
+                backgroundColor: activeTab === 'refunds' ? colors.primary : 'transparent',
+                shadowColor: activeTab === 'refunds' ? colors.primary : 'transparent',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: activeTab === 'refunds' ? 0.3 : 0,
+                shadowRadius: 4,
+                elevation: activeTab === 'refunds' ? 2 : 0,
+              }}
             >
-              Refunds ({issueOrders.length})
-            </Text>
-          </Pressable>
+              <Ionicons
+                name="arrow-undo-circle"
+                size={13}
+                color={activeTab === 'refunds' ? colors.onPrimary : colors.textMuted}
+              />
+              <Text
+                className="text-[11px] font-bold"
+                style={{ color: activeTab === 'refunds' ? colors.onPrimary : colors.textPrimary }}
+                numberOfLines={1}
+              >
+                Refunds ({issueOrders.length})
+              </Text>
+            </Pressable>
+          )}
 
           {/* Tab 3: Coin Ledger */}
           <Pressable
@@ -445,7 +569,201 @@ export default function Transactions() {
       </View>
 
       {/* Content Area */}
-      {activeTab === 'invoices' || activeTab === 'refunds' ? (
+      {activeTab === 'cashouts' ? (
+        isWithdrawalsLoading ? (
+          <View className="flex-1 items-center justify-center">
+            <Loading label="Loading cashout invoices…" />
+          </View>
+        ) : withdrawals.length === 0 ? (
+          <EmptyState
+            emoji="💸"
+            title="No cashout invoices yet"
+            description="When you convert your chat earnings into rupees, all your withdrawal invoices, UTR records, and real-time approval status will appear here."
+          />
+        ) : (
+          <FlatList
+            data={withdrawals}
+            keyExtractor={(item) => String(item._id || item.id)}
+            contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}
+            ListHeaderComponent={() => (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: `${colors.primary}10`,
+                  borderRadius: 14,
+                  padding: 12,
+                  borderWidth: 1,
+                  borderColor: `${colors.primary}25`,
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ fontSize: 16 }}>⏱️</Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, flex: 1, lineHeight: 15 }}>
+                  Withdrawals are verified and the amount will reflect in your account within <Text style={{ fontWeight: '700', color: colors.primary }}>5–7 working days</Text>.
+                </Text>
+              </View>
+            )}
+            refreshControl={
+              <RefreshControl
+                refreshing={isWithdrawalsRefetching}
+                onRefresh={refetchWithdrawals}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
+              />
+            }
+            ItemSeparatorComponent={() => <View className="h-3" />}
+            renderItem={({ item }) => {
+              const isPending = item.status === 'pending';
+              const isSuccess = item.status === 'success' || item.status === 'approved';
+              const isRejected = item.status === 'rejected';
+              const isUpi = item.payoutMethod === 'upi';
+              const refId = item.cashfreeUtr || item.cashfreeReferenceId || item.cashfreeTransferId || item._id;
+
+              const statusTone = isPending ? '#D97706' : isSuccess ? '#10B981' : '#EF4444';
+              const statusBg = isPending ? '#FEF3C7' : isSuccess ? '#D1FAE5' : '#FEE2E2';
+
+              return (
+                <View
+                  className="rounded-3xl overflow-hidden flex-row"
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: `${statusTone}30`,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 6,
+                    elevation: 1,
+                  }}
+                >
+                  <View style={{ width: 4, backgroundColor: statusTone }} />
+
+                  <View className="flex-1 p-4">
+                    {/* Header */}
+                    <View
+                      className="flex-row items-center justify-between pb-3 border-b"
+                      style={{ borderBottomColor: colors.border }}
+                    >
+                      <View className="flex-row items-center gap-3 flex-1 mr-2">
+                        <View
+                          className="h-11 w-11 rounded-2xl items-center justify-center"
+                          style={{ backgroundColor: `${statusTone}15` }}
+                        >
+                          <Ionicons
+                            name={isPending ? 'hourglass-outline' : isSuccess ? 'checkmark-circle' : 'close-circle'}
+                            size={22}
+                            color={statusTone}
+                          />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-base font-bold" style={{ color: colors.textPrimary }} numberOfLines={1}>
+                            Rupee Payout Invoice
+                          </Text>
+                          <Pressable
+                            onPress={() => handleCopyRef(refId)}
+                            className="flex-row items-center gap-1 mt-0.5"
+                          >
+                            <Text
+                              className="text-[11px] font-mono"
+                              style={{ color: colors.textMuted }}
+                              numberOfLines={1}
+                              ellipsizeMode="middle"
+                            >
+                              Ref: {refId}
+                            </Text>
+                            <Ionicons name="copy-outline" size={11} color={colors.textMuted} />
+                          </Pressable>
+                        </View>
+                      </View>
+
+                      <View
+                        className="px-2.5 py-1 rounded-full border flex-row items-center gap-1"
+                        style={{ backgroundColor: statusBg, borderColor: `${statusTone}40` }}
+                      >
+                        <Text className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: statusTone }}>
+                          {isPending ? '⏳ Under Review' : isSuccess ? '✅ Transferred' : '❌ Rejected & Refunded'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Mid Row: Coins Converted & INR Amount */}
+                    <View
+                      className="my-3 p-3 rounded-2xl flex-row items-center justify-between border"
+                      style={{
+                        backgroundColor: `${statusTone}0A`,
+                        borderColor: `${statusTone}20`,
+                      }}
+                    >
+                      <View>
+                        <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                          Coins Converted
+                        </Text>
+                        <View className="flex-row items-center gap-1.5 mt-0.5">
+                          <CoinIcon size={14} />
+                          <Text className="text-sm font-black text-rose-600">
+                            -{formatCoins(item.coins)} Coins
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View className="items-end">
+                        <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                          Payout Amount
+                        </Text>
+                        <Text className="text-base font-black text-emerald-600">
+                          ₹{item.amountInRupees?.toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Account Destination Details */}
+                    <View className="py-2 border-t border-dashed" style={{ borderTopColor: colors.border }}>
+                      <InfoRow
+                        label="Destination"
+                        value={isUpi ? `UPI: ${item.upiId}` : `A/C: ${item.bankDetails?.accountNumber} (${item.bankDetails?.ifsc})`}
+                        colors={colors}
+                      />
+                      {item.cashfreeUtr ? (
+                        <InfoRow label="Bank UTR" value={item.cashfreeUtr} mono colors={colors} />
+                      ) : null}
+                    </View>
+
+                    {/* Rejection Alert */}
+                    {isRejected && (
+                      <View
+                        className="p-2.5 rounded-xl border mt-1"
+                        style={{ backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }}
+                      >
+                        <Text className="text-xs font-bold text-red-800">
+                          Reason: {item.rejectionReason || 'Request declined by admin'}
+                        </Text>
+                        <Text className="text-[11px] text-red-700 mt-0.5">
+                          🪙 {item.coins} coins have been automatically refunded back into your wallet balance.
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Footer Date */}
+                    <View className="flex-row items-center justify-between pt-2 border-t" style={{ borderTopColor: colors.border }}>
+                      <View className="flex-row items-center gap-1">
+                        <Ionicons name="time-outline" size={13} color={colors.textMuted} />
+                        <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+                          {formatRelativeTime(item.createdAt)}
+                        </Text>
+                      </View>
+                      <Text className="text-[10px] font-mono" style={{ color: colors.textMuted }}>
+                        Rate: {item.coinsPerRupeeRate || 1} Coin = ₹{(1 / (item.coinsPerRupeeRate || 1)).toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            }}
+          />
+        )
+      ) : activeTab === 'invoices' || activeTab === 'refunds' ? (
         isOrdersLoading ? (
           <View className="flex-1 items-center justify-center">
             <Loading label="Loading orders & invoices…" />

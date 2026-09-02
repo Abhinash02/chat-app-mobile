@@ -5,13 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
+import { useLanguage } from '../../src/i18n/LanguageProvider.jsx';
 
-const TABS = [
-  { name: 'index', title: 'Discover', icon: 'sparkles-outline', activeIcon: 'sparkles' },
-  { name: 'chats', title: 'Chats', icon: 'chatbubble-ellipses-outline', activeIcon: 'chatbubble-ellipses' },
-  { name: 'rooms', title: 'Voice', icon: 'radio-outline', activeIcon: 'radio' },
-  { name: 'games', title: 'Games', icon: 'game-controller-outline', activeIcon: 'game-controller' },
-  { name: 'profile', title: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+const TAB_KEYS = [
+  { name: 'index', key: 'tabs.discover', defaultTitle: 'Discover', icon: 'sparkles-outline', activeIcon: 'sparkles' },
+  { name: 'chats', key: 'tabs.chats', defaultTitle: 'Chats', icon: 'chatbubble-ellipses-outline', activeIcon: 'chatbubble-ellipses' },
+  { name: 'rooms', key: 'tabs.rooms', defaultTitle: 'Voice', icon: 'radio-outline', activeIcon: 'radio' },
+  { name: 'games', key: 'tabs.games', defaultTitle: 'Games', icon: 'game-controller-outline', activeIcon: 'game-controller' },
+  { name: 'profile', key: 'tabs.profile', defaultTitle: 'Profile', icon: 'person-outline', activeIcon: 'person' },
 ];
 
 function TabIcon({ name, activeName, focused }) {
@@ -93,6 +94,7 @@ function TabLabel({ title, focused }) {
 export default function TabsLayout() {
   const { colors } = useTheme();
   const { unreadCount } = useSocket();
+  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
 
   const safeBottom = Platform.OS === 'ios' ? Math.max(insets.bottom, 24) : Math.max(insets.bottom, 20);
@@ -104,9 +106,6 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        // Labels are rendered manually via tabBarLabel below so we have full
-        // control over lineHeight/allowFontScaling instead of relying on
-        // tabBarLabelStyle, which is what produced the clipped text.
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
@@ -126,22 +125,25 @@ export default function TabsLayout() {
         },
       }}
     >
-      {TABS.map((tab) => (
-        <Tabs.Screen
-          key={tab.name}
-          name={tab.name}
-          options={{
-            title: tab.title,
-            tabBarLabel: ({ focused }) => <TabLabel title={tab.title} focused={focused} />,
-            tabBarIcon: ({ focused }) => (
-              <View style={{ position: 'relative' }}>
-                <TabIcon name={tab.icon} activeName={tab.activeIcon} focused={focused} />
-                {tab.name === 'chats' ? <UnreadBadge count={unreadCount} /> : null}
-              </View>
-            ),
-          }}
-        />
-      ))}
+      {TAB_KEYS.map((tab) => {
+        const title = t(tab.key) || tab.defaultTitle;
+        return (
+          <Tabs.Screen
+            key={tab.name}
+            name={tab.name}
+            options={{
+              title,
+              tabBarLabel: ({ focused }) => <TabLabel title={title} focused={focused} />,
+              tabBarIcon: ({ focused }) => (
+                <View style={{ position: 'relative' }}>
+                  <TabIcon name={tab.icon} activeName={tab.activeIcon} focused={focused} />
+                  {tab.name === 'chats' ? <UnreadBadge count={unreadCount} /> : null}
+                </View>
+              ),
+            }}
+          />
+        );
+      })}
     </Tabs>
   );
 }

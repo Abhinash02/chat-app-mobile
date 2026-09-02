@@ -8,7 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Avatar, Badge, Button, Card, CoinIcon, Field, Input, Loading } from '../../src/components/ui.jsx';
+import { Avatar, Badge, CoinIcon, Field, Input, Loading } from '../../src/components/ui.jsx';
+import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { feedbackApi, supportApi, usersApi } from '../../src/api/endpoints.js';
 import { formatCoins } from '../../src/lib/format.js';
 import { appendFile } from '../../src/lib/media.js';
@@ -16,6 +17,7 @@ import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
+import { useLanguage } from '../../src/i18n/LanguageProvider.jsx';
 
 const FEEDBACK_CATEGORIES = [
   { label: 'Suggestion', value: 'suggestion', icon: 'bulb-outline' },
@@ -46,40 +48,53 @@ const ZODIAC_SIGNS = [
   { label: 'Pisces', symbol: '♓', value: 'Pisces ♓' },
 ];
 
-// Grouped menu configuration — declarative, so the render pass stays simple
-// and every row gets consistent icon-chip + chevron treatment.
-function useMenuSections({ router, unreadSupportCount, onOpenFeedback, onLogout }) {
+// Grouped menu configuration — declarative and fully localized
+function useMenuSections({ router, user, wallet, unreadSupportCount, onOpenFeedback, onLogout, t }) {
+  const isGirl =
+    String(user?.gender).toLowerCase() === 'female' ||
+    String(user?.gender).toLowerCase() === 'girl' ||
+    Boolean(wallet?.isUnlimited) ||
+    Boolean(wallet?.earnings?.enabled);
+
   return [
     {
-      title: 'Account',
+      title: isGirl ? t('profile.menu.earningsAndWallet') : t('profile.menu.account'),
       items: [
-        { icon: 'wallet-outline', tint: '#f59e0b', label: 'Get Coins', onPress: () => router.push('/coins') },
-        { icon: 'time-outline', tint: '#3b82f6', label: 'Transaction History', onPress: () => router.push('/transactions') },
-        { icon: 'shield-checkmark-outline', tint: '#ef4444', label: 'Blocked Accounts', onPress: () => router.push('/blocked') },
-        { icon: 'trophy-outline', tint: '#eab308', label: 'Leaderboard', onPress: () => router.push('/leaderboard') },
+        {
+          icon: isGirl ? 'cash-outline' : 'wallet-outline',
+          tint: isGirl ? '#ec4899' : '#f59e0b',
+          label: isGirl ? t('profile.menu.chatEarningsMenu') : t('profile.menu.getCoins'),
+          badge: isGirl
+            ? { text: `${wallet?.coinBalance || 0} ${t('common.coins')}`, tone: 'brand' }
+            : undefined,
+          onPress: () => router.push('/coins'),
+        },
+        { icon: 'time-outline', tint: '#3b82f6', label: t('profile.menu.transactionHistory'), onPress: () => router.push('/transactions') },
+        { icon: 'shield-checkmark-outline', tint: '#ef4444', label: t('profile.menu.blockedAccounts'), onPress: () => router.push('/blocked') },
+        { icon: 'trophy-outline', tint: '#eab308', label: t('profile.menu.leaderboard'), onPress: () => router.push('/leaderboard') },
       ],
     },
     {
-      title: 'Support',
+      title: t('profile.menu.support'),
       items: [
-        { icon: 'chatbubble-ellipses-outline', tint: '#8b5cf6', label: 'Send Feedback & Ideas', onPress: onOpenFeedback },
+        { icon: 'chatbubble-ellipses-outline', tint: '#8b5cf6', label: t('profile.menu.sendFeedback'), onPress: onOpenFeedback },
         {
           icon: 'headset-outline',
           tint: '#10b981',
-          label: 'Help & Customer Support',
+          label: t('profile.menu.helpSupport'),
           onPress: () => router.push('/support'),
           badge: unreadSupportCount > 0 ? { text: `${unreadSupportCount} New`, tone: 'danger' } : { text: '24/7 Live', tone: 'brand' },
         },
-        { icon: 'settings-outline', tint: '#6b7280', label: 'Settings', onPress: () => router.push('/settings') },
+        { icon: 'settings-outline', tint: '#6b7280', label: t('profile.menu.settings'), onPress: () => router.push('/settings') },
       ],
     },
     {
-      title: 'Legal',
+      title: t('profile.menu.legal'),
       items: [
-        { icon: 'document-text-outline', tint: '#6b7280', label: 'Terms of Use', onPress: () => router.push('/terms') },
-        { icon: 'lock-closed-outline', tint: '#6b7280', label: 'Privacy Policy', onPress: () => router.push('/privacy') },
-        { icon: 'card-outline', tint: '#6b7280', label: 'Refund Policy', onPress: () => router.push('/refund') },
-        { icon: 'log-out-outline', tint: '#ef4444', label: 'Log Out', isDestructive: true, onPress: onLogout },
+        { icon: 'document-text-outline', tint: '#6b7280', label: t('profile.menu.terms'), onPress: () => router.push('/terms') },
+        { icon: 'lock-closed-outline', tint: '#6b7280', label: t('profile.menu.privacy'), onPress: () => router.push('/privacy') },
+        { icon: 'card-outline', tint: '#6b7280', label: t('profile.menu.refund'), onPress: () => router.push('/refund') },
+        { icon: 'log-out-outline', tint: '#ef4444', label: t('profile.menu.logOut'), isDestructive: true, onPress: onLogout },
       ],
     },
   ];
@@ -87,7 +102,7 @@ function useMenuSections({ router, unreadSupportCount, onOpenFeedback, onLogout 
 
 export default function Profile() {
   const { colors, radius } = useTheme();
-  const { refreshUser, signOut } = useAuth();
+  const { user, refreshUser, signOut } = useAuth();
   const { wallet } = useSocket();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -210,111 +225,118 @@ export default function Profile() {
     }
   }
 
+  const isGirl =
+    String(profile?.gender || user?.gender).toLowerCase() === 'female' ||
+    String(profile?.gender || user?.gender).toLowerCase() === 'girl' ||
+    Boolean(wallet?.isUnlimited) ||
+    Boolean(wallet?.earnings?.enabled);
+
+  const { language, currentLanguage, availableLanguages, setLanguage, t } = useLanguage();
+
   const menuSections = useMenuSections({
     router,
+    user: profile || user,
+    wallet,
     unreadSupportCount,
     onOpenFeedback: () => setIsFeedbackOpen(true),
     onLogout: () => setIsLogoutModalOpen(true),
+    t,
   });
 
   if (isLoading) {
     return (
       <View className="flex-1 justify-center" style={{ backgroundColor: colors.background }}>
-        <Loading label="Loading profile…" />
+        <Loading label={t('common.loading')} />
       </View>
     );
   }
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-5 pb-3 pt-2">
-        <View>
-          <Text className="text-[26px] font-extrabold tracking-tight" style={{ color: colors.textPrimary }}>
-            Profile
-          </Text>
-          <Text className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
-            Manage your account
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => router.push('/settings')}
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          className="h-10 w-10 items-center justify-center"
-          style={{ backgroundColor: colors.surfaceAlt, borderRadius: 20 }}
-        >
-          <Ionicons name="settings-outline" size={19} color={colors.textSecondary} />
-        </Pressable>
+      {/* Top Header */}
+      <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
+        <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+          {t('profile.title')}
+        </Text>
+        <WalletHeader compact />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        {/* ---------- Identity card ---------- */}
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 48 }}>
+        {/* ---------- Main profile card ---------- */}
         <View
-          className="items-center pt-7 pb-6 px-5"
+          className="items-center p-6"
           style={{
             backgroundColor: colors.surface,
             borderRadius: radius + 8,
             borderWidth: 1,
             borderColor: colors.border,
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.05,
-            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.04,
+            shadowRadius: 12,
             elevation: 2,
           }}
         >
-          <Pressable onPress={pickPhoto} disabled={isUploading} accessibilityRole="button" accessibilityLabel="Change your photo">
-            <View
-              style={{
-                padding: 3,
-                borderRadius: 999,
-                borderWidth: 2,
-                borderColor: colors.primary,
-              }}
-            >
-              <Avatar
-                uri={profile?.avatarUrl}
-                name={profile?.nickname}
-                gender={profile?.gender}
-                emoji={profile?.avatarEmoji}
-                color={profile?.avatarColor}
-                size={92}
-              />
-            </View>
-            <View
-              className="absolute -bottom-1 -right-1 h-8 w-8 items-center justify-center"
+          {/* Avatar with photo picker / camera action */}
+          <View className="relative">
+            <Avatar
+              uri={profile?.avatarUrl}
+              name={profile?.nickname}
+              gender={profile?.gender}
+              emoji={profile?.avatarEmoji}
+              color={profile?.avatarColor}
+              size={96}
+            />
+
+            <Pressable
+              onPress={pickPhoto}
+              disabled={isUploading}
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
+              className="absolute bottom-0 right-0 h-8 w-8 items-center justify-center rounded-full active:scale-95"
               style={{
                 backgroundColor: colors.primary,
-                borderRadius: 16,
-                borderWidth: 3,
+                borderWidth: 2,
                 borderColor: colors.surface,
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.4,
+                shadowRadius: 4,
+                elevation: 3,
               }}
             >
               {isUploading ? (
                 <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
-                <Ionicons name="camera" size={14} color={colors.onPrimary} />
+                <Ionicons name="camera" size={15} color={colors.onPrimary} />
               )}
-            </View>
-          </Pressable>
+            </Pressable>
+          </View>
 
           <Text className="mt-3.5 text-xl font-bold" style={{ color: colors.textPrimary }}>
-            {profile?.nickname}
-          </Text>
-          <Text className="text-sm mt-0.5" style={{ color: colors.textMuted }}>
-            {profile?.email}
+            {profile?.name || profile?.nickname}
           </Text>
 
-          <View className="mt-3 flex-row flex-wrap justify-center gap-2">
-            <Badge
-              label={profile?.gender === 'female' ? '👧 Girl' : '👦 Boy'}
-              tone={profile?.gender === 'female' ? 'brand' : 'neutral'}
-            />
-            {profile?.ageGroup ? <Badge label={`🎂 ${profile.ageGroup}`} tone="neutral" /> : null}
-            {profile?.zodiacSign ? <Badge label={profile.zodiacSign} tone="brand" /> : null}
-            {profile?.location?.city ? <Badge label={`🏙️ ${profile.location.city}`} tone="neutral" /> : null}
-            {wallet?.isUnlimited ? <Badge label="Unlimited chat" tone="success" /> : null}
+          <View className="mt-1 flex-row items-center gap-1.5">
+            <Text className="text-sm font-medium" style={{ color: colors.textMuted }}>
+              @{profile?.nickname || 'user'}
+            </Text>
+            {profile?.ageGroup ? (
+              <>
+                <Text className="text-xs" style={{ color: colors.textMuted }}>
+                  ·
+                </Text>
+                <Badge label={profile.ageGroup} tone="muted" />
+              </>
+            ) : null}
+            {profile?.zodiacSign ? (
+              <>
+                <Text className="text-xs" style={{ color: colors.textMuted }}>
+                  ·
+                </Text>
+                <Badge label={profile.zodiacSign} tone="muted" />
+              </>
+            ) : null}
           </View>
 
           {profile?.bio && !isEditing ? (
@@ -331,7 +353,7 @@ export default function Profile() {
             >
               <Ionicons name="create-outline" size={15} color={colors.textPrimary} />
               <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                Edit Profile
+                {t('profile.editProfile')}
               </Text>
             </Pressable>
           )}
@@ -358,8 +380,8 @@ export default function Profile() {
           <StatTile
             colors={colors}
             radius={radius}
-            value={wallet?.isUnlimited ? '∞' : formatCoins(wallet?.coinBalance ?? 0)}
-            label="Coins"
+            value={formatCoins(wallet?.coinBalance ?? 0)}
+            label={isGirl ? t('profile.chatEarnings') : t('common.coins')}
             icon={<CoinIcon size={16} />}
             onPress={() => router.push('/coins')}
           />
@@ -367,11 +389,304 @@ export default function Profile() {
             colors={colors}
             radius={radius}
             value={formatCoins(profile?.gamePoints ?? 0)}
-            label="Points"
+            label={t('common.points')}
             icon="game-controller-outline"
             onPress={() => router.push('/(tabs)/games')}
           />
         </View>
+
+        {/* ---------- 1-Click App Language Switcher Card ---------- */}
+        <View
+          style={{
+            marginTop: 16,
+            backgroundColor: colors.surface,
+            borderRadius: radius + 8,
+            borderWidth: 1.5,
+            borderColor: `${colors.primary}35`,
+            padding: 16,
+            shadowColor: colors.primary,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            elevation: 3,
+          }}
+        >
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center gap-2.5">
+              <View
+                className="w-8 h-8 rounded-xl items-center justify-center"
+                style={{ backgroundColor: `${colors.primary}18` }}
+              >
+                <Text style={{ fontSize: 16 }}>🌐</Text>
+              </View>
+              <View>
+                <Text className="text-sm font-bold" style={{ color: colors.textPrimary }}>
+                  {t('profile.appLanguage')}
+                </Text>
+                <Text className="text-[11px]" style={{ color: colors.textMuted }}>
+                  {t('profile.languageSub')}
+                </Text>
+              </View>
+            </View>
+            <View
+              className="px-2.5 py-1 rounded-full flex-row items-center gap-1"
+              style={{ backgroundColor: `${colors.primary}15`, borderWidth: 1, borderColor: `${colors.primary}30` }}
+            >
+              <Text style={{ fontSize: 11 }}>{currentLanguage.flag}</Text>
+              <Text className="text-[11px] font-bold" style={{ color: colors.primary }}>
+                {currentLanguage.nativeName}
+              </Text>
+            </View>
+          </View>
+
+          {/* Quick 1-Click Language Chips */}
+          <View className="flex-row gap-2">
+            {availableLanguages.map((lang) => {
+              const isSelected = language === lang.code;
+              return (
+                <Pressable
+                  key={lang.code}
+                  onPress={() => {
+                    setLanguage(lang.code);
+                    toast.success(`${lang.flag} ${lang.nativeName}`);
+                  }}
+                  className="flex-1 py-2 px-1 items-center justify-center rounded-xl active:scale-95 transition"
+                  style={{
+                    backgroundColor: isSelected ? colors.primary : colors.surfaceAlt,
+                    borderWidth: 1.5,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                    shadowColor: isSelected ? colors.primary : 'transparent',
+                    shadowOpacity: isSelected ? 0.3 : 0,
+                    shadowRadius: 6,
+                    elevation: isSelected ? 3 : 0,
+                  }}
+                >
+                  <Text style={{ fontSize: 15 }}>{lang.flag}</Text>
+                  <Text
+                    className="text-[11px] font-bold mt-0.5 text-center"
+                    style={{ color: isSelected ? colors.onPrimary || '#fff' : colors.textPrimary }}
+                    numberOfLines={1}
+                  >
+                    {lang.nativeName}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ---------- Girls Chat Earnings Premium Banner ---------- */}
+        {isGirl && (
+          <Pressable
+            onPress={() => router.push('/coins')}
+            style={({ pressed }) => ({
+              marginTop: 16,
+              borderRadius: radius + 8,
+              overflow: 'hidden',
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.22,
+              shadowRadius: 16,
+              elevation: 7,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+              opacity: pressed ? 0.95 : 1,
+            })}
+          >
+            {/* Header strip */}
+            <View
+              style={{
+                backgroundColor: colors.primary,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 14,
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 20 }}>💖</Text>
+                </View>
+                <View>
+                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 0.2 }}>
+                    {t('profile.chatEarnings')}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 10, marginTop: 1 }}>
+                    {t('profile.chatEarningsSub')}
+                  </Text>
+                </View>
+              </View>
+              {/* Active badge */}
+              <View
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.25)',
+                  borderRadius: 20,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.3)',
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>
+                  ● {t('common.active')}
+                </Text>
+              </View>
+            </View>
+
+            {/* Body */}
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderWidth: 1.5,
+                borderTopWidth: 0,
+                borderColor: `${colors.primary}30`,
+                borderBottomLeftRadius: radius + 8,
+                borderBottomRightRadius: radius + 8,
+              }}
+            >
+              {/* Stats row */}
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                {/* Coin balance */}
+                <View
+                  style={{
+                    flex: 1,
+                    backgroundColor: `${colors.primary}10`,
+                    borderRadius: 14,
+                    padding: 10,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: `${colors.primary}25`,
+                  }}
+                >
+                  <Text style={{ fontSize: 18 }}>🪙</Text>
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      fontSize: 16,
+                      fontWeight: '900',
+                      marginTop: 2,
+                    }}
+                  >
+                    {wallet?.coinBalance || 0}
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 9, fontWeight: '600', marginTop: 1 }}>
+                    {t('common.coins').toUpperCase()}
+                  </Text>
+                </View>
+
+                {/* Divider */}
+                <View style={{ width: 1, backgroundColor: colors.border, borderRadius: 1 }} />
+
+                {/* INR Value */}
+                <View
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#10b98110',
+                    borderRadius: 14,
+                    padding: 10,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: '#10b98125',
+                  }}
+                >
+                  <Text style={{ fontSize: 18 }}>💵</Text>
+                  <Text
+                    style={{
+                      color: '#10b981',
+                      fontSize: 16,
+                      fontWeight: '900',
+                      marginTop: 2,
+                    }}
+                  >
+                    ₹{((wallet?.coinBalance || 0) / (wallet?.earnings?.coinsPerRupee || 1)).toFixed(0)}
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 9, fontWeight: '600', marginTop: 1 }}>
+                    {t('profile.withdrawable')}
+                  </Text>
+                </View>
+
+                {/* Divider */}
+                <View style={{ width: 1, backgroundColor: colors.border, borderRadius: 1 }} />
+
+                {/* Msgs count */}
+                <View
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#8b5cf610',
+                    borderRadius: 14,
+                    padding: 10,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: '#8b5cf625',
+                  }}
+                >
+                  <Text style={{ fontSize: 18 }}>💬</Text>
+                  <Text
+                    style={{
+                      color: '#8b5cf6',
+                      fontSize: 16,
+                      fontWeight: '900',
+                      marginTop: 2,
+                    }}
+                  >
+                    {wallet?.earnings?.currentProgress || wallet?.girlChatMessagesCount || 0}
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 9, fontWeight: '600', marginTop: 1 }}>
+                    {t('profile.msgsSent')}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Withdraw CTA */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: `${colors.primary}0D`,
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderWidth: 1,
+                  borderColor: `${colors.primary}20`,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary, fontSize: 11, flex: 1 }}>
+                  {t('profile.withdrawPrompt')}
+                </Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    backgroundColor: colors.primary,
+                    borderRadius: 20,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    marginLeft: 8,
+                  }}
+                >
+                  <Text style={{ color: colors.onPrimary || '#fff', fontSize: 11, fontWeight: '800' }}>
+                    {t('common.withdraw')}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={12} color={colors.onPrimary || '#fff'} />
+                </View>
+              </View>
+            </View>
+          </Pressable>
+        )}
+
 
         {/* ---------- Edit form ---------- */}
         {isEditing ? (

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 
 import { goBack } from '../src/components/ScreenHeader.jsx';
 import { Badge, Button, Card, CoinIcon, Field, GradientButton, Input, Loading } from '../src/components/ui.jsx';
@@ -188,8 +189,8 @@ function WithdrawalModal({ isOpen, onClose, wallet }) {
   const queryClient = useQueryClient();
 
   const earnings = wallet?.earnings || {};
-  const coinsPerRupee = earnings.coinsPerRupee || 25;
-  const minCoins = earnings.minWithdrawalCoins || 25;
+  const coinsPerRupee = earnings.coinsPerRupee || 1;
+  const minCoins = earnings.minWithdrawalCoins || 5;
   const userBalance = wallet?.coinBalance || 0;
 
   const [coinAmount, setCoinAmount] = useState(String(Math.max(minCoins, Math.min(100, userBalance))));
@@ -264,23 +265,23 @@ function WithdrawalModal({ isOpen, onClose, wallet }) {
 
   return (
     <Modal visible={isOpen} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}>
+      <View className="flex-1 justify-end sm:justify-center items-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}>
         <View
-          className="p-5 rounded-t-3xl max-h-[85%]"
-          style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.border }}
+          className="w-full max-w-lg p-5 rounded-t-3xl sm:rounded-3xl max-h-[90%] shadow-xl"
+          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
         >
           {/* Header */}
           <View className="flex-row items-center justify-between pb-3 border-b" style={{ borderBottomColor: colors.border }}>
             <View>
               <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
-                Convert Coins to Rupees 💸
+                Convert Coins to Real Cash 💸
               </Text>
-              <Text className="text-xs" style={{ color: colors.textMuted }}>
-                {coinsPerRupee} Coins = ₹1.00 INR • Fast Cashfree Payout
+              <Text className="text-xs font-medium" style={{ color: colors.primary }}>
+                {coinsPerRupee} Coin = ₹{(1 / coinsPerRupee).toFixed(2)} INR • Instant Direct Transfer
               </Text>
             </View>
-            <Pressable onPress={onClose} className="p-1">
-              <Text className="text-xl font-bold" style={{ color: colors.textSecondary }}>✕</Text>
+            <Pressable onPress={onClose} className="h-8 w-8 rounded-full items-center justify-center" style={{ backgroundColor: colors.surfaceAlt }}>
+              <Text className="text-sm font-bold" style={{ color: colors.textSecondary }}>✕</Text>
             </Pressable>
           </View>
 
@@ -441,6 +442,32 @@ function WithdrawalModal({ isOpen, onClose, wallet }) {
               </View>
             )}
 
+            {/* 5-7 Working Days Processing Note */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 10,
+                backgroundColor: `${colors.primary}12`,
+                borderRadius: 14,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: `${colors.primary}30`,
+                marginTop: 14,
+                marginBottom: 6,
+              }}
+            >
+              <Text style={{ fontSize: 18, marginTop: 1 }}>⏱️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: colors.textPrimary }}>
+                  Important Processing Note:
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2, lineHeight: 16 }}>
+                  Withdrawals are verified and the amount will reflect in your account within <Text style={{ fontWeight: '800', color: colors.primary }}>5–7 working days</Text>.
+                </Text>
+              </View>
+            </View>
+
             <View className="mt-4 mb-6">
               <GradientButton
                 title={`Transfer ₹${inrValue} to Account`}
@@ -455,17 +482,61 @@ function WithdrawalModal({ isOpen, onClose, wallet }) {
   );
 }
 
-function GirlsEarningsCard({ wallet }) {
+function GirlsEarningsCard({ wallet: propWallet }) {
   const { colors } = useTheme();
+  const { socket, wallet: socketWallet } = useSocket();
+  const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
+  const [liveEarnings, setLiveEarnings] = useState(null);
 
-  const earnings = wallet?.earnings || {};
-  const coinsPerRupee = earnings.coinsPerRupee || 25;
-  const messagesPerReward = earnings.messagesPerReward || 25;
+  // Live query for reactive real-time earnings settings from backend
+  const { data: earningsStatusData, refetch } = useQuery({
+    queryKey: ['earnings-status'],
+    queryFn: () => withdrawalsApi.getEarningsStatus(),
+    refetchInterval: 3_000,
+  });
+
+  // Direct 0ms socket listener: Updates state INSTANTLY on admin save with zero delay
+  useEffect(() => {
+    if (!socket) return;
+
+    const onEarningsUpdated = (data) => {
+      if (data?.earnings) {
+        setLiveEarnings(data.earnings);
+      }
+      refetch();
+    };
+
+    const onSettingsUpdated = (data) => {
+      if (data?.settings?.earnings) {
+        setLiveEarnings(data.settings.earnings);
+      }
+      refetch();
+    };
+
+    socket.on('earnings:updated', onEarningsUpdated);
+    socket.on('settings:updated', onSettingsUpdated);
+
+    return () => {
+      socket.off('earnings:updated', onEarningsUpdated);
+      socket.off('settings:updated', onSettingsUpdated);
+    };
+  }, [socket, refetch]);
+
+  const wallet = earningsStatusData?.wallet || socketWallet || propWallet;
+  const earnings = {
+    ...(wallet?.earnings || {}),
+    ...(liveEarnings || {}),
+  };
+  const coinsPerRupee = earnings.coinsPerRupee || 1;
+  const messagesPerReward = earnings.messagesPerReward || 20;
   const rewardCoins = earnings.rewardCoins || 1;
   const currentProgress = earnings.currentProgress || 0;
   const progressInCycle = currentProgress % messagesPerReward;
   const progressPercent = Math.min(100, Math.round((progressInCycle / messagesPerReward) * 100));
+  const coinsBalance = wallet?.coinBalance || 0;
+  const inrValue = (coinsBalance / coinsPerRupee).toFixed(2);
+  const remainingMsgs = messagesPerReward - progressInCycle;
 
   const { data: withdrawalsData } = useQuery({
     queryKey: ['my-withdrawals'],
@@ -473,150 +544,312 @@ function GirlsEarningsCard({ wallet }) {
     refetchInterval: 30_000,
   });
 
-  const recentList = withdrawalsData?.items || [];
+  const extractList = (data) => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.withdrawals)) return data.withdrawals;
+    if (Array.isArray(data.data)) return data.data;
+    if (data.items && Array.isArray(data.items.items)) return data.items.items;
+    return [];
+  };
+
+  const recentList = extractList(withdrawalsData);
 
   return (
-    <View className="mb-5">
-      <Card
-        style={{
-          borderColor: colors.primary,
-          borderWidth: 1.5,
-          backgroundColor: `${colors.primary}08`,
-        }}
-      >
-        {/* Header */}
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-2xl">💖</Text>
-            <View>
-              <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-                Girls Chat Earnings & Cashout
-              </Text>
-              <Text className="text-xs" style={{ color: colors.primary }}>
-                {messagesPerReward} messages with boys = +{rewardCoins} coin (₹1 = {coinsPerRupee} coins)
-              </Text>
-            </View>
-          </View>
-          <Badge label="Girls Club" tone="brand" />
-        </View>
-
-        {/* Live Message Progress to Next Coin */}
-        <View
-          className="p-3.5 rounded-2xl mb-3"
-          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
-        >
-          <View className="flex-row items-center justify-between mb-1.5">
-            <Text className="text-xs font-semibold" style={{ color: colors.textSecondary }}>
-              💬 Chat Progress ({messagesPerReward} messages = +{rewardCoins} Coin)
-            </Text>
-            <Text className="text-xs font-bold" style={{ color: colors.primary }}>
-              {progressInCycle} / {messagesPerReward} msgs
-            </Text>
-          </View>
-
-          {/* Progress bar */}
-          <View className="h-2.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: colors.surfaceAlt }}>
-            <View
-              className="h-full rounded-full"
-              style={{ width: `${Math.max(5, progressPercent)}%`, backgroundColor: colors.primary }}
-            />
-          </View>
-
-          <Text className="text-[11px] mt-1.5" style={{ color: colors.textMuted }}>
-            {messagesPerReward - progressInCycle === 0
-              ? '🎉 Coin reward ready!'
-              : `${messagesPerReward - progressInCycle} more messages with boys to earn +${rewardCoins} coin`}
-          </Text>
-        </View>
-
-        {/* Balance & Cashout CTA */}
-        <View
-          className="p-4 rounded-2xl mb-3 flex-row items-center justify-between"
-          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
-        >
-          <View>
-            <Text className="text-xs" style={{ color: colors.textMuted }}>Your Convertable Cash</Text>
-            <View className="flex-row items-baseline gap-1.5 mt-0.5">
-              <Text className="text-2xl font-black text-emerald-600">
-                ₹{((wallet?.coinBalance || 0) / coinsPerRupee).toFixed(2)}
-              </Text>
-              <Text className="text-xs font-semibold" style={{ color: colors.textMuted }}>
-                ({wallet?.coinBalance || 0} Coins)
-              </Text>
-            </View>
-          </View>
-
-          <Pressable
-            onPress={() => setModalOpen(true)}
-            className="px-4 py-2.5 rounded-xl flex-row items-center gap-1.5 shadow-sm"
-            style={{ backgroundColor: colors.primary }}
+    <View className="mb-6">
+      <View className="flex-col md:flex-row gap-4 items-start">
+        {/* Left Column (Main Balances & Progress) */}
+        <View className="w-full md:flex-1">
+          {/* Hero Glassmorphic Card */}
+          <View
+            className="p-4 sm:p-6 rounded-3xl mb-4 border shadow-sm"
+            style={{
+              backgroundColor: `${colors.primary}0F`,
+              borderColor: `${colors.primary}35`,
+            }}
           >
-            <Text className="text-sm font-bold text-white">Withdraw 💸</Text>
-          </Pressable>
-        </View>
-
-        {/* Withdrawal History list */}
-        {recentList.length > 0 && (
-          <View className="pt-2 border-t" style={{ borderTopColor: colors.border }}>
-            <Text className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>
-              Recent Payout Requests
-            </Text>
-            {recentList.map((item) => {
-              const isPending = item.status === 'pending';
-              const isSuccess = item.status === 'success';
-              const isRejected = item.status === 'rejected';
-
-              return (
+            {/* Header Badge & Title */}
+            <View className="flex-row items-start justify-between mb-4">
+              <View className="flex-row items-center gap-3 flex-1 mr-2">
                 <View
-                  key={item._id}
-                  className="flex-row items-center justify-between py-2 border-b border-dashed"
-                  style={{ borderBottomColor: `${colors.border}60` }}
+                  className="h-11 w-11 rounded-2xl items-center justify-center shrink-0 shadow-xs"
+                  style={{ backgroundColor: `${colors.primary}25` }}
                 >
-                  <View>
-                    <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>
-                      ₹{item.amountInRupees?.toFixed(2)} ({item.coins} Coins)
-                    </Text>
-                    <Text className="text-[10px]" style={{ color: colors.textMuted }}>
-                      {item.payoutMethod === 'upi' ? `UPI: ${item.upiId}` : `A/C: ${item.bankDetails?.accountNumber}`}
-                    </Text>
-                  </View>
+                  <Text className="text-2xl">💖</Text>
+                </View>
+                <View className="flex-1 min-w-0">
+                  <Text className="text-lg sm:text-xl font-black tracking-tight" numberOfLines={1} style={{ color: colors.textPrimary }}>
+                    Girls Chat-to-Earn
+                  </Text>
+                  <Text className="text-xs font-semibold" numberOfLines={1} style={{ color: colors.primary }}>
+                    {messagesPerReward} messages = +{rewardCoins} coin (1 Coin = ₹{(1 / coinsPerRupee).toFixed(2)})
+                  </Text>
+                </View>
+              </View>
 
-                  <View className="items-end">
-                    <View
-                      className="px-2 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor: isPending
-                          ? '#FEF3C7'
-                          : isSuccess
-                            ? '#D1FAE5'
-                            : '#FEE2E2',
-                      }}
-                    >
-                      <Text
-                        className="text-[10px] font-bold"
-                        style={{
-                          color: isPending
-                            ? '#B45309'
-                            : isSuccess
-                              ? '#047857'
-                              : '#B91C1C',
-                        }}
-                      >
-                        {isPending ? '⏳ Under Review' : isSuccess ? '✅ Transferred' : '❌ Rejected & Refunded'}
+              <View
+                className="px-3 py-1 rounded-full border shrink-0"
+                style={{ backgroundColor: `${colors.primary}20`, borderColor: `${colors.primary}40` }}
+              >
+                <Text className="text-[11px] font-black uppercase tracking-wider" style={{ color: colors.primary }}>
+                  Active ✨
+                </Text>
+              </View>
+            </View>
+
+            {/* Convertible Cash Box */}
+            <View
+              className="p-4 sm:p-5 rounded-2xl mb-3.5 flex-row items-center justify-between flex-wrap gap-3 shadow-xs"
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+            >
+              <View className="min-w-[140px]">
+                <Text className="text-[11px] font-bold uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                  Your Convertible Cash
+                </Text>
+                <View className="flex-row items-baseline gap-2 mt-0.5">
+                  <Text className="text-3xl sm:text-4xl font-black text-emerald-600">
+                    ₹{inrValue}
+                  </Text>
+                  <Text className="text-xs font-bold" style={{ color: colors.textSecondary }}>
+                    ({coinsBalance} Coins)
+                  </Text>
+                </View>
+              </View>
+
+              <Pressable
+                onPress={() => setModalOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Withdraw cash to UPI or Bank"
+                className="px-5 py-3 rounded-2xl flex-row items-center gap-2 shadow-md active:scale-95 transition shrink-0"
+                style={{
+                  backgroundColor: colors.primary,
+                  boxShadow: `0 4px 14px ${colors.primary}60`,
+                }}
+              >
+                <Ionicons name="cash-outline" size={17} color="#FFFFFF" />
+                <Text className="text-sm font-black text-white">Withdraw 💸</Text>
+              </Pressable>
+            </View>
+
+            {/* Live Message Progress Box */}
+            <View
+              className="p-4 sm:p-5 rounded-2xl shadow-xs"
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+            >
+              <View className="flex-row items-center justify-between mb-2.5">
+                <View className="flex-row items-center gap-1.5 flex-1 mr-2">
+                  <Ionicons name="chatbubbles-outline" size={15} color={colors.primary} />
+                  <Text className="text-xs sm:text-sm font-bold" numberOfLines={1} style={{ color: colors.textPrimary }}>
+                    Chat Cycle Progress
+                  </Text>
+                </View>
+                <View
+                  className="px-2.5 py-0.5 rounded-full shrink-0"
+                  style={{ backgroundColor: `${colors.primary}18` }}
+                >
+                  <Text className="text-xs font-black" style={{ color: colors.primary }}>
+                    {progressInCycle} / {messagesPerReward} msgs ({progressPercent}%)
+                  </Text>
+                </View>
+              </View>
+
+              {/* Progress Track */}
+              <View className="h-3 w-full rounded-full overflow-hidden my-1.5" style={{ backgroundColor: colors.surfaceAlt }}>
+                <View
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.max(4, progressPercent)}%`,
+                    backgroundColor: colors.primary,
+                  }}
+                />
+              </View>
+
+              <Text className="text-xs font-medium mt-1" style={{ color: colors.textSecondary }}>
+                {remainingMsgs === 0
+                  ? '🎉 Cycle complete! Coin credited to your wallet.'
+                  : `💬 ${remainingMsgs} more message${remainingMsgs > 1 ? 's' : ''} to earn +${rewardCoins} coin!`}
+              </Text>
+            </View>
+          </View>
+
+          {/* Withdrawal History list */}
+          {recentList.length > 0 && (
+            <View
+              className="p-4 sm:p-5 rounded-3xl border mb-4 shadow-xs"
+              style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+            >
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-xs font-extrabold uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                  Recent Payout Requests
+                </Text>
+                <Text className="text-xs font-semibold" style={{ color: colors.primary }}>
+                  Live Status
+                </Text>
+              </View>
+
+              {recentList.map((item) => {
+                const isPending = item.status === 'pending';
+                const isSuccess = item.status === 'success';
+                const isRejected = item.status === 'rejected';
+
+                return (
+                  <View
+                    key={item._id}
+                    className="flex-row items-center justify-between py-2.5 border-b border-dashed"
+                    style={{ borderBottomColor: `${colors.border}80` }}
+                  >
+                    <View>
+                      <Text className="text-sm font-bold text-emerald-600">
+                        ₹{item.amountInRupees?.toFixed(2)}
+                      </Text>
+                      <Text className="text-[11px] font-mono mt-0.5" style={{ color: colors.textSecondary }}>
+                        {item.payoutMethod === 'upi' ? `UPI: ${item.upiId}` : `A/C: ${item.bankDetails?.accountNumber}`}
                       </Text>
                     </View>
-                    {isRejected && item.rejectionReason && (
-                      <Text className="text-[9px] text-red-600 mt-0.5" numberOfLines={1}>
-                        {item.rejectionReason}
-                      </Text>
-                    )}
+
+                    <View className="items-end">
+                      <View
+                        className="px-2.5 py-1 rounded-full"
+                        style={{
+                          backgroundColor: isPending
+                            ? '#FEF3C7'
+                            : isSuccess
+                              ? '#D1FAE5'
+                              : '#FEE2E2',
+                        }}
+                      >
+                        <Text
+                          className="text-[10px] font-black uppercase"
+                          style={{
+                            color: isPending
+                              ? '#B45309'
+                              : isSuccess
+                                ? '#047857'
+                                : '#B91C1C',
+                          }}
+                        >
+                          {isPending ? '⏳ Under Review' : isSuccess ? '✅ Transferred' : '❌ Rejected'}
+                        </Text>
+                      </View>
+                      {isRejected && item.rejectionReason && (
+                        <Text className="text-[10px] text-red-600 mt-0.5" numberOfLines={1}>
+                          {item.rejectionReason}
+                        </Text>
+                      )}
+                    </View>
                   </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* Right Column (Guide & Benefits) */}
+        <View className="w-full md:flex-1">
+          {/* Dynamic 3-Step Guide */}
+          <View
+            className="p-4 sm:p-6 rounded-3xl mb-4 border shadow-xs"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+          >
+            <View className="flex-row items-center gap-2 mb-4">
+              <Ionicons name="sparkles" size={16} color={colors.primary} />
+              <Text className="text-xs font-extrabold uppercase tracking-wider" style={{ color: colors.primary }}>
+                How Chat-to-Earn Works
+              </Text>
+            </View>
+
+            <View className="gap-3.5">
+              {/* Step 1 */}
+              <View className="flex-row items-start gap-3">
+                <View
+                  className="h-7 w-7 rounded-full items-center justify-center mt-0.5 shrink-0"
+                  style={{ backgroundColor: `${colors.primary}20` }}
+                >
+                  <Text className="text-xs font-black" style={{ color: colors.primary }}>1</Text>
                 </View>
-              );
-            })}
+                <View className="flex-1 min-w-0">
+                  <Text className="text-sm font-bold" style={{ color: colors.textPrimary }}>
+                    Chat with Boys
+                  </Text>
+                  <Text className="text-xs leading-4 mt-0.5" style={{ color: colors.textSecondary }}>
+                    Every message you send to male profiles automatically advances your reward tracker.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Step 2 (100% Dynamic Admin Settings) */}
+              <View className="flex-row items-start gap-3">
+                <View
+                  className="h-7 w-7 rounded-full items-center justify-center mt-0.5 shrink-0"
+                  style={{ backgroundColor: `${colors.primary}20` }}
+                >
+                  <Text className="text-xs font-black" style={{ color: colors.primary }}>2</Text>
+                </View>
+                <View className="flex-1 min-w-0">
+                  <Text className="text-sm font-bold" style={{ color: colors.textPrimary }}>
+                    Earn Coins Automatically
+                  </Text>
+                  <Text className="text-xs leading-4 mt-0.5" style={{ color: colors.textSecondary }}>
+                    After every <Text className="font-bold text-pink-600">{messagesPerReward} messages</Text>, <Text className="font-bold text-pink-600">+{rewardCoins} coin</Text> is credited straight into your wallet!
+                  </Text>
+                </View>
+              </View>
+
+              {/* Step 3 */}
+              <View className="flex-row items-start gap-3">
+                <View
+                  className="h-7 w-7 rounded-full items-center justify-center mt-0.5 shrink-0"
+                  style={{ backgroundColor: `${colors.primary}20` }}
+                >
+                  <Text className="text-xs font-black" style={{ color: colors.primary }}>3</Text>
+                </View>
+                <View className="flex-1 min-w-0">
+                  <Text className="text-sm font-bold" style={{ color: colors.textPrimary }}>
+                    Convert to Real Money
+                  </Text>
+                  <Text className="text-xs leading-4 mt-0.5" style={{ color: colors.textSecondary }}>
+                    Tap {'"Withdraw"'} anytime to transfer cash into your UPI (GPay/PhonePe/Paytm) or Bank Account! (Rate: {coinsPerRupee} Coin = ₹{(1 / coinsPerRupee).toFixed(2)} · Amount credit takes 5–7 working days).
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
-        )}
-      </Card>
+
+          {/* Girls VIP Club Perks Card */}
+          <View
+            className="p-4 sm:p-5 rounded-3xl border shadow-xs"
+            style={{ backgroundColor: `${colors.primary}0A`, borderColor: `${colors.primary}25` }}
+          >
+            <View className="flex-row items-center gap-2 mb-2.5">
+              <Text className="text-lg">👑</Text>
+              <Text className="text-xs font-extrabold uppercase tracking-wider" style={{ color: colors.primary }}>
+                Girls VIP Benefits
+              </Text>
+            </View>
+            <View className="gap-2">
+              <View className="flex-row items-center gap-2">
+                <Text className="text-emerald-500 font-bold">✓</Text>
+                <Text className="text-xs font-medium" style={{ color: colors.textPrimary }}>
+                  100% Free Unlimited Chatting forever
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-emerald-500 font-bold">✓</Text>
+                <Text className="text-xs font-medium" style={{ color: colors.textPrimary }}>
+                  Instant payouts directly to any UPI ID or Bank
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-emerald-500 font-bold">✓</Text>
+                <Text className="text-xs font-medium" style={{ color: colors.textPrimary }}>
+                  No coin deductions or expiry — earn on every chat!
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
 
       <WithdrawalModal
         isOpen={modalOpen}
@@ -847,7 +1080,7 @@ function UpiFlow({ order, upi, onDone }) {
       >
         <Text className="text-base">ℹ️</Text>
         <Text className="text-[11px] leading-4 flex-1" style={{ color: colors.textSecondary }}>
-          After tapping "I've Paid", our team will verify and credit your coins automatically. Usually within a few minutes.
+          After tapping {'"I\'ve Paid"'}, our team will verify and credit your coins automatically. Usually within a few minutes.
         </Text>
       </View>
     </Card>
@@ -862,6 +1095,8 @@ export default function Coins() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 640;
 
   const [selectedId, setSelectedId] = useState(null);
   const [activeOrder, setActiveOrder] = useState(null);
@@ -954,14 +1189,23 @@ export default function Coins() {
       queryClient.invalidateQueries({ queryKey: ['my-withdrawals'] });
     };
 
+    const onSettingsUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-options'] });
+    };
+
     socket.on('coins:earned', onCoinsEarned);
     socket.on('withdrawal:approved', onWithdrawalApproved);
     socket.on('withdrawal:rejected', onWithdrawalRejected);
+    socket.on('settings:updated', onSettingsUpdated);
+    socket.on('earnings:updated', onSettingsUpdated);
 
     return () => {
       socket.off('coins:earned', onCoinsEarned);
       socket.off('withdrawal:approved', onWithdrawalApproved);
       socket.off('withdrawal:rejected', onWithdrawalRejected);
+      socket.off('settings:updated', onSettingsUpdated);
+      socket.off('earnings:updated', onSettingsUpdated);
     };
   }, [socket, queryClient]);
 
@@ -973,105 +1217,130 @@ export default function Coins() {
     );
   }
 
+  const isGirl =
+    String(user?.gender).toLowerCase() === 'female' ||
+    String(user?.gender).toLowerCase() === 'girl' ||
+    Boolean(wallet?.isUnlimited) ||
+    Boolean(wallet?.earnings?.enabled);
+
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
-        <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-          Get coins
-        </Text>
-        <Pressable onPress={() => goBack()} accessibilityRole="button" accessibilityLabel="Close" className="p-2">
-          <Text className="text-xl" style={{ color: colors.textSecondary }}>
-            ✕
+      {/* Top Navigation Bar with Max-Width Constraint */}
+      <View className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-2.5 flex-row items-center justify-between">
+        <View className="flex-row items-center gap-2.5 flex-1 pr-2">
+          <View
+            className="h-10 w-10 rounded-2xl items-center justify-center shrink-0"
+            style={{ backgroundColor: `${colors.primary}18` }}
+          >
+            <Ionicons name={isGirl ? 'sparkles' : 'wallet-outline'} size={20} color={colors.primary} />
+          </View>
+          <Text className="text-lg sm:text-xl font-black tracking-tight" numberOfLines={1} style={{ color: colors.textPrimary }}>
+            {isGirl ? 'Chat Earnings & Cashout' : 'Get Coins'}
           </Text>
+        </View>
+
+        <Pressable
+          onPress={() => goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          className="h-9 w-9 rounded-full items-center justify-center shadow-xs active:scale-95 transition"
+          style={{ backgroundColor: colors.surfaceAlt }}
+        >
+          <Ionicons name="close" size={20} color={colors.textSecondary} />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: isTablet ? 24 : 16,
+          paddingTop: 10,
+          paddingBottom: insets.bottom + 40,
+          maxWidth: isTablet ? 980 : '100%',
+          width: '100%',
+          alignSelf: 'center',
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Events & Offers Banner */}
         <Pressable
           onPress={() => router.push('/events')}
-          className="mb-4 p-3.5 rounded-2xl"
-          style={{ backgroundColor: `${colors.primary}12`, borderWidth: 1, borderColor: `${colors.primary}30` }}
+          className="mb-4 p-4 rounded-3xl"
+          style={{ backgroundColor: `${colors.primary}10`, borderWidth: 1, borderColor: `${colors.primary}25` }}
         >
           <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2 flex-1 mr-2">
-              <Text className="text-lg">🎉</Text>
+            <View className="flex-row items-center gap-3 flex-1 mr-2">
+              <Text className="text-2xl">🎉</Text>
               <View className="flex-1">
                 <Text
-                  className="text-xs font-bold"
+                  className="text-xs sm:text-sm font-bold"
                   style={{ color: colors.primary }}
                   numberOfLines={1}
                 >
                   Live Offers & Festival Events
                 </Text>
                 <Text
-                  className="text-[11px] mt-0.5"
+                  className="text-[11px] sm:text-xs mt-0.5"
                   style={{ color: colors.textMuted }}
-                  numberOfLines={2}
+                  numberOfLines={1}
                 >
                   Free chat hours & limited-time coin drops
                 </Text>
               </View>
             </View>
             <View
-              className="px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: `${colors.primary}22` }}
+              className="px-3 py-1 rounded-full shrink-0"
+              style={{ backgroundColor: `${colors.primary}20` }}
             >
-              <Text className="text-[11px] font-bold" style={{ color: colors.primary }}>View →</Text>
+              <Text className="text-xs font-bold" style={{ color: colors.primary }}>View →</Text>
             </View>
           </View>
         </Pressable>
 
-        <Card className="mb-5">
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="text-xs" style={{ color: colors.textMuted }}>
-                Your balance
-              </Text>
-              <View className="flex-row items-center gap-2 mt-0.5">
-                <CoinIcon size={24} />
-                <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-                  {formatCoins(wallet?.coinBalance ?? 0)}
-                </Text>
-              </View>
-            </View>
-
-            {wallet && !wallet.isUnlimited ? (
-              <View className="items-end">
-                <Text className="text-xs" style={{ color: colors.textMuted }}>
-                  That is about
-                </Text>
-                <Text className="text-base font-semibold" style={{ color: colors.textSecondary }}>
-                  {wallet.estimatedMessagesRemaining} messages
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          {wallet && !wallet.isUnlimited ? (
-            <View className="mt-3 flex-row items-center justify-between border-t pt-2" style={{ borderTopColor: colors.border }}>
-              <Text className="text-xs" style={{ color: colors.textMuted }}>
-                Chat rate
-              </Text>
-              <Text className="text-xs font-semibold" style={{ color: colors.textPrimary }}>
-                {wallet.messagesPerBlock} messages / {wallet.coinsPerBlock} coins
-              </Text>
-            </View>
-          ) : null}
-        </Card>
-
-        {/* Girls Chat Earnings & Cash Conversion Card */}
-        {Boolean(
-          wallet?.isUnlimited ||
-          String(user?.gender).toLowerCase() === 'female' ||
-          String(user?.gender).toLowerCase() === 'girl' ||
-          wallet?.earnings?.enabled
-        ) && (
+        {/* If female / girl: Show only GirlsEarningsCard (NO coin buying options) */}
+        {isGirl ? (
           <GirlsEarningsCard wallet={wallet} />
-        )}
+        ) : (
+          <>
+            <Card className="mb-5">
+              <View className="flex-row items-center justify-between">
+                <View>
+                  <Text className="text-xs" style={{ color: colors.textMuted }}>
+                    Your balance
+                  </Text>
+                  <View className="flex-row items-center gap-2 mt-0.5">
+                    <CoinIcon size={24} />
+                    <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+                      {formatCoins(wallet?.coinBalance ?? 0)}
+                    </Text>
+                  </View>
+                </View>
+
+                {wallet && !wallet.isUnlimited ? (
+                  <View className="items-end">
+                    <Text className="text-xs" style={{ color: colors.textMuted }}>
+                      That is about
+                    </Text>
+                    <Text className="text-base font-semibold" style={{ color: colors.textSecondary }}>
+                      {wallet.estimatedMessagesRemaining} messages
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {wallet && !wallet.isUnlimited ? (
+                <View className="mt-3 flex-row items-center justify-between border-t pt-2" style={{ borderTopColor: colors.border }}>
+                  <Text className="text-xs" style={{ color: colors.textMuted }}>
+                    Chat rate
+                  </Text>
+                  <Text className="text-xs font-semibold" style={{ color: colors.textPrimary }}>
+                    {wallet.messagesPerBlock} messages / {wallet.coinsPerBlock} coins
+                  </Text>
+                </View>
+              ) : null}
+            </Card>
 
         {activeOrder?.isCashfree ? (
-          <Card className="mb-5 p-4" style={{ borderColor: `${colors.primary}40`, backgroundColor: colors.surface }}>
+          <Card className="mb-5 p-4 sm:p-5" style={{ borderColor: `${colors.primary}40`, backgroundColor: colors.surface }}>
             {/* Header — stacked so badge never clips */}
             <View className="mb-4 pb-3 border-b" style={{ borderBottomColor: colors.border }}>
               <View className="flex-row items-center gap-2.5 mb-2">
@@ -1218,15 +1487,21 @@ export default function Coins() {
               Select a coin pack
             </Text>
 
-            {options?.packages?.map((coinPackage) => (
-              <PackageCard
-                key={coinPackage.id}
-                coinPackage={coinPackage}
-                selected={activePackageId}
-                onSelect={setSelectedId}
-                appliedCoupon={appliedCoupon}
-              />
-            ))}
+            <View className="flex-row flex-wrap justify-between">
+              {options?.packages?.map((coinPackage) => (
+                <View
+                  key={coinPackage.id}
+                  style={{ width: isTablet ? '48.5%' : '100%' }}
+                >
+                  <PackageCard
+                    coinPackage={coinPackage}
+                    selected={activePackageId}
+                    onSelect={setSelectedId}
+                    appliedCoupon={appliedCoupon}
+                  />
+                </View>
+              ))}
+            </View>
 
             {options?.packages?.length === 0 ? (
               <Card>
@@ -1270,6 +1545,8 @@ export default function Coins() {
                 </Text>
               </Pressable>
             </View>
+          </>
+        )}
           </>
         )}
       </ScrollView>

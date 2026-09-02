@@ -57,15 +57,27 @@ export function WalletHeader({ compact = false }) {
 
   if (wallet.isUnlimited) {
     return (
-      <View
-        className="flex-row items-center gap-1.5 px-3 py-1.5"
-        style={{ backgroundColor: `${colors.success}1F`, borderRadius: radius }}
+      <Pressable
+        onPress={() => router.push('/coins')}
+        accessibilityRole="button"
+        accessibilityLabel="Chat Earnings & Cashout. Tap to view and withdraw."
+        className="flex-row items-center gap-1.5 px-3 py-1.5 active:scale-95 transition"
+        style={({ pressed }) => ({
+          backgroundColor: `${colors.primary}1F`,
+          borderRadius: radius,
+          borderWidth: 1,
+          borderColor: `${colors.primary}44`,
+          opacity: pressed ? 0.8 : 1,
+        })}
       >
-        <Text className="text-xs">💬</Text>
-        <Text className="text-xs font-semibold" style={{ color: colors.success }}>
-          Unlimited
+        <CoinIcon size={16} />
+        <Text className="text-xs font-bold" style={{ color: colors.primary }}>
+          {formatCoins(wallet.coinBalance)}
         </Text>
-      </View>
+        <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.primary }}>
+          · 💸 Cashout
+        </Text>
+      </Pressable>
     );
   }
 

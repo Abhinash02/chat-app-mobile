@@ -98,6 +98,14 @@ export const storage = {
     await write(LOCATION_ASKED_KEY, 'true');
   },
 
+  async getLanguage() {
+    return (await read('vibe.language')) || 'en';
+  },
+
+  async setLanguage(lang) {
+    await write('vibe.language', lang);
+  },
+
   async clear() {
     await Promise.all([
       write(ACCESS_TOKEN_KEY, null),

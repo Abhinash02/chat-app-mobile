@@ -142,150 +142,300 @@ function CreateRoomSheet({ onClose }) {
   });
 
   return (
-    <Card className="mx-4 mb-4 shadow-md" style={{ borderColor: colors.primary, borderWidth: 1.5 }}>
-      <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-          ✨ Start a New Live Room
-        </Text>
-        <Pressable onPress={onClose} hitSlop={8}>
-          <Ionicons name="close-circle" size={22} color={colors.textMuted} />
-        </Pressable>
-      </View>
-
-      <Field label="Room Name *">
-        <Input
-          value={name}
-          onChangeText={setName}
-          placeholder="e.g. Chill & Music Hangout"
-          maxLength={60}
-          autoFocus
-        />
-      </Field>
-
-      <Field label="Topic / Description" hint="Tell visitors what this room is about">
-        <Input
-          value={topic}
-          onChangeText={setTopic}
-          placeholder="e.g. Casual voice chat, jokes, gaming"
-          maxLength={140}
-        />
-      </Field>
-
-      <View className="mb-4">
-        <Text className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: colors.textMuted }}>
-          Room Mode
-        </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            backgroundColor: colors.surfaceAlt || '#F3F4F6',
-            borderRadius: 14,
-            padding: 4,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
+    <View
+      style={{
+        marginHorizontal: 16,
+        marginBottom: 16,
+        borderRadius: 24,
+        overflow: 'hidden',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+        elevation: 8,
+      }}
+    >
+      {/* Gradient-like header strip */}
+      <View
+        style={{
+          backgroundColor: colors.primary,
+          paddingHorizontal: 20,
+          paddingTop: 18,
+          paddingBottom: 20,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 18 }}>🎙️</Text>
+            </View>
+            <View>
+              <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>
+                Start a Live Room
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 1 }}>
+                Free to host · Open to all
+              </Text>
+            </View>
+          </View>
           <Pressable
-            onPress={() => setIsVoice(true)}
+            onPress={onClose}
+            hitSlop={12}
             style={{
-              flex: 1,
-              flexDirection: 'row',
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: 'rgba(255,255,255,0.2)',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 6,
-              paddingVertical: 10,
-              borderRadius: 10,
-              backgroundColor: isVoice ? colors.primary : 'transparent',
-              shadowColor: isVoice ? colors.primary : 'transparent',
-              shadowOpacity: isVoice ? 0.25 : 0,
-              shadowRadius: 4,
-              elevation: isVoice ? 2 : 0,
             }}
           >
-            <Ionicons name="mic" size={16} color={isVoice ? colors.onPrimary : colors.textMuted} />
-            <Text style={{ fontSize: 13, fontWeight: '700', color: isVoice ? colors.onPrimary : colors.textPrimary }}>
-              Voice & Chat
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setIsVoice(false)}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              paddingVertical: 10,
-              borderRadius: 10,
-              backgroundColor: !isVoice ? colors.primary : 'transparent',
-              shadowColor: !isVoice ? colors.primary : 'transparent',
-              shadowOpacity: !isVoice ? 0.25 : 0,
-              shadowRadius: 4,
-              elevation: !isVoice ? 2 : 0,
-            }}
-          >
-            <Ionicons name="chatbubbles" size={16} color={!isVoice ? colors.onPrimary : colors.textMuted} />
-            <Text style={{ fontSize: 13, fontWeight: '700', color: !isVoice ? colors.onPrimary : colors.textPrimary }}>
-              Text Only
-            </Text>
+            <Ionicons name="close" size={16} color="#fff" />
           </Pressable>
         </View>
       </View>
 
-      <View className="flex-row items-center gap-3 mt-1">
-        <Pressable
-          onPress={onClose}
-          style={({ pressed }) => ({
-            flex: 1,
-            height: 48,
-            borderRadius: 14,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.surfaceAlt || '#F3F4F6',
-            borderWidth: 1,
-            borderColor: colors.border,
-            opacity: pressed ? 0.75 : 1,
-          })}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }}>
-            Cancel
-          </Text>
-        </Pressable>
+      {/* Body */}
+      <View style={{ backgroundColor: colors.surface, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20 }}>
 
-        <Pressable
-          onPress={() => create.mutate()}
-          disabled={name.trim().length < 2 || create.isPending}
-          style={({ pressed }) => ({
-            flex: 2,
-            height: 48,
-            borderRadius: 14,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: name.trim().length < 2 ? `${colors.primary}66` : colors.primary,
-            shadowColor: colors.primary,
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.3,
-            shadowRadius: 5,
-            elevation: 3,
-            opacity: pressed || create.isPending ? 0.8 : 1,
-          })}
-        >
-          <View className="flex-row items-center gap-2">
-            {create.isPending ? (
-              <ActivityIndicator size="small" color={colors.onPrimary || '#FFF'} />
-            ) : (
-              <>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: colors.onPrimary || '#FFF' }}>
-                  Create Room
-                </Text>
-                <Ionicons name="arrow-forward" size={16} color={colors.onPrimary || '#FFF'} />
-              </>
-            )}
+        {/* Room Name Input */}
+        <View style={{ marginBottom: 14 }}>
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: '700',
+              color: colors.textMuted,
+              textTransform: 'uppercase',
+              letterSpacing: 0.8,
+              marginBottom: 6,
+            }}
+          >
+            Room Name *
+          </Text>
+          <View
+            style={{
+              backgroundColor: colors.surfaceAlt || '#F9F0F5',
+              borderRadius: 14,
+              borderWidth: 1.5,
+              borderColor: name.trim().length >= 2 ? colors.primary : colors.border,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <Text style={{ fontSize: 16 }}>✏️</Text>
+            <Input
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Chill & Music Hangout"
+              maxLength={60}
+              autoFocus
+              style={{
+                flex: 1,
+                fontSize: 14,
+                color: colors.textPrimary,
+                padding: 0,
+                margin: 0,
+              }}
+            />
           </View>
-        </Pressable>
+        </View>
+
+        {/* Topic Input */}
+        <View style={{ marginBottom: 16 }}>
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: '700',
+              color: colors.textMuted,
+              textTransform: 'uppercase',
+              letterSpacing: 0.8,
+              marginBottom: 6,
+            }}
+          >
+            Topic / Description
+          </Text>
+          <View
+            style={{
+              backgroundColor: colors.surfaceAlt || '#F9F0F5',
+              borderRadius: 14,
+              borderWidth: 1.5,
+              borderColor: topic.trim() ? `${colors.primary}66` : colors.border,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <Text style={{ fontSize: 16 }}>💬</Text>
+            <Input
+              value={topic}
+              onChangeText={setTopic}
+              placeholder="e.g. Casual voice chat, jokes, gaming"
+              maxLength={140}
+              style={{
+                flex: 1,
+                fontSize: 14,
+                color: colors.textPrimary,
+                padding: 0,
+                margin: 0,
+              }}
+            />
+          </View>
+        </View>
+
+        {/* Room Mode Toggle */}
+        <View style={{ marginBottom: 20 }}>
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: '700',
+              color: colors.textMuted,
+              textTransform: 'uppercase',
+              letterSpacing: 0.8,
+              marginBottom: 8,
+            }}
+          >
+            Room Mode
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              backgroundColor: colors.surfaceAlt || '#F3F4F6',
+              borderRadius: 16,
+              padding: 4,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Pressable
+              onPress={() => setIsVoice(true)}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                paddingVertical: 11,
+                borderRadius: 12,
+                backgroundColor: isVoice ? colors.primary : 'transparent',
+                shadowColor: isVoice ? colors.primary : 'transparent',
+                shadowOpacity: isVoice ? 0.3 : 0,
+                shadowRadius: 6,
+                elevation: isVoice ? 3 : 0,
+              }}
+            >
+              <Ionicons name="mic" size={15} color={isVoice ? '#FFF' : colors.textMuted} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '700',
+                  color: isVoice ? '#FFF' : colors.textPrimary,
+                }}
+              >
+                Voice & Chat
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setIsVoice(false)}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                paddingVertical: 11,
+                borderRadius: 12,
+                backgroundColor: !isVoice ? colors.primary : 'transparent',
+                shadowColor: !isVoice ? colors.primary : 'transparent',
+                shadowOpacity: !isVoice ? 0.3 : 0,
+                shadowRadius: 6,
+                elevation: !isVoice ? 3 : 0,
+              }}
+            >
+              <Ionicons name="chatbubbles" size={15} color={!isVoice ? '#FFF' : colors.textMuted} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '700',
+                  color: !isVoice ? '#FFF' : colors.textPrimary,
+                }}
+              >
+                Text Only
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => ({
+              flex: 1,
+              height: 50,
+              borderRadius: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.surfaceAlt || '#F3F4F6',
+              borderWidth: 1.5,
+              borderColor: colors.border,
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }}>
+              Cancel
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => create.mutate()}
+            disabled={name.trim().length < 2 || create.isPending}
+            style={({ pressed }) => ({
+              flex: 2,
+              height: 50,
+              borderRadius: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: name.trim().length < 2 ? `${colors.primary}55` : colors.primary,
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.35,
+              shadowRadius: 8,
+              elevation: name.trim().length < 2 ? 0 : 5,
+              opacity: pressed || create.isPending ? 0.85 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {create.isPending ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Text style={{ fontSize: 16 }}>🚀</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#FFF' }}>
+                    Create Room
+                  </Text>
+                </>
+              )}
+            </View>
+          </Pressable>
+        </View>
       </View>
-    </Card>
+    </View>
   );
 }
 

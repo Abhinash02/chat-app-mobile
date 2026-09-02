@@ -13,6 +13,7 @@ import { registerForPushNotifications, triggerLocalNotification } from '../src/h
 import { useSounds } from '../src/hooks/useSounds.jsx';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
 import { useToast } from '../src/components/Toast.jsx';
+import { useLanguage } from '../src/i18n/LanguageProvider.jsx';
 
 function SettingRow({ label, description, value, onChange, onPreview }) {
   const { colors } = useTheme();
@@ -52,6 +53,7 @@ export default function Settings() {
   const { colors, radius } = useTheme();
   const { user, signOut, refreshUser } = useAuth();
   const { playMessage, setEnabled } = useSounds();
+  const { language, availableLanguages, setLanguage, t } = useLanguage();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -93,7 +95,7 @@ export default function Settings() {
   if (isLoading) {
     return (
       <View className="flex-1" style={{ backgroundColor: colors.background }}>
-        <Loading />
+        <Loading label={t('common.loading')} />
       </View>
     );
   }
@@ -122,24 +124,70 @@ export default function Settings() {
           </Pressable>
           <View>
             <Text className="text-xl font-bold tracking-tight" style={{ color: colors.textPrimary }}>
-              Settings
+              {t('settings.title')}
             </Text>
             <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-              Preferences & Account
+              {t('settings.subtitle')}
             </Text>
           </View>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}>
+        {/* App Language Selection Card */}
         <Text className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.textMuted }}>
-          Notifications
+          {t('settings.appLanguage')}
+        </Text>
+
+        <Card className="mb-5">
+          <View className="py-1">
+            <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+              {t('settings.languageDesc')}
+            </Text>
+            <View className="flex-row gap-2 mt-3">
+              {availableLanguages.map((lang) => {
+                const isSelected = language === lang.code;
+                return (
+                  <Pressable
+                    key={lang.code}
+                    onPress={() => {
+                      setLanguage(lang.code);
+                      toast.success(`${lang.flag} ${lang.nativeName}`);
+                    }}
+                    className="flex-1 py-2.5 px-1.5 items-center justify-center rounded-xl active:scale-95 transition"
+                    style={{
+                      backgroundColor: isSelected ? colors.primary : colors.surfaceAlt,
+                      borderWidth: 1.5,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                      shadowColor: isSelected ? colors.primary : 'transparent',
+                      shadowOpacity: isSelected ? 0.3 : 0,
+                      shadowRadius: 6,
+                      elevation: isSelected ? 3 : 0,
+                    }}
+                  >
+                    <Text style={{ fontSize: 16 }}>{lang.flag}</Text>
+                    <Text
+                      className="text-xs font-bold mt-1 text-center"
+                      style={{ color: isSelected ? colors.onPrimary || '#fff' : colors.textPrimary }}
+                      numberOfLines={1}
+                    >
+                      {lang.nativeName}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </Card>
+
+        <Text className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.textMuted }}>
+          {t('settings.notifications')}
         </Text>
 
         <Card className="mb-5">
           <SettingRow
-            label="Push notifications"
-            description="Get told when someone messages you while the app is closed."
+            label={t('settings.pushNotifications')}
+            description={t('settings.pushDesc')}
             value={preferences.pushEnabled !== false}
             onChange={(value) => setPreference('pushEnabled', value)}
           />
@@ -147,8 +195,8 @@ export default function Settings() {
           <View className="h-px" style={{ backgroundColor: colors.border }} />
 
           <SettingRow
-            label="Sounds"
-            description="Play a chime for new messages and coins."
+            label={t('settings.sounds')}
+            description={t('settings.soundsDesc')}
             value={preferences.soundEnabled !== false}
             onChange={(value) => setPreference('soundEnabled', value)}
             onPreview={playMessage}
@@ -159,7 +207,7 @@ export default function Settings() {
           <View className="py-2.5 flex-row items-center justify-between">
             <View className="flex-1 mr-3">
               <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                Test Notifications
+                {t('settings.testPush')}
               </Text>
               <Text className="text-xs" style={{ color: colors.textMuted }}>
                 {Platform.OS === 'web'
@@ -233,13 +281,13 @@ export default function Settings() {
         </Card>
 
         <Text className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.textMuted }}>
-          Privacy
+          {t('settings.privacy')}
         </Text>
 
         <Card className="mb-5">
           <SettingRow
-            label="Show when I am online"
-            description="Turn this off and others will not see your green dot."
+            label={t('settings.showOnline')}
+            description={t('settings.showOnlineDesc')}
             value={preferences.showOnlineStatus !== false}
             onChange={(value) => setPreference('showOnlineStatus', value)}
           />
@@ -247,8 +295,8 @@ export default function Settings() {
           <View className="h-px" style={{ backgroundColor: colors.border }} />
 
           <SettingRow
-            label="Share my location"
-            description="Lets people nearby find you. Your exact position is never shown — only a distance."
+            label={t('settings.shareLocation')}
+            description={t('settings.shareLocationDesc')}
             value={preferences.shareLocation !== false}
             onChange={(value) => setPreference('shareLocation', value)}
           />
@@ -256,15 +304,15 @@ export default function Settings() {
           <View className="h-px" style={{ backgroundColor: colors.border }} />
 
           <SettingRow
-            label="Offers and news by email"
-            description="Account emails like sign-in codes always come through, whatever you choose here."
+            label={t('settings.marketingEmails')}
+            description={t('settings.marketingEmails')}
             value={preferences.marketingEmails !== false}
             onChange={(value) => setPreference('marketingEmails', value)}
           />
         </Card>
 
         <Text className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.textMuted }}>
-          Legal & Policies
+          {t('profile.menu.legal')}
         </Text>
 
         <Card className="mb-5">
@@ -275,7 +323,7 @@ export default function Settings() {
           >
             <Text className="text-lg">📜</Text>
             <Text className="flex-1 text-sm font-medium" style={{ color: colors.textPrimary }}>
-              Terms of Use
+              {t('profile.menu.terms')}
             </Text>
             <Text style={{ color: colors.textMuted }}>›</Text>
           </Pressable>
@@ -289,7 +337,7 @@ export default function Settings() {
           >
             <Text className="text-lg">🔒</Text>
             <Text className="flex-1 text-sm font-medium" style={{ color: colors.textPrimary }}>
-              Privacy Policy
+              {t('profile.menu.privacy')}
             </Text>
             <Text style={{ color: colors.textMuted }}>›</Text>
           </Pressable>
@@ -303,14 +351,14 @@ export default function Settings() {
           >
             <Text className="text-lg">💳</Text>
             <Text className="flex-1 text-sm font-medium" style={{ color: colors.textPrimary }}>
-              Refund Policy
+              {t('profile.menu.refund')}
             </Text>
             <Text style={{ color: colors.textMuted }}>›</Text>
           </Pressable>
         </Card>
 
         <Text className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.textMuted }}>
-          Account
+          {t('profile.menu.account')}
         </Text>
 
         <Card className="mb-5">
@@ -326,13 +374,13 @@ export default function Settings() {
 
         <View className="gap-3">
           <Button
-            title="Sign out"
+            title={t('settings.signOut')}
             variant="outline"
             onPress={() => setIsSignOutModalOpen(true)}
           />
 
           <Button
-            title="Permanently delete account"
+            title={t('settings.deleteAccount')}
             variant="ghost"
             tone="danger"
             isLoading={deleteAccountMutation.isPending}
@@ -341,7 +389,7 @@ export default function Settings() {
         </View>
 
         <Text className="mt-6 text-center text-xs leading-4" style={{ color: colors.textMuted }}>
-          Account deletion deactivates your profile, clears active sessions, and stops messaging immediately.
+          {t('auth.deleteDesc')}
         </Text>
       </ScrollView>
 
@@ -387,14 +435,14 @@ export default function Settings() {
             </View>
 
             <Text className="text-xl font-bold text-center" style={{ color: colors.textPrimary }}>
-              Sign Out of Vibe Chat?
+              {t('auth.signOutTitle')}
             </Text>
 
             <Text
               className="text-sm text-center mt-2.5 leading-5"
               style={{ color: colors.textSecondary }}
             >
-              Are you sure you want to sign out? You will need your email and password to log back in.
+              {t('auth.signOutDesc')}
             </Text>
 
             <View className="w-full gap-2.5 mt-6">
@@ -417,7 +465,7 @@ export default function Settings() {
               >
                 <Text style={{ fontSize: 16 }}>👋</Text>
                 <Text className="text-base font-bold text-white">
-                  Yes, Sign Out
+                  {t('auth.yesSignOut')}
                 </Text>
               </Pressable>
 
@@ -432,7 +480,7 @@ export default function Settings() {
                 }}
               >
                 <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                  Cancel
+                  {t('common.cancel')}
                 </Text>
               </Pressable>
             </View>
@@ -482,14 +530,14 @@ export default function Settings() {
             </View>
 
             <Text className="text-xl font-bold text-center" style={{ color: colors.textPrimary }}>
-              Permanently Delete Account?
+              {t('auth.deleteTitle')}
             </Text>
 
             <Text
               className="text-sm text-center mt-2.5 leading-5"
               style={{ color: colors.textSecondary }}
             >
-              This will deactivate your profile, clear all your active sessions, and disable messaging. This action cannot be reversed.
+              {t('auth.deleteDesc')}
             </Text>
 
             <View className="w-full gap-2.5 mt-6">
@@ -516,7 +564,7 @@ export default function Settings() {
                   <>
                     <Text style={{ fontSize: 16 }}>🗑️</Text>
                     <Text className="text-base font-bold text-white">
-                      Yes, Delete My Account
+                      {t('auth.yesDelete')}
                     </Text>
                   </>
                 )}
@@ -533,7 +581,7 @@ export default function Settings() {
                 }}
               >
                 <Text className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                  Cancel
+                  {t('common.cancel')}
                 </Text>
               </Pressable>
             </View>

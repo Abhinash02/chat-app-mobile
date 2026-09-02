@@ -201,6 +201,18 @@ export function SocketProvider({ children }) {
         handlersRef.current.signOut();
       });
 
+      socket.on('settings:updated', () => {
+        queryClient.invalidateQueries({ queryKey: ['wallet'] });
+        queryClient.invalidateQueries({ queryKey: ['earnings-status'] });
+        queryClient.invalidateQueries({ queryKey: ['payment-options'] });
+      });
+
+      socket.on('earnings:updated', (data) => {
+        setWallet((current) => current ? { ...current, earnings: { ...current.earnings, ...data.earnings } } : current);
+        queryClient.invalidateQueries({ queryKey: ['wallet'] });
+        queryClient.invalidateQueries({ queryKey: ['earnings-status'] });
+      });
+
       socket.on(SOCKET_EVENT.ERROR, (error) => {
         if (error?.code !== 'INSUFFICIENT_COINS') {
           handlersRef.current.toast.error(error?.message ?? 'Something went wrong');

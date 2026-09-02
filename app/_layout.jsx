@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from '../src/hooks/useAuth.jsx';
 import { SocketProvider } from '../src/hooks/useSocket.jsx';
 import { SoundProvider, useSounds } from '../src/hooks/useSounds.jsx';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider.jsx';
+import { LanguageProvider } from '../src/i18n/LanguageProvider.jsx';
 import { ActionSheetProvider } from '../src/components/ActionSheet.jsx';
 import { AppUpdateModal } from '../src/components/AppUpdateModal.jsx';
 import { ToastProvider } from '../src/components/Toast.jsx';
@@ -82,19 +83,21 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <ToastProvider>
-              <ActionSheetProvider>
-                <SoundProvider>
-                  <AuthProvider>
-                    <SocketProvider>
-                      <AppShell />
-                    </SocketProvider>
-                  </AuthProvider>
-                </SoundProvider>
-              </ActionSheetProvider>
-            </ToastProvider>
-          </ThemeProvider>
+          <LanguageProvider>
+            <ThemeProvider>
+              <ToastProvider>
+                <ActionSheetProvider>
+                  <SoundProvider>
+                    <AuthProvider>
+                      <SocketProvider>
+                        <AppShell />
+                      </SocketProvider>
+                    </AuthProvider>
+                  </SoundProvider>
+                </ActionSheetProvider>
+              </ToastProvider>
+            </ThemeProvider>
+          </LanguageProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

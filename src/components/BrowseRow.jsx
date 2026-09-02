@@ -1,75 +1,176 @@
-import { FlatList, Pressable, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Text, View } from 'react-native';
 
-import { CARD_HEIGHT, PersonCard } from './PersonCard.jsx';
+import { PersonCard } from './PersonCard.jsx';
 import { Skeleton } from './Loader.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
-/** How many fit before the swipe stops being a swipe and becomes a scroll. */
-const MAX_IN_ROW = 10;
-const CARD_WIDTH = 138;
+const CARD_WIDTH = 155;
+const CARD_GAP = 10;
+const PAGE_SIZE = 10; // how many to show at first, then load more
 
 /**
- * The tile at the end of the row.
- *
- * A row that simply stops leaves the reader unsure whether that is everyone.
- * An explicit end tile answers that and gives them somewhere to go — the same
- * job "See more rooms" does in apps like this.
+ * Inline "loading more" spinner at the end of the row
  */
-function SeeMoreCard({ total, href }) {
-  const { colors, radius } = useTheme();
-
+function LoadingMoreCard() {
+  const { colors } = useTheme();
   return (
-    <Pressable
-      onPress={() => router.push(href)}
-      accessibilityRole="button"
-      accessibilityLabel="See everyone"
-      style={({ pressed }) => ({
-        width: CARD_WIDTH,
-        height: CARD_HEIGHT,
-        backgroundColor: colors.primary,
-        borderRadius: radius || 16,
-        paddingHorizontal: 12,
-        paddingVertical: 14,
+    <View
+      style={{
+        width: 80,
+        alignSelf: 'stretch',
+        minHeight: 200,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-        elevation: 3,
-        opacity: pressed ? 0.88 : 1,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-      })}
+        marginLeft: CARD_GAP,
+      }}
     >
-      <View
-        className="mb-3 h-14 w-14 items-center justify-center rounded-full"
-        style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}
-      >
-        <Text style={{ color: colors.onPrimary, fontSize: 24, fontWeight: 'bold' }}>›</Text>
-      </View>
-      <Text className="text-center text-sm font-bold" style={{ color: colors.onPrimary }}>
-        See more
+      <ActivityIndicator size="small" color={colors.primary} />
+      <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 6, textAlign: 'center' }}>
+        Loading…
       </Text>
-      {total > MAX_IN_ROW ? (
-        <Text className="mt-1 text-xs" style={{ color: colors.onPrimary, opacity: 0.85 }}>
-          {total - MAX_IN_ROW} more
-        </Text>
-      ) : (
-        <Text className="mt-1 text-xs" style={{ color: colors.onPrimary, opacity: 0.85 }}>
-          View all
-        </Text>
-      )}
-    </Pressable>
+    </View>
   );
 }
 
 /**
- * A swipeable row of people, online first.
+ * "All caught up" card — premium end-of-list indicator
+ */
+function EndCard() {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        width: 120,
+        alignSelf: 'stretch',
+        minHeight: 200,
+        marginLeft: CARD_GAP,
+        borderRadius: 24,
+        overflow: 'hidden',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.18,
+        shadowRadius: 14,
+        elevation: 5,
+      }}
+    >
+      {/* Background gradient layers */}
+      <View
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundColor: colors.surface,
+          borderRadius: 24,
+          borderWidth: 1.5,
+          borderColor: `${colors.primary}30`,
+        }}
+      />
+      {/* Top glow blob */}
+      <View
+        style={{
+          position: 'absolute',
+          top: -20,
+          left: -20,
+          width: 100,
+          height: 100,
+          borderRadius: 50,
+          backgroundColor: `${colors.primary}22`,
+        }}
+      />
+      {/* Bottom glow blob */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: -15,
+          right: -15,
+          width: 80,
+          height: 80,
+          borderRadius: 40,
+          backgroundColor: `${colors.primary}18`,
+        }}
+      />
+
+      {/* Content */}
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 12,
+          paddingVertical: 16,
+          gap: 6,
+        }}
+      >
+        {/* Sparkle icon cluster */}
+        <View style={{ alignItems: 'center', marginBottom: 2 }}>
+          <Text style={{ fontSize: 8, marginBottom: -4, marginLeft: 18, opacity: 0.7 }}>✨</Text>
+          <Text style={{ fontSize: 26 }}>🎉</Text>
+          <Text style={{ fontSize: 8, marginTop: -4, marginRight: 18, opacity: 0.7 }}>✨</Text>
+        </View>
+
+        {/* Primary label */}
+        <View
+          style={{
+            backgroundColor: `${colors.primary}18`,
+            borderRadius: 10,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderWidth: 1,
+            borderColor: `${colors.primary}30`,
+          }}
+        >
+          <Text
+            style={{
+              color: colors.primary,
+              fontSize: 10,
+              fontWeight: '900',
+              textAlign: 'center',
+              letterSpacing: 0.3,
+            }}
+          >
+            All caught up!
+          </Text>
+        </View>
+
+        {/* Divider dot row */}
+        <View style={{ flexDirection: 'row', gap: 3, alignItems: 'center' }}>
+          {[0.3, 0.6, 1, 0.6, 0.3].map((op, i) => (
+            <View
+              key={i}
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: 2,
+                backgroundColor: colors.primary,
+                opacity: op,
+              }}
+            />
+          ))}
+        </View>
+
+        {/* Subtitle */}
+        <Text
+          style={{
+            color: colors.textMuted,
+            fontSize: 9,
+            textAlign: 'center',
+            lineHeight: 13,
+            fontWeight: '500',
+          }}
+        >
+          You've seen{'\n'}everyone! 👀
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * A swipeable row of people with inline infinite scroll.
  *
- * Capped at ten with an end tile rather than paging endlessly sideways:
- * horizontal lists are for sampling, and someone who wants to work through
- * everyone is better served by the grid the tile opens.
+ * - Shows PAGE_SIZE cards initially.
+ * - When user reaches the end, more are appended inline — no new page opens.
+ * - Fully live: new users added via real-time presence updates appear automatically.
  */
 export function BrowseRow({
   people,
@@ -78,9 +179,29 @@ export function BrowseRow({
   presence,
   onOpen,
   openingId,
-  seeMoreHref = '/browse',
+  onLoadMore,         // optional: () => Promise<void> — fetches next page from parent
+  isLoadingMore,      // optional: boolean
   actionLabel,
 }) {
+  const { colors } = useTheme();
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const shown = people?.slice(0, visibleCount) ?? [];
+  const allLocalLoaded = visibleCount >= (people?.length ?? 0);
+  const hasMoreRemote = total != null ? (people?.length ?? 0) < total : false;
+
+  const handleEndReached = useCallback(() => {
+    if (isLoadingMore) return;
+
+    if (!allLocalLoaded) {
+      // Show more from already-fetched array
+      setVisibleCount((c) => c + PAGE_SIZE);
+    } else if (hasMoreRemote && onLoadMore) {
+      // Fetch next page from server — parent appends to `people`
+      onLoadMore();
+    }
+  }, [allLocalLoaded, hasMoreRemote, isLoadingMore, onLoadMore]);
+
   if (isLoading) {
     return (
       <FlatList
@@ -90,8 +211,8 @@ export function BrowseRow({
         contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
         keyExtractor={(item) => String(item)}
         renderItem={() => (
-          <View className="mr-3">
-            <Skeleton width={CARD_WIDTH} height={CARD_HEIGHT} radius={16} />
+          <View style={{ marginRight: CARD_GAP }}>
+            <Skeleton width={CARD_WIDTH} height={210} radius={20} />
           </View>
         )}
       />
@@ -100,7 +221,8 @@ export function BrowseRow({
 
   if (!people?.length) return null;
 
-  const shown = people.slice(0, MAX_IN_ROW);
+  const showLoadingMore = isLoadingMore && allLocalLoaded && hasMoreRemote;
+  const showEnd = allLocalLoaded && !hasMoreRemote && shown.length > 0;
 
   return (
     <FlatList
@@ -109,15 +231,17 @@ export function BrowseRow({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
       keyExtractor={(item) => item.id}
-      // Snapping makes each swipe land on a card rather than mid-way between
-      // two, which is what stops a horizontal row feeling loose.
-      snapToInterval={CARD_WIDTH + 12}
+      snapToInterval={CARD_WIDTH + CARD_GAP}
       decelerationRate="fast"
-      ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+      onEndReached={handleEndReached}
+      onEndReachedThreshold={0.5}
+      ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
       ListFooterComponent={
-        <View className="ml-3">
-          <SeeMoreCard total={total ?? people.length} href={seeMoreHref} />
-        </View>
+        showLoadingMore ? (
+          <LoadingMoreCard />
+        ) : showEnd ? (
+          <EndCard />
+        ) : null
       }
       renderItem={({ item }) => (
         <PersonCard
@@ -133,4 +257,4 @@ export function BrowseRow({
   );
 }
 
-export { CARD_WIDTH, MAX_IN_ROW };
+export { CARD_WIDTH };

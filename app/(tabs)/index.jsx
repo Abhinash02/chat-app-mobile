@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
@@ -217,16 +217,97 @@ export default function Discover() {
    */
   const nearbyCoordinates = useNearby ? coordinates : null;
 
-  const { data: onlineData, isLoading: isLoadingOnline } = useQuery({
+  // ── Online now: auto-refresh every 20s + instantly on any presence change ──
+  const [onlineAll, setOnlineAll] = useState([]);
+  const [onlineTotal, setOnlineTotal] = useState(0);
+  const [isLoadingMoreOnline, setLoadingMoreOnline] = useState(false);
+  const onlineCursorRef = useRef(null);
+
+  const { data: onlineData, isLoading: isLoadingOnline, refetch: refetchOnline } = useQuery({
     queryKey: ['discover', 'online'],
     queryFn: () => usersApi.discover({ onlineOnly: true, limit: 20 }),
-    staleTime: 30_000,
+    refetchInterval: 20_000,   // Auto-refresh every 20 seconds
+    staleTime: 0,
   });
+
+  // Sync fresh page into accumulated list
+  useEffect(() => {
+    if (onlineData?.items) {
+      setOnlineAll(onlineData.items);
+      setOnlineTotal(onlineData.meta?.total ?? onlineData.items.length);
+      onlineCursorRef.current = onlineData.meta?.cursor ?? null;
+    }
+  }, [onlineData]);
+
+  // Auto-refresh when any user goes online/offline via socket presence
+  useEffect(() => {
+    const presenceKeys = Object.keys(presence);
+    if (presenceKeys.length > 0) {
+      refetchOnline();
+    }
+  }, [presence]);
+
+  // Load next page of online users inline
+  const loadMoreOnline = useCallback(async () => {
+    if (isLoadingMoreOnline) return;
+    setLoadingMoreOnline(true);
+    try {
+      const next = await usersApi.discover({
+        onlineOnly: true,
+        limit: 20,
+        ...(onlineCursorRef.current ? { cursor: onlineCursorRef.current } : { skip: onlineAll.length }),
+      });
+      if (next?.items?.length) {
+        setOnlineAll((prev) => {
+          const existingIds = new Set(prev.map((u) => u.id));
+          return [...prev, ...next.items.filter((u) => !existingIds.has(u.id))];
+        });
+        onlineCursorRef.current = next.meta?.cursor ?? null;
+      }
+    } finally {
+      setLoadingMoreOnline(false);
+    }
+  }, [isLoadingMoreOnline, onlineAll.length]);
+
+  // ── Browse everyone: accumulated with inline load-more ──
+  const [browseAll, setBrowseAll] = useState([]);
+  const [browseTotal, setBrowseTotal] = useState(0);
+  const [isLoadingMoreBrowse, setLoadingMoreBrowse] = useState(false);
+  const browseCursorRef = useRef(null);
+
+  useEffect(() => {
+    if (data?.items) {
+      setBrowseAll(data.items);
+      setBrowseTotal(data.meta?.total ?? data.items.length);
+      browseCursorRef.current = data.meta?.cursor ?? null;
+    }
+  }, [data]);
+
+  const loadMoreBrowse = useCallback(async () => {
+    if (isLoadingMoreBrowse) return;
+    setLoadingMoreBrowse(true);
+    try {
+      const next = await usersApi.discover({
+        limit: 20,
+        onlineOnly: String(onlineOnly),
+        ...(coordinates ? { latitude: coordinates.latitude, longitude: coordinates.longitude } : {}),
+        ...(browseCursorRef.current ? { cursor: browseCursorRef.current } : { skip: browseAll.length }),
+      });
+      if (next?.items?.length) {
+        setBrowseAll((prev) => {
+          const existingIds = new Set(prev.map((u) => u.id));
+          return [...prev, ...next.items.filter((u) => !existingIds.has(u.id))];
+        });
+        browseCursorRef.current = next.meta?.cursor ?? null;
+      }
+    } finally {
+      setLoadingMoreBrowse(false);
+    }
+  }, [isLoadingMoreBrowse, browseAll.length, onlineOnly, coordinates]);
 
   /*
    * Rooms near the user when a location is already known from the discovery
-   * filter, and the plain list otherwise. Nothing here asks for permission on
-   * its own — that prompt belongs to the control the user actually tapped.
+   * filter, and the plain list otherwise.
    */
   const { data: liveRooms, isLoading: isLoadingRooms } = useQuery({
     queryKey: ['rooms', 'live', nearbyCoordinates ?? 'all'],
@@ -244,9 +325,9 @@ export default function Discover() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const onlinePeople = onlineData?.items ?? [];
+  const onlinePeople = onlineAll;
 
-  const people = data?.items ?? [];
+  const people = browseAll;
 
   const displayName = user?.name || user?.nickname || 'Viber';
 
@@ -374,8 +455,6 @@ export default function Discover() {
               <SectionHeader
                 title="Online now"
                 badge={onlinePeople.length > 0 ? 'LIVE' : undefined}
-                action={onlinePeople.length > 0 ? 'See all' : undefined}
-                onAction={() => router.push('/browse?online=true')}
               />
             </View>
 
@@ -403,17 +482,18 @@ export default function Discover() {
               </View>
             ) : (
               <View className="pl-4">
-                <BrowseRow
-                  people={onlinePeople}
-                  total={onlineData?.meta?.total}
-                  isLoading={isLoadingOnline}
-                  presence={presence}
-                  openingId={openingId}
-                  onOpen={openChat}
-                  seeMoreHref="/browse?online=true"
-                  actionLabel="Say hi"
-                />
-              </View>
+              <BrowseRow
+                people={onlinePeople}
+                total={onlineTotal}
+                isLoading={isLoadingOnline && onlineAll.length === 0}
+                presence={presence}
+                openingId={openingId}
+                onOpen={openChat}
+                onLoadMore={loadMoreOnline}
+                isLoadingMore={isLoadingMoreOnline}
+                actionLabel="Say hi"
+              />
+            </View>
             )}
           </View>
 
@@ -437,18 +517,18 @@ export default function Discover() {
             <View className="px-4">
               <SectionHeader
                 title="Browse everyone"
-                action="See all"
-                onAction={() => router.push('/browse')}
               />
             </View>
             <View className="pl-4">
               <BrowseRow
                 people={people}
-                total={data?.meta?.total}
-                isLoading={isLoading}
+                total={browseTotal}
+                isLoading={isLoading && browseAll.length === 0}
                 presence={presence}
                 openingId={openingId}
                 onOpen={openChat}
+                onLoadMore={loadMoreBrowse}
+                isLoadingMore={isLoadingMoreBrowse}
               />
             </View>
           </View>
