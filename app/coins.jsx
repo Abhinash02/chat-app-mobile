@@ -1061,7 +1061,12 @@ export default function Coins() {
         </Card>
 
         {/* Girls Chat Earnings & Cash Conversion Card */}
-        {Boolean(wallet?.isUnlimited || user?.gender === 'female' || wallet?.earnings?.enabled) && (
+        {Boolean(
+          wallet?.isUnlimited ||
+          String(user?.gender).toLowerCase() === 'female' ||
+          String(user?.gender).toLowerCase() === 'girl' ||
+          wallet?.earnings?.enabled
+        ) && (
           <GirlsEarningsCard wallet={wallet} />
         )}
 
