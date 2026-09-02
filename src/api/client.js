@@ -6,7 +6,7 @@ import { storage } from '../lib/storage.js';
 export function getApiOrigin() {
   const liveUrl = process.env.EXPO_PUBLIC_API_URL_LIVE
     ? process.env.EXPO_PUBLIC_API_URL_LIVE.replace(/\/+$/, '')
-    : null;
+    : 'https://chat-app-backend-r6f2.onrender.com';
   const localUrl = process.env.EXPO_PUBLIC_API_URL
     ? process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, '')
     : null;
@@ -14,31 +14,30 @@ export function getApiOrigin() {
   // 1. Web Browser Environment
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
     const hostname = window.location.hostname;
-    const isLocalHost =
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname.startsWith('192.168.') ||
-      hostname.startsWith('10.') ||
-      hostname.startsWith('172.');
+    const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
 
-    // If browsing in web browser on local computer / local network, connect to that hostname's backend
     if (isLocalHost) {
       return `http://${hostname}:5000`;
     }
 
-    // If deployed on Render / Vercel / Live domain, use the live backend URL
     if (liveUrl) return liveUrl;
     if (localUrl && localUrl.startsWith('https://')) return localUrl;
   }
 
-  // 2. Native Mobile / Expo Go Environment
-  // If localUrl is provided and you're testing locally, use localUrl
+  // 2. Native Mobile (Standalone APK vs Expo Go)
+  const isExpoGo =
+    Constants?.appOwnership === 'expo' ||
+    Constants?.executionEnvironment === 'storeClient';
+
+  // Standalone APK ALWAYS connects to live production Render URL
+  if (!isExpoGo && liveUrl) {
+    return liveUrl;
+  }
+
+  // Expo Go local dev connects to localUrl
   if (localUrl && (localUrl.startsWith('http://192.168.') || localUrl.startsWith('http://10.') || localUrl.startsWith('http://localhost'))) {
     return localUrl;
   }
-
-  // If liveUrl is provided, connect to live backend
-  if (liveUrl) return liveUrl;
 
   // Auto-detect local computer Wi-Fi IP in Expo Go during local dev
   const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
@@ -47,8 +46,7 @@ export function getApiOrigin() {
     return `http://${ip}:5000`;
   }
 
-  // Fallback
-  return localUrl || 'http://localhost:5000';
+  return liveUrl || 'https://chat-app-backend-r6f2.onrender.com';
 }
 
 export const BASE_URL = `${getApiOrigin()}/api/v1`;
