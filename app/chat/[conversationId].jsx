@@ -831,7 +831,7 @@ export default function ChatScreen() {
 
       {/* Professional Chat Input Composer Bar */}
       <View
-        className="flex-row items-end gap-2 px-3 pt-2"
+        className="flex-row items-center px-3 pt-2"
         style={{
           paddingBottom: Math.max(insets.bottom, 10),
           backgroundColor: colors.surface,
@@ -841,7 +841,7 @@ export default function ChatScreen() {
       >
         {/* Seamless Combined Pill: Emoji + TextInput + Camera */}
         <View
-          className="flex-1 flex-row items-center pl-2.5 pr-2 py-1 rounded-3xl border shadow-sm"
+          className="flex-1 flex-row items-center px-2 py-1 rounded-3xl border shadow-sm"
           style={{
             backgroundColor: colors.surfaceAlt,
             borderColor: colors.border,
@@ -853,11 +853,12 @@ export default function ChatScreen() {
             onPress={() => setShowEmoji((open) => !open)}
             accessibilityRole="button"
             accessibilityLabel={showEmoji ? 'Hide emoji' : 'Show emoji'}
-            className="h-9 w-9 items-center justify-center rounded-full active:scale-90"
+            className="h-8 w-8 items-center justify-center rounded-full active:scale-90"
+            style={{ flexShrink: 0 }}
           >
             <Ionicons
               name={showEmoji ? 'keypad' : 'happy-outline'}
-              size={23}
+              size={22}
               color={showEmoji ? colors.primary : colors.textSecondary}
             />
           </Pressable>
@@ -881,10 +882,11 @@ export default function ChatScreen() {
               }
             }}
             maxLength={1000}
-            className="flex-1 px-2 py-1.5 text-[15px]"
+            className="flex-1 px-2.5 py-1.5 text-[15px]"
             style={{
               color: colors.textPrimary,
               maxHeight: 110,
+              minWidth: 0,
             }}
           />
 
@@ -894,10 +896,10 @@ export default function ChatScreen() {
             disabled={isUploading}
             accessibilityRole="button"
             accessibilityLabel="Send a photo"
-            className="h-9 w-9 items-center justify-center rounded-full active:scale-90"
-            style={{ opacity: isUploading ? 0.4 : 1 }}
+            className="h-8 w-8 items-center justify-center rounded-full active:scale-90"
+            style={{ opacity: isUploading ? 0.4 : 1, flexShrink: 0 }}
           >
-            <Ionicons name="camera-outline" size={23} color={colors.textSecondary} />
+            <Ionicons name="camera-outline" size={21} color={colors.textSecondary} />
           </Pressable>
         </View>
 
@@ -907,10 +909,11 @@ export default function ChatScreen() {
           disabled={!draft.trim()}
           accessibilityRole="button"
           accessibilityLabel="Send message"
-          className="h-11 w-11 items-center justify-center rounded-full shadow-md active:scale-95 transition"
+          className="h-10 w-10 items-center justify-center rounded-full shadow-md active:scale-95 transition ml-2"
           style={{
             backgroundColor: draft.trim() ? colors.primary : colors.surfaceAlt,
             boxShadow: draft.trim() ? `0 4px 14px ${colors.primary}60` : 'none',
+            flexShrink: 0,
           }}
         >
           {isUploading ? (
@@ -918,7 +921,7 @@ export default function ChatScreen() {
           ) : (
             <Ionicons
               name="send"
-              size={18}
+              size={17}
               color={draft.trim() ? (colors.onPrimary || '#FFFFFF') : colors.textMuted}
               style={{ marginLeft: 2 }}
             />
