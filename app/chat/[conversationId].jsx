@@ -266,9 +266,8 @@ export default function ChatScreen() {
       if (String(message.conversationId) !== String(conversationId)) return;
 
       setMessages((current) => {
-        // The sender already has this message from the send response; without
-        // this guard it would appear twice.
-        if (current.some((existing) => existing.id === message.id)) return current;
+        const msgId = String(message.id || message._id);
+        if (current.some((existing) => String(existing.id || existing._id) === msgId)) return current;
         return [...current, message];
       });
     });
@@ -594,16 +593,17 @@ export default function ChatScreen() {
   }
 
   const groupedMessages = useMemo(() => {
-    return messages.map((message, index) => {
-      const next = messages[index + 1];
-      // Only the last message in a run shows a timestamp, which keeps a long
-      // back-and-forth readable.
-      const showTime =
-        !next ||
-        next.senderId !== message.senderId ||
-        new Date(next.createdAt) - new Date(message.createdAt) > 5 * 60_000;
+    const seen = new Set();
+    const unique = [];
+    for (const m of messages) {
+      const msgId = String(m?.id || m?._id || '');
+      if (!msgId || seen.has(msgId)) continue;
+      seen.add(msgId);
+      unique.push(m);
+    }
 
-      return { ...message, showTime };
+    return unique.map((message) => {
+      return { ...message, showTime: true };
     });
   }, [messages]);
 
@@ -831,7 +831,7 @@ export default function ChatScreen() {
 
       {/* Professional Chat Input Composer Bar */}
       <View
-        className="flex-row items-center gap-2 px-3 pt-2.5"
+        className="flex-row items-end gap-2 px-3 pt-2"
         style={{
           paddingBottom: Math.max(insets.bottom, 10),
           backgroundColor: colors.surface,
@@ -839,32 +839,30 @@ export default function ChatScreen() {
           borderTopColor: colors.border,
         }}
       >
-        {/* Emoji / Keyboard Toggle Button */}
-        <Pressable
-          onPress={() => setShowEmoji((open) => !open)}
-          accessibilityRole="button"
-          accessibilityLabel={showEmoji ? 'Hide emoji' : 'Show emoji'}
-          className="h-10 w-10 items-center justify-center rounded-full active:scale-95 transition"
-          style={{
-            backgroundColor: showEmoji ? `${colors.primary}18` : colors.surfaceAlt,
-          }}
-        >
-          <Ionicons
-            name={showEmoji ? 'keypad' : 'happy-outline'}
-            size={22}
-            color={showEmoji ? colors.primary : colors.textSecondary}
-          />
-        </Pressable>
-
-        {/* Text Input Pill Box */}
+        {/* Seamless Combined Pill: Emoji + TextInput + Camera */}
         <View
-          className="flex-1 flex-row items-center px-3.5 py-1 rounded-2xl border shadow-sm"
+          className="flex-1 flex-row items-center pl-2.5 pr-2 py-1 rounded-3xl border shadow-sm"
           style={{
             backgroundColor: colors.surfaceAlt,
             borderColor: colors.border,
-            minHeight: 42,
+            minHeight: 44,
           }}
         >
+          {/* Emoji Toggle Button inside box */}
+          <Pressable
+            onPress={() => setShowEmoji((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel={showEmoji ? 'Hide emoji' : 'Show emoji'}
+            className="h-9 w-9 items-center justify-center rounded-full active:scale-90"
+          >
+            <Ionicons
+              name={showEmoji ? 'keypad' : 'happy-outline'}
+              size={23}
+              color={showEmoji ? colors.primary : colors.textSecondary}
+            />
+          </Pressable>
+
+          {/* Text Input */}
           <TextInput
             value={draft}
             onChangeText={handleTyping}
@@ -883,36 +881,36 @@ export default function ChatScreen() {
               }
             }}
             maxLength={1000}
-            className="flex-1 py-1.5 text-[15px]"
+            className="flex-1 px-2 py-1.5 text-[15px]"
             style={{
               color: colors.textPrimary,
               maxHeight: 110,
             }}
           />
 
-          {/* Camera / Photo Attachment Button */}
+          {/* Camera / Photo Attachment Button inside box */}
           <Pressable
             onPress={choosePhoto}
             disabled={isUploading}
             accessibilityRole="button"
             accessibilityLabel="Send a photo"
-            className="h-8 w-8 items-center justify-center rounded-full ml-1 active:scale-90"
+            className="h-9 w-9 items-center justify-center rounded-full active:scale-90"
             style={{ opacity: isUploading ? 0.4 : 1 }}
           >
-            <Ionicons name="camera-outline" size={21} color={colors.textSecondary} />
+            <Ionicons name="camera-outline" size={23} color={colors.textSecondary} />
           </Pressable>
         </View>
 
-        {/* Send Action Button */}
+        {/* Floating Circular Send Action Button */}
         <Pressable
           onPress={() => send(draft)}
           disabled={!draft.trim()}
           accessibilityRole="button"
           accessibilityLabel="Send message"
-          className="h-10 w-10 items-center justify-center rounded-full shadow-sm active:scale-95 transition"
+          className="h-11 w-11 items-center justify-center rounded-full shadow-md active:scale-95 transition"
           style={{
             backgroundColor: draft.trim() ? colors.primary : colors.surfaceAlt,
-            boxShadow: draft.trim() ? `0 4px 12px ${colors.primary}50` : 'none',
+            boxShadow: draft.trim() ? `0 4px 14px ${colors.primary}60` : 'none',
           }}
         >
           {isUploading ? (
@@ -920,7 +918,7 @@ export default function ChatScreen() {
           ) : (
             <Ionicons
               name="send"
-              size={17}
+              size={18}
               color={draft.trim() ? (colors.onPrimary || '#FFFFFF') : colors.textMuted}
               style={{ marginLeft: 2 }}
             />

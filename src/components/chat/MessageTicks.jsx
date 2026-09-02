@@ -29,18 +29,23 @@ export function MessageTicks({ state, tint }) {
     );
   }
 
-  const isPair = state === 'delivered' || state === 'read';
-  const color = state === 'read' ? colors.info : (tint ?? colors.textMuted);
+  const isRead = state === 'read';
+  const isPair = state === 'delivered' || isRead;
+  const color = isRead ? '#0EA5E9' : (tint ?? colors.textMuted);
 
   return (
     <View
       className="flex-row items-center"
       accessibilityRole="image"
-      accessibilityLabel={state === 'read' ? 'Read' : state === 'delivered' ? 'Delivered' : 'Sent'}
+      accessibilityLabel={isRead ? 'Read' : state === 'delivered' ? 'Delivered' : 'Sent'}
       style={{ width: isPair ? 15 : 10 }}
     >
-      <Text style={{ color, fontSize: 11, lineHeight: 13 }}>✓</Text>
-      {isPair ? <Text style={{ color, fontSize: 11, lineHeight: 13, marginLeft: -5 }}>✓</Text> : null}
+      <Text style={{ color, fontSize: 11, fontWeight: isRead ? '700' : '500', lineHeight: 13 }}>✓</Text>
+      {isPair ? (
+        <Text style={{ color, fontSize: 11, fontWeight: isRead ? '700' : '500', lineHeight: 13, marginLeft: -4.5 }}>
+          ✓
+        </Text>
+      ) : null}
     </View>
   );
 }
