@@ -101,6 +101,7 @@ export default function Register() {
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const set = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -231,15 +232,30 @@ export default function Register() {
           error={errors.password}
           hint="At least 8 characters, with an uppercase letter and a number."
         >
-          <Input
-            value={form.password}
-            onChangeText={(value) => set('password', value)}
-            placeholder="Choose a strong password"
-            secureTextEntry
-            autoCapitalize="none"
-            autoComplete="new-password"
-            invalid={Boolean(errors.password)}
-          />
+          <View className="relative">
+            <Input
+              value={form.password}
+              onChangeText={(value) => set('password', value)}
+              placeholder="Choose a strong password"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              invalid={Boolean(errors.password)}
+              style={{ paddingRight: 48 }}
+            />
+            <Pressable
+              onPress={() => setShowPassword((visible) => !visible)}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute right-3 top-0 bottom-0 justify-center px-1"
+            >
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={colors.textMuted}
+              />
+            </Pressable>
+          </View>
         </Field>
 
         <Field

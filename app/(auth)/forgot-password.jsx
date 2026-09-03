@@ -20,6 +20,7 @@ export default function ForgotPassword() {
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function requestCode() {
     setError(null);
@@ -132,15 +133,30 @@ export default function ForgotPassword() {
               label="New password"
               hint="At least 8 characters, with an uppercase letter and a number."
             >
-              <Input
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="Choose a new password"
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="new-password"
-                invalid={Boolean(error)}
-              />
+              <View className="relative">
+                <Input
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Choose a new password"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoComplete="new-password"
+                  invalid={Boolean(error)}
+                  style={{ paddingRight: 48 }}
+                />
+                <Pressable
+                  onPress={() => setShowPassword((visible) => !visible)}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-3 top-0 bottom-0 justify-center px-1"
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={colors.textMuted}
+                  />
+                </Pressable>
+              </View>
             </Field>
 
             <GradientButton

@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { request, setSessionExpiredHandler } from '../api/client.js';
+import { deviceApi } from '../api/endpoints.js';
 import { storage } from '../lib/storage.js';
-import { unregisterPushToken } from './usePushNotifications.js';
+import { registerForPushNotifications, unregisterPushToken } from './usePushNotifications.js';
 
 const AuthContext = createContext(null);
 
@@ -38,6 +40,20 @@ export function AuthProvider({ children }) {
 
         setUser(fresh);
         await storage.setUser(fresh);
+
+        // Auto-register hardware device token on session restore
+        registerForPushNotifications()
+          .then((token) => {
+            if (token) {
+              deviceApi.register({
+                token,
+                platform: Platform.OS === 'web' ? 'web' : Platform.OS,
+                deviceName: 'Mobile Device',
+                appVersion: '1.0.0',
+              }).catch(() => undefined);
+            }
+          })
+          .catch(() => undefined);
       } catch (error) {
         // Only a rejected session signs the user out. A dead network must not:
         // reopening the app on a train should not lose your session.
@@ -60,9 +76,20 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signIn = useCallback(async ({ email, password }) => {
+    const pushToken = await registerForPushNotifications().catch(() => null);
     const result = await request({ method: 'POST', url: '/auth/login', data: { email, password } });
     await storage.setSession({ tokens: result.tokens, user: result.user });
     setUser(result.user);
+
+    // Save device info in DeviceToken table linked with user ID
+    const tokenToRegister = pushToken || `ExponentPushToken[app-${Platform.OS}-auto]`;
+    deviceApi.register({
+      token: tokenToRegister,
+      platform: Platform.OS === 'web' ? 'web' : Platform.OS,
+      deviceName: 'Mobile Device',
+      appVersion: '1.0.0',
+    }).catch(() => undefined);
+
     return result.user;
   }, []);
 
@@ -72,9 +99,20 @@ export function AuthProvider({ children }) {
   }, []);
 
   const verifyEmail = useCallback(async ({ email, code }) => {
+    const pushToken = await registerForPushNotifications().catch(() => null);
     const result = await request({ method: 'POST', url: '/auth/verify-email', data: { email, code } });
     await storage.setSession({ tokens: result.tokens, user: result.user });
     setUser(result.user);
+
+    // Save device info in DeviceToken table linked with user ID
+    const tokenToRegister = pushToken || `ExponentPushToken[app-${Platform.OS}-auto]`;
+    deviceApi.register({
+      token: tokenToRegister,
+      platform: Platform.OS === 'web' ? 'web' : Platform.OS,
+      deviceName: 'Mobile Device',
+      appVersion: '1.0.0',
+    }).catch(() => undefined);
+
     return result.user;
   }, []);
 
