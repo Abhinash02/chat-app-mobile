@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "732064264655",
+    "project_id": "chat-app-6cb39",
+    "storage_bucket": "chat-app-6cb39.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:732064264655:android:0a8fbc13f47bb18024a2ba",
+        "android_client_info": {
+          "package_name": "app.vibechat.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTTPexnmBtX_jLeF7mwVMvVj3jZKInkx8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

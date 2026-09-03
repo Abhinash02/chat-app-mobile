@@ -35,6 +35,7 @@
     },
     "android": {
       "package": "app.vibechat.mobile",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FF4E88",

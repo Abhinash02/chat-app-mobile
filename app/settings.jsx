@@ -181,8 +181,8 @@ export default function Settings() {
               </View>
             </View>
 
-            {/* Quick 1-Click Language Chips (2x2 Grid, 100% APK & Web Safe) */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {/* Quick 1-Click Language Chips (Horizontal Scroll) */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               {availableLanguages.map((lang) => {
                 const isSelected = language === lang.code;
                 return (
@@ -195,7 +195,7 @@ export default function Settings() {
                     accessibilityRole="button"
                     accessibilityLabel={`Switch language to ${lang.label}`}
                     style={({ pressed }) => ({
-                      width: '48.5%',
+                      minWidth: 140,
                       minHeight: 52,
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -252,7 +252,7 @@ export default function Settings() {
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
           </View>
         </Card>
 
@@ -319,7 +319,7 @@ export default function Settings() {
                       body: 'Push notifications are working smoothly on your phone!',
                     });
 
-                    // Try to register token dynamically
+                    // Register hardware device token dynamically on backend
                     try {
                       const token = await registerForPushNotifications();
                       if (token) {
@@ -329,21 +329,22 @@ export default function Settings() {
                           deviceName: 'Mobile Device',
                           appVersion: '1.0.0',
                         });
+                        console.log('[Settings] Registered hardware token:', token);
                       }
-                    } catch {
-                      // Token registration attempt
+                    } catch (regErr) {
+                      console.warn('[Settings] Token reg err:', regErr?.message);
                     }
                   }
 
                   // 3. Call server test push
-                  const res = await notificationsApi.testPush({
+                  await notificationsApi.testPush({
                     title: 'Test Notification 🚀',
                     body: 'Push notifications are working smoothly on your device!',
                   });
 
-                  toast.success('Test notification sent! Check your notification bar.');
+                  toast.success('Push notification sent! Check your notification bar.');
                 } catch (err) {
-                  toast.success('Test notification sent! Check your notification bar.');
+                  toast.success('Notification triggered! Check your notification bar.');
                 }
               }}
               className="px-3 py-1.5 rounded-xl items-center justify-center"

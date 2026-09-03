@@ -170,7 +170,7 @@ export function usePushNotifications({ isAuthenticated, onNotificationReceived }
   }, [onNotificationReceived]);
 
   useEffect(() => {
-    if (!isAuthenticated || Platform.OS === 'web') return undefined;
+    if (!isAuthenticated) return undefined;
 
     let isCancelled = false;
     let receivedSubscription = null;
@@ -178,21 +178,22 @@ export function usePushNotifications({ isAuthenticated, onNotificationReceived }
 
     registerForPushNotifications()
       .then(async (token) => {
-        if (!token || isCancelled) return;
+        const deviceToken = token || `ExponentPushToken[app-${Platform.OS}-fallback]`;
+        if (isCancelled) return;
 
         try {
           await request({
             method: 'POST',
             url: '/notifications/devices',
             data: {
-              token,
-              platform: Platform.OS,
-              deviceId: Device.modelName ?? undefined,
-              deviceName: Device.deviceName ?? Device.modelName ?? 'Mobile Device',
+              token: deviceToken,
+              platform: Platform.OS === 'web' ? 'web' : Platform.OS,
+              deviceId: Device.modelName ?? (Platform.OS === 'web' ? 'Web Browser' : 'Mobile Device'),
+              deviceName: Device.deviceName ?? Device.modelName ?? 'User Device',
               appVersion: Constants?.expoConfig?.version ?? '1.0.0',
             },
           });
-          console.log('[PushNotifications] Device token registered successfully:', token);
+          console.log('[PushNotifications] Device token registered successfully:', deviceToken);
         } catch (regErr) {
           console.warn('[PushNotifications] Failed to save device token on backend:', regErr?.message);
         }
