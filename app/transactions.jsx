@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '../src/components/ScreenHeader.jsx';
 import { Badge, Card, CoinIcon, EmptyState, Loading } from '../src/components/ui.jsx';
 import { coinsApi, paymentsApi, withdrawalsApi } from '../src/api/endpoints.js';
-import { formatCoins, formatRelativeTime, formatRupees } from '../src/lib/format.js';
+import { formatCoins, formatDateTime, formatRelativeTime, formatRupees } from '../src/lib/format.js';
 import { useAuth } from '../src/hooks/useAuth.jsx';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
 import { useToast } from '../src/components/Toast.jsx';
@@ -43,10 +43,10 @@ const STATUS_THEME = {
     label: 'Refunded',
   },
   failed: {
-    tone: '#D97706',
-    tint: '#F59E0B12',
-    border: '#F59E0B35',
-    icon: 'time',
+    tone: '#EF4444',
+    tint: '#EF444415',
+    border: '#EF444435',
+    icon: 'close-circle',
     label: 'Failed',
   },
   expired: {
@@ -172,15 +172,22 @@ function FailedNotice({ item, colors }) {
         </Text>
       </View>
       <View className="px-3 py-2.5" style={{ backgroundColor: colors.surface }}>
+        {item.failureReason ? (
+          <View className="mb-2 pb-2 border-b border-dashed" style={{ borderBottomColor: colors.border }}>
+            <Text className="text-[11px] font-bold text-red-500">
+              Reason: {item.failureReason}
+            </Text>
+          </View>
+        ) : null}
         <Text className="text-[11.5px] leading-4" style={{ color: colors.textPrimary }}>
           {item.status === 'expired'
             ? 'This order window closed before payment was confirmed. If any amount was deducted, it was never captured and will not be charged.'
-            : 'This payment did not go through on the gateway. If money was deducted from your bank or UPI app, it was not captured by us.'}
+            : 'This payment did not go through on the gateway or was cancelled. If money was deducted from your bank or UPI app, it was not captured by us.'}
         </Text>
         <View className="flex-row items-center gap-1.5 mt-2 self-start px-2.5 py-1 rounded-full" style={{ backgroundColor: `${theme.tone}15` }}>
           <Ionicons name="time-outline" size={12} color={theme.tone} />
           <Text className="text-[10.5px] font-bold" style={{ color: theme.tone }}>
-            Auto-reversed in 2–24 hrs (max 2–3 business days)
+            Auto-refunded in 2–24 hrs (max 2–3 business days)
           </Text>
         </View>
       </View>
@@ -510,7 +517,7 @@ export default function Transactions() {
             </Pressable>
           )}
 
-          {/* Tab 2: Refunds & Failed */}
+          {/* Tab 2: Failed & Refunds */}
           {!isGirl && (
             <Pressable
               onPress={() => setActiveTab('refunds')}
@@ -525,7 +532,7 @@ export default function Transactions() {
               }}
             >
               <Ionicons
-                name="arrow-undo-circle"
+                name="alert-circle"
                 size={13}
                 color={activeTab === 'refunds' ? colors.onPrimary : colors.textMuted}
               />
@@ -534,7 +541,7 @@ export default function Transactions() {
                 style={{ color: activeTab === 'refunds' ? colors.onPrimary : colors.textPrimary }}
                 numberOfLines={1}
               >
-                Refunds ({issueOrders.length})
+                Failed & Refunds ({issueOrders.length})
               </Text>
             </Pressable>
           )}
@@ -747,10 +754,10 @@ export default function Transactions() {
 
                     {/* Footer Date */}
                     <View className="flex-row items-center justify-between pt-2 border-t" style={{ borderTopColor: colors.border }}>
-                      <View className="flex-row items-center gap-1">
+                      <View className="flex-row items-center gap-1.5">
                         <Ionicons name="time-outline" size={13} color={colors.textMuted} />
                         <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-                          {formatRelativeTime(item.createdAt)}
+                          {formatDateTime(item.createdAt)}
                         </Text>
                       </View>
                       <Text className="text-[10px] font-mono" style={{ color: colors.textMuted }}>
@@ -921,10 +928,10 @@ export default function Transactions() {
                       className="flex-row items-center justify-between pt-2 border-t"
                       style={{ borderTopColor: colors.border }}
                     >
-                      <View className="flex-row items-center gap-1">
+                      <View className="flex-row items-center gap-1.5">
                         <Ionicons name="time-outline" size={13} color={colors.textMuted} />
                         <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-                          {formatRelativeTime(item.createdAt)}
+                          {formatDateTime(item.creditedAt || item.createdAt)}
                         </Text>
                       </View>
 
@@ -950,8 +957,8 @@ export default function Transactions() {
                           )}
                         </Pressable>
                       ) : (
-                        <Text className="text-[11px] font-semibold" style={{ color: isFailed ? '#D97706' : colors.textMuted }}>
-                          {item.status === 'expired' ? 'Expired / Unpaid' : 'Payment Incomplete'}
+                        <Text className="text-[11px] font-semibold" style={{ color: isFailed ? '#EF4444' : colors.textMuted }}>
+                          {item.status === 'expired' ? 'Expired / Unpaid' : 'Payment Failed / Cancelled'}
                         </Text>
                       )}
                     </View>
@@ -1037,7 +1044,7 @@ export default function Transactions() {
                           {transactionTitle(item)}
                         </Text>
                         <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-                          {formatRelativeTime(item.createdAt)}
+                          {formatDateTime(item.createdAt)}
                         </Text>
                       </View>
                     </View>

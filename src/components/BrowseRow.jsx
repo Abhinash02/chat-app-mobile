@@ -7,6 +7,7 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
 
 const CARD_WIDTH = 150;
 const CARD_GAP = 12;
+const CARD_HEIGHT = 232;
 const PAGE_SIZE = 10; // how many to show at first, then load more
 
 /**
@@ -41,28 +42,20 @@ function EndCard() {
     <View
       style={{
         width: 130,
-        height: 230,
+        height: 232,
         marginLeft: CARD_GAP,
-        borderRadius: 24,
-        overflow: 'hidden',
+        borderRadius: 22,
+        borderWidth: 1.5,
+        borderColor: `${colors.primary}30`,
+        backgroundColor: colors.surface,
         shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.16,
         shadowRadius: 12,
         elevation: 4,
+        overflow: 'hidden',
       }}
     >
-      {/* Background gradient layers */}
-      <View
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundColor: colors.surface,
-          borderRadius: 24,
-          borderWidth: 1.5,
-          borderColor: `${colors.primary}30`,
-        }}
-      />
       {/* Top glow blob */}
       <View
         style={{
@@ -210,7 +203,7 @@ export function BrowseRow({
         keyExtractor={(item) => String(item)}
         renderItem={() => (
           <View style={{ marginRight: CARD_GAP }}>
-            <Skeleton width={CARD_WIDTH} height={210} radius={20} />
+            <Skeleton width={CARD_WIDTH} height={CARD_HEIGHT} radius={22} />
           </View>
         )}
       />

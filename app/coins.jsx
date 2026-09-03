@@ -11,6 +11,8 @@ import { Badge, Button, Card, CoinIcon, Field, GradientButton, Input, Loading } 
 import { coinsApi, paymentsApi, withdrawalsApi } from '../src/api/endpoints.js';
 import { formatCoins, formatCountdown, formatRupees } from '../src/lib/format.js';
 import { launchCashfreeCheckout } from '../src/lib/cashfree.js';
+import { launchRazorpayCheckout } from '../src/lib/razorpay.js';
+import { launchStripeCheckout } from '../src/lib/stripe.js';
 import { useAuth } from '../src/hooks/useAuth.jsx';
 import { useSocket } from '../src/hooks/useSocket.jsx';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
@@ -1107,6 +1109,11 @@ export default function Coins() {
       toast.coins('🎉 Payment Successful! Coins have been added to your wallet.');
       queryClient.invalidateQueries({ queryKey: ['wallet'] });
       queryClient.invalidateQueries({ queryKey: ['my-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+      setActiveOrder(null);
+    } else if (params?.payment === 'failed' || params?.status === 'failed') {
+      toast.error('Payment was not completed. If any amount was deducted, it will be refunded.');
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
       setActiveOrder(null);
     }
   }, [params?.payment, params?.status]);
@@ -1123,6 +1130,7 @@ export default function Coins() {
   const canPayByUpi = options?.methods?.manualUpi;
   const canPayCashfree = options?.methods?.cashfree || options?.cashfree?.isConfigured;
   const canPayOnline = options?.methods?.razorpay;
+  const canPayStripe = options?.methods?.stripe || options?.stripe?.isConfigured;
 
   const createUpiOrder = useMutation({
     mutationFn: () => paymentsApi.createUpiOrder(activePackageId),
@@ -1155,13 +1163,131 @@ export default function Coins() {
   const verifyCashfree = useMutation({
     mutationFn: (orderId) => paymentsApi.verifyCashfree(orderId),
     onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+      if (result.alreadyCredited || result.status === 'paid' || result.order?.status === 'paid') {
+        toast.coins('Payment Verified! Coins credited to your wallet 🎉');
+        queryClient.invalidateQueries({ queryKey: ['wallet'] });
+        queryClient.invalidateQueries({ queryKey: ['my-profile'] });
+        setActiveOrder(null);
+      } else if (result.status === 'failed' || result.order?.status === 'failed' || result.cashfreeStatus === 'FAILED' || result.cashfreeStatus === 'CANCELLED') {
+        toast.error('Cashfree payment failed or was cancelled');
+        setActiveOrder((prev) => (prev ? {
+          ...prev,
+          isFailed: true,
+          status: 'failed',
+          failureReason: result.failureReason || `Order ${result.cashfreeStatus || 'failed'}`,
+        } : null));
+      } else {
+        toast.info(`Payment status: ${result.cashfreeStatus || result.status || 'PENDING'}`);
+      }
+    },
+    onError: (error) => toast.error(error.message ?? 'Could not verify payment yet'),
+  });
+
+  const createRazorpayOrder = useMutation({
+    mutationFn: () => paymentsApi.createRazorpayOrder(activePackageId),
+    onSuccess: async (result) => {
+      const checkout = result?.checkout;
+      if (!checkout) return;
+
+      toast.info('Opening Razorpay Payment Gateway...');
+
+      setActiveOrder({
+        isRazorpay: true,
+        order: result.order,
+        checkout,
+      });
+
+      await launchRazorpayCheckout({
+        keyId: checkout.keyId,
+        orderId: checkout.orderId || checkout.providerOrderId,
+        amountInPaise: checkout.amountInPaise,
+        currency: checkout.currency,
+        name: checkout.name || 'Vibe Chat',
+        prefill: {
+          name: user?.name,
+          email: user?.email,
+          phone: user?.phone,
+        },
+        onSuccess: (data) => {
+          verifyRazorpay.mutate({
+            orderId: result.order?.id,
+            razorpayPaymentId: data.razorpayPaymentId,
+            razorpaySignature: data.razorpaySignature,
+          });
+        },
+        onFailure: (err) => {
+          const reason = err?.description || err?.reason || 'Payment failed';
+          toast.error(reason);
+          verifyRazorpay.mutate({
+            orderId: result.order?.id,
+            status: 'failed',
+            reason,
+          });
+        },
+        onDismiss: () => {
+          toast.info('Razorpay payment window closed');
+        },
+      }).catch(() => undefined);
+    },
+    onError: (error) => toast.error(error.message ?? 'Could not start Razorpay payment'),
+  });
+
+  const verifyRazorpay = useMutation({
+    mutationFn: (data) => paymentsApi.verifyRazorpay(data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+      if (result.alreadyCredited || result.status === 'paid' || result.order?.status === 'paid') {
+        toast.coins('Payment Verified! Coins credited to your wallet 🎉');
+        queryClient.invalidateQueries({ queryKey: ['wallet'] });
+        queryClient.invalidateQueries({ queryKey: ['my-profile'] });
+        setActiveOrder(null);
+      } else if (result.status === 'failed' || result.order?.status === 'failed') {
+        toast.error(result.failureReason || result.order?.failureReason || 'Payment failed or cancelled');
+        setActiveOrder((prev) => (prev ? {
+          ...prev,
+          isFailed: true,
+          status: 'failed',
+          failureReason: result.failureReason || result.order?.failureReason || 'Payment could not be completed',
+        } : null));
+      } else {
+        toast.info(`Payment status: ${result.status?.toUpperCase() || 'PENDING'}`);
+      }
+    },
+    onError: (error) => toast.error(error.message ?? 'Could not verify payment yet'),
+  });
+
+  const createStripeOrder = useMutation({
+    mutationFn: () => paymentsApi.createStripeOrder(activePackageId),
+    onSuccess: async (result) => {
+      const checkout = result?.checkout;
+      if (!checkout?.paymentUrl) return;
+
+      toast.info('Opening Stripe Checkout...');
+
+      await launchStripeCheckout({
+        paymentUrl: checkout.paymentUrl,
+      }).catch(() => undefined);
+
+      setActiveOrder({
+        isStripe: true,
+        order: result.order,
+        checkout,
+      });
+    },
+    onError: (error) => toast.error(error.message ?? 'Could not start Stripe payment'),
+  });
+
+  const verifyStripe = useMutation({
+    mutationFn: (orderId) => paymentsApi.verifyStripe(orderId),
+    onSuccess: (result) => {
       if (result.alreadyCredited || result.status === 'paid' || result.order?.status === 'paid') {
         toast.coins('Payment Verified! Coins credited to your wallet 🎉');
         queryClient.invalidateQueries({ queryKey: ['wallet'] });
         queryClient.invalidateQueries({ queryKey: ['my-profile'] });
         setActiveOrder(null);
       } else {
-        toast.info(`Payment status: ${result.cashfreeStatus || result.status || 'PENDING'}`);
+        toast.info(`Payment status: ${result.status || 'PENDING'}`);
       }
     },
     onError: (error) => toast.error(error.message ?? 'Could not verify payment yet'),
@@ -1337,7 +1463,78 @@ export default function Coins() {
               ) : null}
             </Card>
 
-        {activeOrder?.isCashfree ? (
+        {activeOrder?.isFailed ? (
+          <Card className="mb-5 p-4 sm:p-5" style={{ borderColor: '#EF444460', backgroundColor: colors.surface }}>
+            {/* Failed Header */}
+            <View className="mb-4 pb-3 border-b" style={{ borderBottomColor: colors.border }}>
+              <View className="flex-row items-center gap-2.5 mb-2">
+                <View
+                  className="h-10 w-10 rounded-2xl items-center justify-center"
+                  style={{ backgroundColor: '#EF444418' }}
+                >
+                  <Text className="text-xl">❌</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base font-bold text-red-500">
+                    Payment Failed / Cancelled
+                  </Text>
+                  <Text
+                    className="text-[11px] font-mono"
+                    style={{ color: colors.textMuted }}
+                    numberOfLines={1}
+                    ellipsizeMode="middle"
+                  >
+                    Ref: {activeOrder.order?.id}
+                  </Text>
+                </View>
+              </View>
+              <View
+                className="self-start px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: '#EF444415' }}
+              >
+                <Text className="text-[11px] font-bold text-red-500">❌ FAILED</Text>
+              </View>
+            </View>
+
+            {/* Failure Reason */}
+            {activeOrder.failureReason ? (
+              <View className="p-3 rounded-xl mb-4" style={{ backgroundColor: '#EF444410', borderWidth: 1, borderColor: '#EF444425' }}>
+                <Text className="text-xs font-semibold text-red-400">
+                  {activeOrder.failureReason}
+                </Text>
+              </View>
+            ) : null}
+
+            {/* Auto-Refund Protection Notice */}
+            <View className="p-3.5 rounded-2xl mb-4 flex-row items-start gap-3" style={{ backgroundColor: '#10B98110', borderWidth: 1, borderColor: '#10B98130' }}>
+              <Text className="text-lg">🛡️</Text>
+              <View className="flex-1">
+                <Text className="text-xs font-bold text-emerald-600 mb-0.5">
+                  100% Auto-Refund Protection
+                </Text>
+                <Text className="text-[11.5px] leading-4" style={{ color: colors.textSecondary }}>
+                  If any amount was deducted from your bank account or UPI app, it was not captured by us and will be automatically refunded back to your source account within 2–24 hours (max 2–3 business days).
+                </Text>
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View className="gap-2.5">
+              <GradientButton
+                title="Try Again / Choose Another Pack"
+                onPress={() => setActiveOrder(null)}
+              />
+              <Button
+                title="View in Transaction History"
+                variant="outline"
+                onPress={() => {
+                  setActiveOrder(null);
+                  router.push('/transactions');
+                }}
+              />
+            </View>
+          </Card>
+        ) : activeOrder?.isCashfree || activeOrder?.isStripe || activeOrder?.isRazorpay ? (
           <Card className="mb-5 p-4 sm:p-5" style={{ borderColor: `${colors.primary}40`, backgroundColor: colors.surface }}>
             {/* Header — stacked so badge never clips */}
             <View className="mb-4 pb-3 border-b" style={{ borderBottomColor: colors.border }}>
@@ -1346,11 +1543,11 @@ export default function Coins() {
                   className="h-10 w-10 rounded-2xl items-center justify-center"
                   style={{ backgroundColor: `${colors.primary}18` }}
                 >
-                  <Text className="text-xl">⚡</Text>
+                  <Text className="text-xl">{activeOrder?.isRazorpay ? '💳' : activeOrder?.isStripe ? '🌐' : '⚡'}</Text>
                 </View>
                 <View className="flex-1">
                   <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-                    Cashfree Payment
+                    {activeOrder?.isRazorpay ? 'Razorpay Payment' : activeOrder?.isStripe ? 'Stripe Checkout' : 'Cashfree Payment'}
                   </Text>
                   <Text
                     className="text-[11px] font-mono"
@@ -1415,7 +1612,11 @@ export default function Coins() {
               <View className="flex-row items-center justify-between py-2 border-b border-dashed" style={{ borderBottomColor: `${colors.border}80` }}>
                 <Text className="text-xs" style={{ color: colors.textMuted }}>Payment Gateway</Text>
                 <Text className="text-xs font-semibold" style={{ color: colors.textPrimary }}>
-                  Cashfree PG ({activeOrder.checkout?.environment === 'sandbox' ? 'Sandbox' : 'Production'})
+                  {activeOrder?.isRazorpay
+                    ? 'Razorpay PG'
+                    : activeOrder?.isStripe
+                    ? 'Stripe'
+                    : `Cashfree PG (${activeOrder.checkout?.environment === 'sandbox' ? 'Sandbox' : 'Production'})`}
                 </Text>
               </View>
 
@@ -1434,7 +1635,9 @@ export default function Coins() {
             <View className="p-3 rounded-xl mb-4 flex-row items-center gap-2.5" style={{ backgroundColor: `${colors.primary}10`, borderWidth: 1, borderColor: `${colors.primary}25` }}>
               <Text className="text-base">🔒</Text>
               <Text className="text-[11px] leading-4 flex-1" style={{ color: colors.textSecondary }}>
-                Complete payment via UPI (GPay, PhonePe, Paytm), Card, or NetBanking. Once paid, click below to verify and receive your coins instantly!
+                {activeOrder?.isStripe
+                  ? 'Complete your payment on Stripe secure checkout. Once paid, tap below to verify and receive your coins instantly!'
+                  : 'Complete payment via UPI (GPay, PhonePe, Paytm), Card, or NetBanking. Once paid, click below to verify and receive your coins instantly!'}
               </Text>
             </View>
 
@@ -1442,26 +1645,80 @@ export default function Coins() {
             <View className="gap-2.5">
               <GradientButton
                 title="Verify Payment & Add Coins"
-                isLoading={verifyCashfree.isPending}
-                onPress={() => verifyCashfree.mutate(activeOrder.order?.id)}
+                isLoading={activeOrder?.isStripe ? verifyStripe.isPending : activeOrder?.isRazorpay ? verifyRazorpay.isPending : verifyCashfree.isPending}
+                onPress={() => {
+                  if (activeOrder?.isStripe) {
+                    verifyStripe.mutate(activeOrder.order?.id);
+                  } else if (activeOrder?.isRazorpay) {
+                    verifyRazorpay.mutate({ orderId: activeOrder.order?.id });
+                  } else {
+                    verifyCashfree.mutate(activeOrder.order?.id);
+                  }
+                }}
               />
               <Button
                 title="Reopen Payment Window"
                 variant="outline"
                 onPress={() => {
-                  const checkout = activeOrder?.checkout;
-                  if (checkout) {
-                    launchCashfreeCheckout({
-                      paymentSessionId: checkout.paymentSessionId,
-                      environment: checkout.environment,
-                    }).catch(() => undefined);
+                  if (activeOrder?.isRazorpay) {
+                    const checkout = activeOrder?.checkout;
+                    if (checkout) {
+                      launchRazorpayCheckout({
+                        keyId: checkout.keyId,
+                        orderId: checkout.orderId || checkout.providerOrderId,
+                        amountInPaise: checkout.amountInPaise,
+                        currency: checkout.currency,
+                        name: checkout.name || 'Vibe Chat',
+                        prefill: {
+                          name: user?.name,
+                          email: user?.email,
+                          phone: user?.phone,
+                        },
+                        onSuccess: (data) => {
+                          verifyRazorpay.mutate({
+                            orderId: activeOrder.order?.id,
+                            razorpayPaymentId: data.razorpayPaymentId,
+                            razorpaySignature: data.razorpaySignature,
+                          });
+                        },
+                        onFailure: (err) => {
+                          const reason = err?.description || err?.reason || 'Payment failed';
+                          toast.error(reason);
+                          verifyRazorpay.mutate({
+                            orderId: activeOrder.order?.id,
+                            status: 'failed',
+                            reason,
+                          });
+                        },
+                        onDismiss: () => toast.info('Razorpay payment window closed'),
+                      }).catch(() => undefined);
+                    }
+                  } else if (activeOrder?.isStripe) {
+                    launchStripeCheckout({ paymentUrl: activeOrder.checkout?.paymentUrl }).catch(() => undefined);
+                  } else {
+                    const checkout = activeOrder?.checkout;
+                    if (checkout) {
+                      launchCashfreeCheckout({
+                        paymentSessionId: checkout.paymentSessionId,
+                        environment: checkout.environment,
+                      }).catch(() => undefined);
+                    }
                   }
                 }}
               />
               <Button
-                title="Cancel Order"
+                title="← Cancel & Choose Another Payment Method"
                 variant="ghost"
-                onPress={() => setActiveOrder(null)}
+                onPress={() => {
+                  if (activeOrder?.isRazorpay && activeOrder.order?.id) {
+                    verifyRazorpay.mutate({
+                      orderId: activeOrder.order.id,
+                      status: 'failed',
+                      reason: 'User cancelled order',
+                    });
+                  }
+                  setActiveOrder(null);
+                }}
               />
             </View>
           </Card>
@@ -1510,20 +1767,42 @@ export default function Coins() {
             ) : null}
 
             <View className="mt-4 gap-2.5">
-              {canPayCashfree ? (
+              {canPayOnline ? (
                 <GradientButton
-                  title="⚡ Pay Now with Cashfree"
+                  title="💳 Pay with Razorpay (Cards, UPI, NetBanking)"
+                  isLoading={createRazorpayOrder.isPending}
+                  disabled={!activePackageId}
+                  onPress={() => createRazorpayOrder.mutate()}
+                />
+              ) : null}
+
+              {canPayCashfree ? (
+                <Button
+                  title="⚡ Pay with Cashfree (UPI & NetBanking)"
+                  variant="outline"
                   isLoading={createCashfreeOrder.isPending}
                   disabled={!activePackageId}
                   onPress={() => createCashfreeOrder.mutate()}
                 />
-              ) : (
+              ) : null}
+
+              {canPayByUpi ? (
+                <Button
+                  title="📱 Pay via Direct UPI QR"
+                  variant="ghost"
+                  isLoading={createUpiOrder.isPending}
+                  disabled={!activePackageId}
+                  onPress={() => createUpiOrder.mutate()}
+                />
+              ) : null}
+
+              {!canPayCashfree && !canPayOnline && !canPayByUpi ? (
                 <Card>
                   <Text className="text-sm" style={{ color: colors.textMuted }}>
                     Online payments are not configured yet. Contact {options?.supportEmail ?? 'support'} for coins.
                   </Text>
                 </Card>
-              )}
+              ) : null}
             </View>
 
             <Text className="mt-5 text-center text-xs leading-4" style={{ color: colors.textMuted }}>

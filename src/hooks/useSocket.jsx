@@ -11,8 +11,6 @@ import { useSounds } from './useSounds.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 import { useToast } from '../components/Toast.jsx';
 
-const SOCKET_URL = getApiOrigin();
-
 const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
@@ -53,9 +51,9 @@ export function SocketProvider({ children }) {
       const token = await storage.getAccessToken();
       if (!token || isCancelled) return;
 
-      socket = io(SOCKET_URL, {
+      socket = io(getApiOrigin(), {
         auth: { token },
-        transports: ['websocket'],
+        transports: ['polling', 'websocket'],
         reconnectionAttempts: 20,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 8000,
@@ -66,6 +64,37 @@ export function SocketProvider({ children }) {
 
       socket.on('connect', () => setIsConnected(true));
       socket.on('disconnect', () => setIsConnected(false));
+      socket.on('connect_error', async (err) => {
+        if (
+          err.message === 'Authentication failed' ||
+          err.message === 'Authentication required' ||
+          err.data?.code === 'UNAUTHORIZED' ||
+          err.data?.code === 'TOKEN_REVOKED'
+        ) {
+          try {
+            const refreshToken = await storage.getRefreshToken();
+            if (refreshToken) {
+              const res = await fetch(`${getApiOrigin()}/api/v1/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const tokens = data?.data?.tokens;
+                if (tokens?.accessToken) {
+                  await storage.setTokens(tokens);
+                  socket.auth = { token: tokens.accessToken };
+                  socket.connect();
+                  return;
+                }
+              }
+            }
+          } catch {
+            // refresh failed
+          }
+        }
+      });
 
       socket.on(SOCKET_EVENT.READY, (payload) => {
         setWallet(payload.wallet);

@@ -13,9 +13,22 @@ export function getApiOrigin() {
 
   // 1. Web Browser Environment
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const hostname = window.location.hostname;
+    const isLocalHost =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.');
+
+    if (isLocalHost) {
+      let host = hostname === 'localhost' ? '127.0.0.1' : hostname;
+      if (host === '192.168.1.7') host = '192.168.1.9';
+      return `http://${host}:5000`;
+    }
+
     if (liveUrl) return liveUrl;
     if (localUrl && localUrl.startsWith('https://')) return localUrl;
-    return `http://${window.location.hostname}:5000`;
+    return `http://${hostname}:5000`;
   }
 
   // 2. Native Mobile (Standalone APK vs Expo Go)
@@ -28,11 +41,6 @@ export function getApiOrigin() {
     return liveUrl;
   }
 
-  // Expo Go local dev connects to localUrl
-  if (localUrl && (localUrl.startsWith('http://192.168.') || localUrl.startsWith('http://10.') || localUrl.startsWith('http://localhost'))) {
-    return localUrl;
-  }
-
   // Auto-detect local computer Wi-Fi IP in Expo Go during local dev
   const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
   if (hostUri) {
@@ -40,10 +48,19 @@ export function getApiOrigin() {
     return `http://${ip}:5000`;
   }
 
+  // Expo Go local dev fallback
+  if (localUrl && (localUrl.startsWith('http://192.168.') || localUrl.startsWith('http://10.') || localUrl.startsWith('http://localhost'))) {
+    return localUrl;
+  }
+
   return liveUrl || 'https://chat-app-backend-r6f2.onrender.com';
 }
 
 export const BASE_URL = `${getApiOrigin()}/api/v1`;
+
+if (typeof window !== 'undefined') {
+  console.log('[VibeChat API Origin]:', getApiOrigin());
+}
 
 export const api = axios.create({ baseURL: BASE_URL, timeout: 15_000 });
 

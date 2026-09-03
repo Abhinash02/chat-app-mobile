@@ -223,7 +223,7 @@ export default function UserProfileScreen() {
               label={user.gender === 'female' ? '👧 Girl' : '👦 Boy'}
               tone={user.gender === 'female' ? 'brand' : 'neutral'}
             />
-            {user.ageGroup ? <Badge label={`🎂 ${user.ageGroup}`} tone="neutral" /> : null}
+            {user.ageGroup ? <Badge label={`🎂 Age ${user.ageGroup}`} tone="neutral" /> : null}
             {user.zodiacSign ? <Badge label={user.zodiacSign} tone="brand" /> : null}
             {user.city ? <Badge label={`🏙️ ${user.city}`} tone="neutral" /> : null}
             {distance ? <Badge label={`📍 ${distance}`} /> : null}

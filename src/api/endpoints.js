@@ -69,6 +69,18 @@ export const paymentsApi = {
     request({ method: 'POST', url: '/payments/orders/cashfree', data: { packageId, returnUrl } }),
   verifyCashfree: (orderId) =>
     request({ method: 'POST', url: '/payments/orders/cashfree/verify', data: { orderId } }),
+  createStripeOrder: (packageId, returnUrl) =>
+    request({ method: 'POST', url: '/payments/orders/stripe', data: { packageId, returnUrl } }),
+  verifyStripe: (orderId) =>
+    request({ method: 'POST', url: '/payments/orders/stripe/verify', data: { orderId } }),
+  createRazorpayOrder: (packageId) =>
+    request({ method: 'POST', url: '/payments/orders/razorpay', data: { packageId } }),
+  verifyRazorpay: ({ orderId, razorpayPaymentId, razorpaySignature }) =>
+    request({
+      method: 'POST',
+      url: '/payments/orders/razorpay/verify',
+      data: { orderId, razorpayPaymentId, razorpaySignature },
+    }),
   createUpiOrder: (packageId) =>
     request({ method: 'POST', url: '/payments/orders/upi', data: { packageId } }),
   submitProof: (orderId, data) =>
@@ -149,10 +161,11 @@ export const settingsApi = {
 };
 
 export const bannersApi = {
-  listLive: () => request({ method: 'GET', url: '/banners' }),
+  listLive: (params) => request({ method: 'GET', url: '/banners', params }),
   recordImpressions: (bannerIds) =>
     request({ method: 'POST', url: '/banners/impressions', data: { bannerIds } }),
-  recordTap: (bannerId) => request({ method: 'POST', url: `/banners/${bannerId}/tap` }),
+  recordTap: (bannerId, data = {}) =>
+    request({ method: 'POST', url: `/banners/${bannerId}/tap`, data }),
 };
 
 export const feedbackApi = {

@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Avatar, EmptyState } from '../../src/components/ui.jsx';
 import { BrowseRow } from '../../src/components/BrowseRow.jsx';
 import { BannerCarousel } from '../../src/components/BannerCarousel.jsx';
+import { HomeBottomAdSection } from '../../src/components/HomeBottomAdSection.jsx';
 import { DailyCoinsCard } from '../../src/components/DailyCoinsCard.jsx';
 import { LocationPrompt } from '../../src/components/LocationPrompt.jsx';
 import { VerifyBanner } from '../../src/components/VerifyBanner.jsx';
@@ -393,7 +394,7 @@ export default function Discover() {
         <EmptyState emoji="📡" title="Could not load anyone" description={error.message} />
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerStyle={{ paddingBottom: (insets.bottom || 16) + 85 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -599,6 +600,9 @@ export default function Discover() {
               </View>
             </Pressable>
           </View>
+
+          {/* Lower Ad Section (Option A: In-House Custom Ad | Option B: Google AdMob) */}
+          <HomeBottomAdSection />
         </ScrollView>
       )}
     </View>

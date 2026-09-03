@@ -16,18 +16,24 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
 
 const AUTO_ADVANCE_MS = 5000;
 
+import { Text } from 'react-native';
+
 /**
  * One banner, with whichever motion the admin chose.
  * Formatted in 4:1 LinkedIn banner aspect ratio.
+ * 100% compatible with APK (Android) and Web.
  */
 function AnimatedBanner({ banner, width, height }) {
-  const { radius } = useTheme();
+  const { colors, radius } = useTheme();
   const [motion] = useState(() => new Animated.Value(0));
 
-  useEffect(() => {
-    if (banner.animation === 'none') return undefined;
+  const animType = banner.animation || 'shimmer';
 
-    const duration = banner.animation === 'shimmer' ? 1800 : 4200;
+  useEffect(() => {
+    if (animType === 'none') return undefined;
+
+    const duration =
+      animType === 'shimmer' ? 2200 : animType === 'fade' ? 2800 : 4000;
 
     const animation = Animated.loop(
       Animated.sequence([
@@ -37,9 +43,8 @@ function AnimatedBanner({ banner, width, height }) {
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: USE_NATIVE_DRIVER,
         }),
-        // Shimmer restarts from the left rather than sweeping back, which would
-        // read as the light moving the wrong way.
-        banner.animation === 'shimmer'
+        // Shimmer restarts from left rather than sweeping back
+        animType === 'shimmer'
           ? Animated.timing(motion, { toValue: 0, duration: 0, useNativeDriver: USE_NATIVE_DRIVER })
           : Animated.timing(motion, {
               toValue: 0,
@@ -52,27 +57,49 @@ function AnimatedBanner({ banner, width, height }) {
 
     animation.start();
     return () => animation.stop();
-  }, [banner.animation, motion]);
+  }, [animType, motion]);
 
-  // A slow pan needs the image slightly wider than the frame, or there is
-  // nothing to pan across.
-  const isPan = banner.animation === 'pan';
+  const isPan = animType === 'pan';
+  const isPulse = animType === 'pulse';
+  const isFade = animType === 'fade';
+  const isShimmer = animType === 'shimmer';
 
   const imageStyle = {
     width: isPan ? width * 1.12 : width,
     height,
+    opacity: isFade
+      ? motion.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.85, 1, 0.85] })
+      : 1,
     transform: [
       ...(isPan
         ? [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [0, -width * 0.12] }) }]
         : []),
-      ...(banner.animation === 'pulse'
-        ? [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }]
+      ...(isPulse
+        ? [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }]
+        : []),
+      ...(isFade
+        ? [{ scale: motion.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.02, 1] }) }]
         : []),
     ],
   };
 
   return (
-    <View style={{ width, height, borderRadius: radius, overflow: 'hidden' }}>
+    <View
+      style={{
+        width,
+        height,
+        borderRadius: radius || 18,
+        overflow: 'hidden',
+        backgroundColor: colors.surface,
+        borderWidth: 1.5,
+        borderColor: `${colors.primary}25`,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+        elevation: 3,
+      }}
+    >
       <Animated.View style={imageStyle}>
         <Image
           source={{ uri: banner.imageUrl }}
@@ -83,29 +110,53 @@ function AnimatedBanner({ banner, width, height }) {
         />
       </Animated.View>
 
-      {banner.animation === 'shimmer' ? (
+      {/* Shimmer sweep animation (works on both Android APK and Web) */}
+      {isShimmer && (
         <Animated.View
+          pointerEvents="none"
           style={{
-            // In style rather than as a prop: the prop form is deprecated, and
-            // the sweep must not swallow taps meant for the banner beneath it.
-            pointerEvents: 'none',
             position: 'absolute',
-            top: 0,
-            bottom: 0,
-            width: width * 0.35,
-            backgroundColor: 'rgba(255,255,255,0.28)',
+            top: -height * 0.2,
+            bottom: -height * 0.2,
+            width: width * 0.4,
+            backgroundColor: 'rgba(255,255,255,0.3)',
             transform: [
               {
                 translateX: motion.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [-width * 0.4, width * 1.1],
+                  outputRange: [-width * 0.5, width * 1.3],
                 }),
               },
-              { rotate: '12deg' },
+              { rotate: '15deg' },
             ],
           }}
         />
-      ) : null}
+      )}
+
+      {/* Floating Redirection Pill: shown ONLY when admin activated redirection */}
+      {Boolean(banner.action && banner.action !== 'none' && banner.actionTarget && banner.actionTarget.trim().length > 0) && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            bottom: 8,
+            right: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+            borderRadius: 10,
+            backgroundColor: 'rgba(0,0,0,0.65)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.2)',
+          }}
+        >
+          <Text style={{ color: '#FFF', fontSize: 9.5, fontWeight: '700' }}>
+            {banner.action === 'screen' ? 'Tap to open →' : 'Visit link ↗'}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -125,7 +176,7 @@ export function BannerCarousel() {
 
   const { data: banners = [] } = useQuery({
     queryKey: ['banners', 'home_top'],
-    queryFn: () => bannersApi.listLive(),
+    queryFn: () => bannersApi.listLive({ placement: 'home_top' }),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -153,7 +204,12 @@ export function BannerCarousel() {
   }, [banners.length, width]);
 
   const handlePress = useCallback((banner) => {
-    bannersApi.recordTap(banner.id).catch(() => undefined);
+    bannersApi
+      .recordTap(banner.id, {
+        action: banner.action,
+        actionTarget: banner.actionTarget,
+      })
+      .catch(() => undefined);
 
     if (banner.action === 'screen' && banner.actionTarget) {
       router.push(`/${banner.actionTarget}`);
@@ -185,17 +241,30 @@ export function BannerCarousel() {
         }
         style={{ borderRadius: radius }}
       >
-        {banners.map((banner) => (
-          <Pressable
-            key={banner.id}
-            onPress={() => handlePress(banner)}
-            disabled={banner.action === 'none'}
-            accessibilityRole={banner.action === 'none' ? 'image' : 'button'}
-            accessibilityLabel={banner.title}
-          >
-            <AnimatedBanner banner={banner} width={width} height={bannerHeight} />
-          </Pressable>
-        ))}
+        {banners.map((banner) => {
+          const isRedirectActive = Boolean(
+            banner.action &&
+            banner.action !== 'none' &&
+            banner.actionTarget &&
+            banner.actionTarget.trim().length > 0
+          );
+
+          return (
+            <Pressable
+              key={banner.id}
+              onPress={() => (isRedirectActive ? handlePress(banner) : undefined)}
+              disabled={!isRedirectActive}
+              accessibilityRole={!isRedirectActive ? 'image' : 'button'}
+              accessibilityLabel={banner.title}
+              style={({ pressed }) => ({
+                transform: [{ scale: pressed && isRedirectActive ? 0.98 : 1 }],
+                opacity: pressed && isRedirectActive ? 0.92 : 1,
+              })}
+            >
+              <AnimatedBanner banner={banner} width={width} height={bannerHeight} />
+            </Pressable>
+          );
+        })}
       </Animated.ScrollView>
 
       {banners.length > 1 ? (

@@ -322,7 +322,7 @@ export default function Profile() {
                 <Text className="text-xs" style={{ color: colors.textMuted }}>
                   ·
                 </Text>
-                <Badge label={profile.ageGroup} tone="muted" />
+                <Badge label={`Age ${profile.ageGroup}`} tone="muted" />
               </>
             ) : null}
             {profile?.zodiacSign ? (
@@ -420,7 +420,7 @@ export default function Profile() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   backgroundColor: `${colors.primary}18`,
-                  shrink: 0,
+                  flexShrink: 0,
                 }}
               >
                 <Text style={{ fontSize: 18 }}>🌐</Text>
@@ -453,7 +453,7 @@ export default function Profile() {
                 backgroundColor: `${colors.primary}18`,
                 borderWidth: 1,
                 borderColor: `${colors.primary}35`,
-                shrink: 0,
+                flexShrink: 0,
               }}
             >
               <Text style={{ fontSize: 12 }}>{currentLanguage.flag}</Text>
@@ -466,8 +466,8 @@ export default function Profile() {
             </View>
           </View>
 
-          {/* Quick 1-Click Language Chips */}
-          <View style={{ flexDirection: 'row', gap: 6 }}>
+          {/* Quick 1-Click Language Chips (2x2 Grid, 100% APK & Web Safe) */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {availableLanguages.map((lang) => {
               const isSelected = language === lang.code;
               return (
@@ -478,36 +478,62 @@ export default function Profile() {
                     toast.success(`${lang.flag} ${lang.nativeName}`);
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={`Switch language to ${lang.name}`}
+                  accessibilityLabel={`Switch language to ${lang.label}`}
                   style={({ pressed }) => ({
-                    flex: 1,
-                    height: 50,
+                    width: '48.5%',
+                    minHeight: 52,
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
                     borderRadius: 14,
-                    backgroundColor: isSelected ? colors.primary : colors.surfaceAlt,
+                    backgroundColor: isSelected ? `${colors.primary}15` : colors.surfaceAlt,
                     borderWidth: 1.5,
                     borderColor: isSelected ? colors.primary : colors.border,
-                    shadowColor: isSelected ? colors.primary : 'transparent',
-                    shadowOpacity: isSelected ? 0.3 : 0,
-                    shadowRadius: 6,
-                    elevation: isSelected ? 3 : 0,
-                    transform: [{ scale: pressed ? 0.96 : 1 }],
+                    gap: 10,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
                   })}
                 >
-                  <Text style={{ fontSize: 16 }}>{lang.flag}</Text>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      fontSize: 10,
-                      fontWeight: '800',
-                      marginTop: 2,
-                      textAlign: 'center',
-                      color: isSelected ? (colors.onPrimary || '#FFFFFF') : colors.textPrimary,
-                    }}
-                  >
-                    {lang.nativeName}
-                  </Text>
+                  <Text style={{ fontSize: 20 }}>{lang.flag}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          fontSize: 12.5,
+                          fontWeight: isSelected ? '800' : '700',
+                          color: isSelected ? colors.primary : colors.textPrimary,
+                        }}
+                      >
+                        {lang.nativeName}
+                      </Text>
+                      {isSelected && (
+                        <View
+                          style={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: 8,
+                            backgroundColor: colors.primary,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '900' }}>✓</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontSize: 10,
+                        fontWeight: '500',
+                        color: isSelected ? colors.primary : colors.textMuted,
+                        marginTop: 1,
+                      }}
+                    >
+                      {lang.label}
+                    </Text>
+                  </View>
                 </Pressable>
               );
             })}

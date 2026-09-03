@@ -204,71 +204,93 @@ export function RoomComposer({ onSendText, onSendMedia, onNotice }) {
           borderTopColor: colors.border,
         }}
       >
-        {/* Emoji Button */}
-        <Pressable
-          onPress={() => setIsEmojiOpen((open) => !open)}
-          accessibilityRole="button"
-          accessibilityLabel={isEmojiOpen ? 'Hide emoji' : 'Show emoji'}
-          style={({ pressed }) => ({
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: isEmojiOpen ? `${colors.primary}18` : 'transparent',
-            marginRight: 6,
-            opacity: pressed ? 0.75 : 1,
-          })}
-        >
-          <Ionicons
-            name={isEmojiOpen ? 'happy' : 'happy-outline'}
-            size={24}
-            color={isEmojiOpen ? colors.primary : colors.textMuted}
-          />
-        </Pressable>
-
-        {/* Input Field Capsule */}
+        {/* Unified Input Box Capsule: [Emoji] [TextInput] [Media Attachment] */}
         <View
-          className="flex-1 flex-row items-center px-3.5 py-1.5"
           style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
             backgroundColor: colors.surfaceAlt,
-            borderRadius: 22,
-            borderWidth: 1,
+            borderRadius: 24,
+            borderWidth: 1.5,
             borderColor: colors.border,
-            minHeight: 44,
+            minHeight: 46,
+            paddingLeft: 6,
+            paddingRight: 8,
           }}
         >
+          {/* Emoji Button inside box */}
+          <Pressable
+            onPress={() => setIsEmojiOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel={isEmojiOpen ? 'Hide emoji' : 'Show emoji'}
+            style={({ pressed }) => ({
+              width: 34,
+              height: 34,
+              borderRadius: 17,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isEmojiOpen ? `${colors.primary}20` : 'transparent',
+              flexShrink: 0,
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Ionicons
+              name={isEmojiOpen ? 'keypad' : 'happy-outline'}
+              size={22}
+              color={isEmojiOpen ? colors.primary : colors.textSecondary}
+            />
+          </Pressable>
+
+          {/* Text Input */}
           <TextInput
             value={draft}
             onChangeText={setDraft}
             onFocus={() => setIsEmojiOpen(false)}
             placeholder="Say something…"
             placeholderTextColor={colors.textMuted}
-            multiline
+            multiline={Platform.OS !== 'web'}
+            returnKeyType="send"
+            blurOnSubmit={false}
+            onSubmitEditing={() => {
+              if (draft.trim()) sendText();
+            }}
+            onKeyPress={(e) => {
+              if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+                e.preventDefault?.();
+                if (draft.trim()) sendText();
+              }
+            }}
             maxLength={2000}
             editable={!isUploading}
             style={{
               flex: 1,
+              minWidth: 0,
               maxHeight: 90,
-              fontSize: 14.5,
+              fontSize: 15,
               color: colors.textPrimary,
-              paddingVertical: Platform.OS === 'ios' ? 6 : 4,
-              paddingRight: 6,
+              paddingHorizontal: 8,
+              paddingVertical: Platform.OS === 'ios' ? 8 : 6,
             }}
           />
 
-          {/* Attachment Clip inside Capsule */}
+          {/* Media / Attachment Button inside box */}
           <Pressable
             onPress={chooseAttachment}
             disabled={isUploading}
             accessibilityRole="button"
             accessibilityLabel="Attach media"
             style={({ pressed }) => ({
-              padding: 4,
+              width: 34,
+              height: 34,
+              borderRadius: 17,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <Ionicons name="attach" size={22} color={colors.textMuted} />
+            <Ionicons name="attach" size={22} color={colors.textSecondary} />
           </Pressable>
         </View>
 

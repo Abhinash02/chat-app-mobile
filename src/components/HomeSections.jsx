@@ -51,7 +51,7 @@ export function SectionHeader({ title, badge, action, onAction }) {
   );
 }
 
-/** A live room, with who is in it. */
+/** A live room, with who is in it. Fixed dimensions for 100% APK & Web compatibility. */
 function RoomCard({ room, onPress }) {
   const { colors } = useTheme();
 
@@ -61,8 +61,8 @@ function RoomCard({ room, onPress }) {
       accessibilityRole="button"
       accessibilityLabel={`Join ${room.name}`}
       style={({ pressed }) => ({
-        width: 215,
-        height: 125,
+        width: 220,
+        height: 132,
         marginRight: 12,
         backgroundColor: colors.surface,
         borderRadius: 22,
@@ -72,7 +72,7 @@ function RoomCard({ room, onPress }) {
         justifyContent: 'space-between',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.06,
+        shadowOpacity: 0.07,
         shadowRadius: 8,
         elevation: 2,
         transform: [{ scale: pressed ? 0.97 : 1 }],
@@ -83,53 +83,57 @@ function RoomCard({ room, onPress }) {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 4,
-            paddingHorizontal: 7,
-            paddingVertical: 2,
+            gap: 5,
+            paddingHorizontal: 8,
+            paddingVertical: 2.5,
             borderRadius: 10,
-            backgroundColor: `${colors.success || '#10B981'}15`,
+            backgroundColor: `${colors.success || '#10B981'}18`,
           }}
         >
           <View
             style={{
-              width: 5,
-              height: 5,
-              borderRadius: 2.5,
+              width: 6,
+              height: 6,
+              borderRadius: 3,
               backgroundColor: colors.success || '#10B981',
             }}
           />
           <Text
             style={{
-              fontSize: 9.5,
+              fontSize: 10,
               fontWeight: '800',
               color: colors.success || '#10B981',
               textTransform: 'uppercase',
+              letterSpacing: 0.2,
             }}
           >
-            Live
+            {room.isVoiceEnabled ? '🎙️ Voice' : '💬 Live'}
           </Text>
         </View>
 
-        <Text style={{ fontSize: 10.5, fontWeight: '600', color: colors.textMuted }}>
+        <Text
+          numberOfLines={1}
+          style={{ fontSize: 10.5, fontWeight: '700', color: colors.textMuted }}
+        >
           {room.distanceKm !== null && room.distanceKm !== undefined
             ? `📍 ${room.distanceKm} km · `
             : ''}
-          {room.participantCount}/{room.maxParticipants}
+          👥 {room.participantCount || 0}/{room.maxParticipants || 20}
         </Text>
       </View>
 
       <View style={{ marginVertical: 2 }}>
         <Text
           numberOfLines={1}
-          style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}
+          style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary, letterSpacing: 0.1 }}
         >
           {room.name}
         </Text>
         <Text
           numberOfLines={1}
-          style={{ fontSize: 10.5, fontWeight: '500', color: colors.textMuted, marginTop: 1 }}
+          style={{ fontSize: 11, fontWeight: '500', color: colors.textMuted, marginTop: 2 }}
         >
-          {room.topic || `Hosted by ${room.host?.nickname ?? 'someone'}`}
+          {room.topic || (room.host?.nickname ? `Hosted by ${room.host.nickname}` : 'Open to everyone')}
         </Text>
       </View>
 
@@ -139,7 +143,7 @@ function RoomCard({ room, onPress }) {
             <View
               key={participant.userId || index}
               style={{
-                marginLeft: index === 0 ? 0 : -7,
+                marginLeft: index === 0 ? 0 : -8,
                 zIndex: 3 - index,
                 borderRadius: 13,
                 borderWidth: 1.5,
@@ -151,21 +155,26 @@ function RoomCard({ room, onPress }) {
                 gender={participant.gender}
                 emoji={participant.avatarEmoji}
                 color={participant.avatarColor}
-                size={22}
+                size={24}
               />
             </View>
           ))}
+          {(!room.participants || room.participants.length === 0) && (
+            <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: 'italic' }}>
+              Be first to join
+            </Text>
+          )}
         </View>
 
         <View
           style={{
-            paddingHorizontal: 10,
-            paddingVertical: 3.5,
+            paddingHorizontal: 11,
+            paddingVertical: 4,
             borderRadius: 12,
             backgroundColor: `${colors.primary}18`,
           }}
         >
-          <Text style={{ fontSize: 10.5, fontWeight: '800', color: colors.primary }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}>
             Join →
           </Text>
         </View>
@@ -271,19 +280,19 @@ function CreateRoomCard() {
       accessibilityRole="button"
       accessibilityLabel="Start a room"
       style={({ pressed }) => ({
-        width: 140,
-        height: 125,
+        width: 145,
+        height: 132,
         marginRight: 12,
         backgroundColor: colors.surface,
         borderRadius: 22,
         borderWidth: 1.5,
-        borderColor: `${colors.primary}35`,
+        borderColor: `${colors.primary}40`,
         alignItems: 'center',
         justifyContent: 'center',
         padding: 12,
         shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.12,
         shadowRadius: 8,
         elevation: 2,
         transform: [{ scale: pressed ? 0.96 : 1 }],
@@ -291,13 +300,13 @@ function CreateRoomCard() {
     >
       <View
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
+          width: 42,
+          height: 42,
+          borderRadius: 21,
           backgroundColor: colors.primary,
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: 6,
+          marginBottom: 8,
           shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 3 },
           shadowOpacity: 0.35,
@@ -310,24 +319,25 @@ function CreateRoomCard() {
       <Text
         numberOfLines={1}
         style={{
-          fontSize: 12,
+          fontSize: 12.5,
           fontWeight: '800',
           color: colors.primary,
           textAlign: 'center',
+          letterSpacing: 0.1,
         }}
       >
         Start a Room
       </Text>
       <View
         style={{
-          marginTop: 4,
-          backgroundColor: `${colors.primary}15`,
+          marginTop: 5,
+          backgroundColor: `${colors.primary}18`,
           borderRadius: 10,
           paddingHorizontal: 8,
-          paddingVertical: 2,
+          paddingVertical: 2.5,
         }}
       >
-        <Text style={{ fontSize: 9.5, fontWeight: '700', color: colors.primary }}>
+        <Text style={{ fontSize: 9.5, fontWeight: '800', color: colors.primary }}>
           Free to host
         </Text>
       </View>
@@ -336,7 +346,7 @@ function CreateRoomCard() {
 }
 
 export function LiveRoomsRow({ rooms, isLoading }) {
-  if (isLoading) return <RowSkeleton width={210} height={125} />;
+  if (isLoading) return <RowSkeleton width={220} height={132} />;
 
   return (
     <FlatList
