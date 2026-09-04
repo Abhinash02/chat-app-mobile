@@ -13,8 +13,10 @@ import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider.jsx';
 import { LanguageProvider } from '../src/i18n/LanguageProvider.jsx';
 import { ActionSheetProvider } from '../src/components/ActionSheet.jsx';
 import { AppUpdateModal } from '../src/components/AppUpdateModal.jsx';
+import { InAppNotificationBanner } from '../src/components/InAppNotificationBanner.jsx';
 import { ToastProvider } from '../src/components/Toast.jsx';
 import { usePushNotifications } from '../src/hooks/usePushNotifications.js';
+import { initializeMobileAds } from '../src/services/ads';
 import '../global.css';
 
 const queryClient = new QueryClient({
@@ -47,6 +49,10 @@ function AppShell() {
   usePushNotifications({ isAuthenticated });
 
   useEffect(() => {
+    initializeMobileAds();
+  }, []);
+
+  useEffect(() => {
     setEnabled(user?.preferences?.soundEnabled !== false);
   }, [user?.preferences?.soundEnabled, setEnabled]);
 
@@ -73,6 +79,7 @@ function AppShell() {
         {/* Full-screen and black: a story should not sit inside the app's chrome. */}
         <Stack.Screen name="status/[userId]" options={{ animation: 'fade' }} />
       </Stack>
+      <InAppNotificationBanner />
       <AppUpdateModal />
     </View>
   );

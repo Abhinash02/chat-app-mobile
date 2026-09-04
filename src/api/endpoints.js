@@ -153,6 +153,11 @@ export const deviceApi = {
 };
 
 export const notificationsApi = {
+  list: (params) => request({ method: 'GET', url: '/notifications', params }),
+  unreadCount: () => request({ method: 'GET', url: '/notifications/unread-count' }),
+  markRead: (id) => request({ method: 'PATCH', url: `/notifications/${id}/read` }),
+  markAllRead: () => request({ method: 'POST', url: '/notifications/read-all' }),
+  delete: (id) => request({ method: 'DELETE', url: `/notifications/${id}` }),
   testPush: (data) => request({ method: 'POST', url: '/notifications/test', data }),
 };
 
@@ -196,3 +201,11 @@ export const withdrawalsApi = {
   requestWithdrawal: (data) => request({ method: 'POST', url: '/withdrawals/request', data }),
 };
 
+export const referralApi = {
+  /** Get the caller's own referral code + shareable link */
+  myCode: () => request({ method: 'GET', url: '/referrals/my-code' }),
+  /** Total referrals made and total coins earned */
+  stats: () => request({ method: 'GET', url: '/referrals/stats' }),
+  /** Paginated list of referral events the user triggered */
+  history: (params) => requestList({ method: 'GET', url: '/referrals/history', params }),
+};

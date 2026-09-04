@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Avatar, Badge, CoinIcon, Field, Input, Loading } from '../../src/components/ui.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
+import { AdBanner } from '../../src/components/AdBanner';
 import { feedbackApi, supportApi, usersApi } from '../../src/api/endpoints.js';
 import { formatCoins } from '../../src/lib/format.js';
 import { appendFile } from '../../src/lib/media.js';
@@ -68,6 +69,7 @@ function useMenuSections({ router, user, wallet, unreadSupportCount, onOpenFeedb
           onPress: () => router.push('/coins'),
         },
         { icon: 'time-outline', tint: '#3b82f6', label: t('profile.menu.transactionHistory'), onPress: () => router.push('/transactions') },
+        { icon: 'gift-outline', tint: '#8b5cf6', label: 'Refer & Earn 🎁', onPress: () => router.push('/refer') },
         { icon: 'shield-checkmark-outline', tint: '#ef4444', label: t('profile.menu.blockedAccounts'), onPress: () => router.push('/blocked') },
         { icon: 'trophy-outline', tint: '#eab308', label: t('profile.menu.leaderboard'), onPress: () => router.push('/leaderboard') },
       ],
@@ -943,6 +945,9 @@ export default function Profile() {
             </View>
           </View>
         ))}
+
+        {/* AdMob Banner Monetization Placement */}
+        <AdBanner style={{ marginTop: 24, marginBottom: 8 }} />
       </ScrollView>
 
       {/* ---------- Feedback Modal ---------- */}

@@ -1,10 +1,6 @@
 /**
  * Bundled fallback palette.
- *
- * The app fetches its real theme from the server, but it must render before
- * that request finishes — and must keep rendering if it never does. These
- * values match the backend's "Blush" preset so a cold start looks the same as a
- * warm one, and an offline launch is not a blank screen.
+ * Matches backend's Blush preset with complete coverage for all color tokens.
  */
 export const DEFAULT_COLORS = Object.freeze({
   primary: '#FF4E88',
@@ -31,6 +27,18 @@ export const DEFAULT_COLORS = Object.freeze({
   onlineDot: '#22C55E',
   offlineDot: '#B9AFC0',
   coinGold: '#FFB020',
+  chatBubbleIncoming: '#FFFFFF',
+  chatBubbleIncomingText: '#1B1024',
+  chatBubbleOutgoing: '#FF4E88',
+  chatBubbleOutgoingText: '#FFFFFF',
+  tabBarBackground: '#FFFFFF',
+  tabBarActive: '#FF4E88',
+  tabBarInactive: '#9C8AA6',
+  cardBackground: '#FFFFFF',
+  inputBackground: '#FDEDF3',
+  inputBorder: '#F3D7E2',
+  vipGold: '#FFD700',
+  freeTalkBadge: '#FF4E88',
 });
 
 export const DEFAULT_BRANDING = Object.freeze({

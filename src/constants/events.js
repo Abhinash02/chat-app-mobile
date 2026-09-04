@@ -44,5 +44,8 @@ export const SOCKET_EVENT = Object.freeze({
   FORCE_LOGOUT: 'account:force-logout',
   ACCOUNT_SUSPENDED: 'account:suspended',
 
+  NOTIFICATION_NEW: 'notification:new',
+  NOTIFICATION_COUNT_UPDATED: 'notification:count:updated',
+
   ERROR: 'app:error',
 });

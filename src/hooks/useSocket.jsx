@@ -27,6 +27,8 @@ export function SocketProvider({ children }) {
   const [isConnected, setIsConnected] = useState(false);
   const [wallet, setWallet] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  const [activeBannerNotification, setActiveBannerNotification] = useState(null);
   const [presence, setPresence] = useState({});
 
   // Socket listeners are registered once per connection but must call the
@@ -99,7 +101,38 @@ export function SocketProvider({ children }) {
       socket.on(SOCKET_EVENT.READY, (payload) => {
         setWallet(payload.wallet);
         setUnreadCount(payload.unreadCount ?? 0);
+        if (typeof payload.notificationUnreadCount === 'number') {
+          setNotificationUnreadCount(payload.notificationUnreadCount);
+        }
         if (payload.theme) handlersRef.current.applyTheme(payload.theme);
+      });
+
+      socket.on(SOCKET_EVENT.NOTIFICATION_NEW, (notification) => {
+        const myGender = handlersRef.current.user?.gender;
+        if (notification.targetAudience === 'boys' && myGender !== 'male') return;
+        if (notification.targetAudience === 'girls' && myGender !== 'female') return;
+
+        // Play real-time notification audio chime immediately
+        if (notification.sound !== 'none') {
+          handlersRef.current.playMessage();
+        }
+
+        // Real-time count ++
+        setNotificationUnreadCount((c) => c + 1);
+
+        // Show top interactive notification alert banner
+        setActiveBannerNotification(notification);
+
+        // Refresh notification query caches
+        queryClient.invalidateQueries({ queryKey: ['in-app-notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['in-app-notifications-home'] });
+        queryClient.invalidateQueries({ queryKey: ['in-app-notifications-unread'] });
+      });
+
+      socket.on(SOCKET_EVENT.NOTIFICATION_COUNT_UPDATED, ({ unreadCount }) => {
+        if (typeof unreadCount === 'number') {
+          setNotificationUnreadCount(unreadCount);
+        }
       });
 
       socket.on(SOCKET_EVENT.WALLET_UPDATED, (snapshot) => {
@@ -234,6 +267,9 @@ export function SocketProvider({ children }) {
         queryClient.invalidateQueries({ queryKey: ['wallet'] });
         queryClient.invalidateQueries({ queryKey: ['earnings-status'] });
         queryClient.invalidateQueries({ queryKey: ['payment-options'] });
+        queryClient.invalidateQueries({ queryKey: ['referral-my-code'] });
+        queryClient.invalidateQueries({ queryKey: ['referral-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['publicSettings'] });
       });
 
       socket.on('earnings:updated', (data) => {
@@ -262,6 +298,8 @@ export function SocketProvider({ children }) {
       setWallet(null);
       setPresence({});
       setUnreadCount(0);
+      setNotificationUnreadCount(0);
+      setActiveBannerNotification(null);
     };
   }, [isAuthenticated, queryClient]);
 
@@ -288,6 +326,10 @@ export function SocketProvider({ children }) {
     return () => socketRef.current?.off(event, handler);
   }, []);
 
+  const dismissBannerNotification = useCallback(() => {
+    setActiveBannerNotification(null);
+  }, []);
+
   /**
    * Whether the free-talk allowance is actually being spent right now.
    *
@@ -307,13 +349,29 @@ export function SocketProvider({ children }) {
       setWallet,
       unreadCount,
       setUnreadCount,
+      notificationUnreadCount,
+      setNotificationUnreadCount,
+      activeBannerNotification,
+      dismissBannerNotification,
       presence,
       emit,
       on,
       isFreeTalkRunning,
       setFreeTalkRunning,
     }),
-    [socket, isConnected, wallet, unreadCount, presence, emit, on, isFreeTalkRunning],
+    [
+      socket,
+      isConnected,
+      wallet,
+      unreadCount,
+      notificationUnreadCount,
+      activeBannerNotification,
+      dismissBannerNotification,
+      presence,
+      emit,
+      on,
+      isFreeTalkRunning,
+    ],
   );
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;

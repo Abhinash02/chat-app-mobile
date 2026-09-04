@@ -85,7 +85,14 @@
           "cameraPermission": "Vibe uses your camera so you can take a photo or record a short video to share."
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-1028685120327829~9779863612",
+          "iosAppId": "ca-app-pub-1028685120327829~9779863612"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

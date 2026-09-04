@@ -340,17 +340,11 @@ export default function ChatScreen() {
   }, [conversationId, setUnreadCount, queryClient]);
 
   /**
-   * The free-time heartbeat.
-   *
-   * Sent only while this screen is open AND the app is in front, which is what
-   * makes the introductory allowance measure time actually spent chatting
-   * rather than wall-clock time since signup. Backgrounding the app stops the
-   * heartbeat, so the allowance is not spent while the phone is in a pocket —
-   * and because the server stores a balance rather than a deadline, reopening
-   * resumes from whatever is left instead of restarting at thirty minutes.
-   *
-   * The server decides how much each tick is worth and ignores ticks that
-   * arrive too fast, so this interval cannot be gamed.
+   * Free talk allowance tracking:
+   * 1. Starts countdown immediately upon entering the chat screen
+   * 2. Periodic high-precision heartbeat (every 5 seconds)
+   * 3. Flushes any unsaved elapsed seconds immediately on back / tab change / unmount / beforeunload
+   * 4. Stops countdown when outside chat screen and maintains exact balance
    */
   const isForeground = useIsForeground();
 
@@ -358,10 +352,8 @@ export default function ChatScreen() {
     conversationId && !wallet?.isUnlimited && wallet?.freeTalkSecondsRemaining && isForeground,
   );
 
-  /*
-   * The header's countdown follows the heartbeat exactly, so the number on
-   * screen is moving if and only if the server is billing for it.
-   */
+  const lastSyncTimeRef = useRef(Date.now());
+
   useEffect(() => {
     setFreeTalkRunning(isSpendingFreeTalk);
     return () => setFreeTalkRunning(false);
@@ -370,11 +362,48 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!isSpendingFreeTalk) return undefined;
 
-    const timer = setInterval(() => {
-      emit(SOCKET_EVENT.CHAT_HEARTBEAT, { conversationId });
-    }, 15_000);
+    lastSyncTimeRef.current = Date.now();
 
-    return () => clearInterval(timer);
+    // High-precision periodic sync every 5 seconds
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const elapsed = Math.round((now - lastSyncTimeRef.current) / 1000);
+      if (elapsed >= 1) {
+        emit(SOCKET_EVENT.CHAT_HEARTBEAT, { conversationId, seconds: elapsed });
+        lastSyncTimeRef.current = now;
+      }
+    }, 5_000);
+
+    // On unmount / tab switch / go back, immediately flush any unsaved seconds
+    return () => {
+      clearInterval(timer);
+      const now = Date.now();
+      const unsaved = Math.round((now - lastSyncTimeRef.current) / 1000);
+      if (unsaved >= 1) {
+        emit(SOCKET_EVENT.CHAT_HEARTBEAT, { conversationId, seconds: unsaved });
+        lastSyncTimeRef.current = now;
+      }
+    };
+  }, [conversationId, emit, isSpendingFreeTalk]);
+
+  // Web page reload / tab close handler to flush before browser unloads
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
+
+    const handleBeforeUnload = () => {
+      if (!isSpendingFreeTalk) return;
+      const unsaved = Math.round((Date.now() - lastSyncTimeRef.current) / 1000);
+      if (unsaved >= 1) {
+        emit(SOCKET_EVENT.CHAT_HEARTBEAT, { conversationId, seconds: unsaved });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
   }, [conversationId, emit, isSpendingFreeTalk]);
 
   // ----- Photos -------------------------------------------------------------
@@ -677,7 +706,7 @@ export default function ChatScreen() {
           </View>
         </Pressable>
 
-        <WalletHeader compact />
+        <WalletHeader compact showTimer />
       </View>
 
       {isLoadingMessages && groupedMessages.length === 0 ? (

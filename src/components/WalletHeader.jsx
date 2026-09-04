@@ -16,7 +16,7 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
  * The free-time readout ticks locally between server updates so it counts down
  * smoothly rather than jumping every fifteen seconds.
  */
-export function WalletHeader({ compact = false }) {
+export function WalletHeader({ compact = false, showTimer = false }) {
   const { colors, radius } = useTheme();
   const { user } = useAuth();
   const { wallet, isConnected, isFreeTalkRunning } = useSocket();
@@ -112,11 +112,11 @@ export function WalletHeader({ compact = false }) {
         {formatCoins(wallet.coinBalance)}
       </Text>
 
-      {isFreeTime ? (
+      {showTimer && isFreeTime ? (
         <Text className="text-[11px] font-semibold" style={{ color: colors.primary }}>
           · ⏳ {formatFreeTalk(displaySeconds)}
         </Text>
-      ) : !compact && wallet.estimatedMessagesRemaining !== null ? (
+      ) : showTimer && !compact && wallet.estimatedMessagesRemaining !== null ? (
         <Text className="text-[11px]" style={{ color: colors.textMuted }}>
           · {wallet.estimatedMessagesRemaining} msg
         </Text>

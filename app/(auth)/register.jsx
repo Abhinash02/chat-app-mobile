@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -89,6 +89,10 @@ export default function Register() {
   const { register } = useAuth();
   const toast = useToast();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams();
+
+  // Pre-fill referral code from deep-link query param (?ref=XXXXXXXX)
+  const incomingRef = params?.ref ? String(params.ref).trim().toUpperCase() : '';
 
   const [form, setForm] = useState({
     name: '',
@@ -98,6 +102,7 @@ export default function Register() {
     gender: '',
     ageGroup: '18-21',
     zodiacSign: null,
+    referralCode: incomingRef,
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,6 +129,7 @@ export default function Register() {
         gender: form.gender,
         ageGroup: form.ageGroup,
         zodiacSign: form.zodiacSign || null,
+        referralCode: form.referralCode || null,
       });
 
       toast.success('Check your inbox for the code');
@@ -185,9 +191,35 @@ export default function Register() {
         <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
           Create your account
         </Text>
-        <Text className="mb-7 mt-1.5 text-base" style={{ color: colors.textMuted }}>
+        <Text className="mb-4 mt-1.5 text-base" style={{ color: colors.textMuted }}>
           It takes a minute. We will email you a code to confirm it is you.
         </Text>
+
+        {/* Referral banner — only shown when the user arrived via a referral link */}
+        {incomingRef ? (
+          <View
+            style={{
+              backgroundColor: '#7C3AED15',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: '#7C3AED30',
+            }}
+          >
+            <Text style={{ fontSize: 20, marginRight: 10 }}>🎁</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: '700', color: '#7C3AED', fontSize: 13 }}>
+                Referral applied!
+              </Text>
+              <Text style={{ color: '#7C3AED99', fontSize: 12, marginTop: 2 }}>
+                Code <Text style={{ fontWeight: '800' }}>{incomingRef}</Text> — your friend will earn coins when you join.
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         <Field label="Your name" error={errors.name}>
           <Input
@@ -363,6 +395,21 @@ export default function Register() {
               })}
             </View>
           </ScrollView>
+        </Field>
+
+        {/* Referral Code (Optional) */}
+        <Field
+          label="Referral Code (Optional)"
+          hint={incomingRef ? "Code applied from invite link" : "Have a friend's referral code? Enter it to get bonus coins"}
+        >
+          <Input
+            value={form.referralCode}
+            onChangeText={(v) => set('referralCode', v.toUpperCase())}
+            placeholder="e.g. 8K9B2XYZ"
+            autoCapitalize="characters"
+            maxLength={12}
+            accessibilityLabel="Referral code"
+          />
         </Field>
 
         <GradientButton

@@ -16,14 +16,14 @@ const LOCATION_ASKED_KEY = 'vibe.locationAsked';
  * `expo-secure-store` has no web implementation at all, so the browser falls
  * back to localStorage. That is fine for the development preview this enables,
  * but it is NOT equivalent: localStorage is readable by any script on the page.
- * If this app is ever shipped as a real web product, the web build should move
- * to an httpOnly cookie session instead of reusing the mobile token flow.
  */
 const isWeb = Platform.OS === 'web';
 
 async function read(key) {
   try {
-    if (isWeb) return window.localStorage.getItem(key);
+    if (isWeb && typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem(key);
+    }
     return await SecureStore.getItemAsync(key);
   } catch {
     // Private browsing, blocked site data, or a device where the keystore is
@@ -36,7 +36,7 @@ async function write(key, value) {
   try {
     const isEmpty = value === null || value === undefined;
 
-    if (isWeb) {
+    if (isWeb && typeof window !== 'undefined' && window.localStorage) {
       if (isEmpty) window.localStorage.removeItem(key);
       else window.localStorage.setItem(key, value);
       return;
@@ -84,11 +84,6 @@ export const storage = {
 
   /**
    * Whether the location prompt has already been shown.
-   *
-   * Kept out of `clear()` on purpose: signing out and back in should not
-   * re-ask. The OS only grants one permission dialog per install, so asking
-   * again would either do nothing or annoy — the profile screen is where
-   * someone changes their mind.
    */
   async hasAskedLocation() {
     return (await read(LOCATION_ASKED_KEY)) === 'true';

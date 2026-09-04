@@ -106,9 +106,14 @@ export function ToastProvider({ children }) {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
-  const show = useCallback((options) => {
+  const show = useCallback((options, extra) => {
     nextId.current += 1;
-    const toast = { id: nextId.current, type: 'info', ...options };
+    const toastObj =
+      typeof options === 'string'
+        ? { message: options, ...(extra || {}) }
+        : (options || {});
+
+    const toast = { id: nextId.current, type: 'info', ...toastObj };
 
     // Three at a time is the most a phone screen can show without covering
     // the thing the user is trying to read.

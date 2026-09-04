@@ -158,7 +158,7 @@ export default function Chats() {
         <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
           Chats
         </Text>
-        <WalletHeader compact />
+        <WalletHeader compact showTimer />
       </View>
 
       {isLoading ? (

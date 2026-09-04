@@ -53,7 +53,7 @@ export default function Settings() {
   const { colors, radius } = useTheme();
   const { user, signOut, refreshUser } = useAuth();
   const { playMessage, setEnabled } = useSounds();
-  const { language, availableLanguages, setLanguage, t } = useLanguage();
+  const { language, currentLanguage, availableLanguages, setLanguage, t } = useLanguage();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -171,12 +171,12 @@ export default function Settings() {
                   flexShrink: 0,
                 }}
               >
-                <Text style={{ fontSize: 12 }}>{currentLanguage.flag}</Text>
+                <Text style={{ fontSize: 12 }}>{currentLanguage?.flag || '🌐'}</Text>
                 <Text
                   numberOfLines={1}
                   style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}
                 >
-                  {currentLanguage.nativeName}
+                  {currentLanguage?.nativeName || 'English'}
                 </Text>
               </View>
             </View>
@@ -343,7 +343,7 @@ export default function Settings() {
                   });
 
                   toast.success('Push notification sent! Check your notification bar.');
-                } catch (err) {
+                } catch {
                   toast.success('Notification triggered! Check your notification bar.');
                 }
               }}

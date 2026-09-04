@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { Ionicons } from '@expo/vector-icons';
 
 import { Avatar, EmptyState } from '../../src/components/ui.jsx';
 import { BrowseRow } from '../../src/components/BrowseRow.jsx';
@@ -78,7 +81,7 @@ function getTimeGreeting(name) {
 export default function Discover() {
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { presence } = useSocket();
+  const { presence, notificationUnreadCount } = useSocket();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -381,7 +384,35 @@ export default function Discover() {
           </View>
         </View>
 
-        <WalletHeader />
+        <View className="flex-row items-center gap-2">
+          <WalletHeader />
+          <Pressable
+            onPress={() => router.push('/notifications')}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            hitSlop={8}
+            className="h-9 w-9 items-center justify-center rounded-xl border relative active:scale-95"
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            }}
+          >
+            <Ionicons name="notifications-outline" size={19} color={colors.textPrimary} />
+            {notificationUnreadCount > 0 ? (
+              <View
+                className="absolute -top-1 -right-1 min-w-[17px] h-[17px] rounded-full items-center justify-center px-1 border"
+                style={{
+                  backgroundColor: '#ef4444',
+                  borderColor: colors.background,
+                }}
+              >
+                <Text className="text-[9px] font-extrabold text-white">
+                  {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
       </View>
 
       <View className="flex-row gap-2 px-4 pb-3">
@@ -603,6 +634,74 @@ export default function Discover() {
 
           {/* Lower Ad Section (Option A: In-House Custom Ad | Option B: Google AdMob) */}
           <HomeBottomAdSection />
+
+          {/* Quick Refer & Earn Short Link Card directly below Ad Section */}
+          <View className="px-4 mt-2.5 mb-8">
+            <Pressable
+              onPress={() => router.push('/refer')}
+              className="overflow-hidden rounded-2xl shadow-sm active:opacity-90"
+              style={{
+                backgroundColor: colors.surface || '#FFFFFF',
+                borderWidth: 1,
+                borderColor: colors.border || '#E5E7EB',
+              }}
+            >
+              <LinearGradient
+                colors={[
+                  `${colors.gradientStart || colors.primary || '#FF4E88'}18`,
+                  `${colors.gradientEnd || colors.secondary || '#7C4DFF'}0A`,
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ padding: 14, flexDirection: 'row', alignItems: 'center' }}
+              >
+                <View
+                  className="w-11 h-11 rounded-2xl items-center justify-center mr-3.5 shadow-sm"
+                  style={{
+                    backgroundColor: colors.primary || '#FF4E88',
+                  }}
+                >
+                  <Text style={{ fontSize: 22 }}>🎁</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="text-sm font-bold" style={{ color: colors.textPrimary }}>
+                      Refer &amp; Earn Free Coins
+                    </Text>
+                    <View
+                      className="px-1.5 py-0.5 rounded-full"
+                      style={{ backgroundColor: `${colors.primary || '#FF4E88'}20` }}
+                    >
+                      <Text
+                        className="text-[10px] font-black"
+                        style={{ color: colors.primary || '#FF4E88' }}
+                      >
+                        FREE
+                      </Text>
+                    </View>
+                  </View>
+                  <Text
+                    className="text-xs mt-0.5"
+                    style={{ color: colors.textSecondary }}
+                    numberOfLines={1}
+                  >
+                    Invite friends &amp; get instant bonus coins!
+                  </Text>
+                </View>
+                <View
+                  className="px-3.5 py-2 rounded-xl ml-2 shadow-sm"
+                  style={{ backgroundColor: colors.primary || '#FF4E88' }}
+                >
+                  <Text
+                    className="text-xs font-bold"
+                    style={{ color: colors.onPrimary || '#FFFFFF' }}
+                  >
+                    Invite →
+                  </Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
+          </View>
         </ScrollView>
       )}
     </View>

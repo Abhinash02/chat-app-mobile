@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Linking, Platform, Pressable, Text, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Image as RNImage,
+  Linking,
+  Platform,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -7,10 +17,14 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { bannersApi, settingsApi } from '../api/endpoints.js';
 import { useTheme } from '../theme/ThemeProvider.jsx';
+import { AdBanner } from './AdBanner';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
-function NativeAdVideo({ uri, height = 125 }) {
+/**
+ * Native Video Ad with auto aspect ratio
+ */
+function NativeAdVideo({ uri, height = 180, aspectRatio = 16 / 9 }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = true;
@@ -25,6 +39,7 @@ function NativeAdVideo({ uri, height = 125 }) {
         borderRadius: 16,
         overflow: 'hidden',
         backgroundColor: '#000',
+        aspectRatio: aspectRatio || undefined,
       }}
     >
       <VideoView
@@ -39,7 +54,23 @@ function NativeAdVideo({ uri, height = 125 }) {
   );
 }
 
-function AdVideoPlayer({ uri, height = 125 }) {
+/**
+ * Video Ad Player for Web and Native
+ */
+function AdVideoPlayer({ uri, height = 180, onRatioChange }) {
+  const [videoRatio, setVideoRatio] = useState(16 / 9);
+
+  const handleLoadedMetadata = (e) => {
+    const video = e?.target;
+    if (video && video.videoWidth && video.videoHeight) {
+      const ratio = video.videoWidth / video.videoHeight;
+      if (ratio > 0.3 && ratio < 4) {
+        setVideoRatio(ratio);
+        onRatioChange?.(ratio);
+      }
+    }
+  };
+
   if (Platform.OS === 'web') {
     return (
       <View
@@ -57,18 +88,27 @@ function AdVideoPlayer({ uri, height = 125 }) {
           loop
           muted
           playsInline
+          onLoadedMetadata={handleLoadedMetadata}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       </View>
     );
   }
 
-  return <NativeAdVideo uri={uri} height={height} />;
+  return <NativeAdVideo uri={uri} height={height} aspectRatio={videoRatio} />;
 }
 
-function AnimatedAdBanner({ banner, height = 125 }) {
+/**
+ * Responsive Animated Ad Banner that dynamically calculates height & aspect ratio
+ */
+function AnimatedAdBanner({ banner, containerWidth }) {
   const { colors } = useTheme();
+  const { height: screenHeight } = useWindowDimensions();
   const motion = useRef(new Animated.Value(0)).current;
+
+  // Aspect ratio state (width / height)
+  // Default to 16:9 or 2.4:1 banner ratio before media is loaded
+  const [aspectRatio, setAspectRatio] = useState(2.2);
 
   const isVideo =
     banner.mediaType === 'video' ||
@@ -76,6 +116,33 @@ function AnimatedAdBanner({ banner, height = 125 }) {
       Boolean(banner.imageUrl.match(/\.(mp4|webm|mov|3gp)($|\?)/i)));
 
   const animType = banner.animation || 'shimmer';
+
+  // Measure Image natural dimensions on mount/URI change
+  useEffect(() => {
+    if (isVideo || !banner.imageUrl) return;
+
+    let isMounted = true;
+
+    // React Native Image.getSize works across Native & Web
+    RNImage.getSize(
+      banner.imageUrl,
+      (width, height) => {
+        if (!isMounted || !width || !height) return;
+        const ratio = width / height;
+        // Keep within reasonable bounds (0.6 to 4.5)
+        if (ratio >= 0.6 && ratio <= 4.5) {
+          setAspectRatio(ratio);
+        }
+      },
+      () => {
+        // Fallback default
+      }
+    );
+
+    return () => {
+      isMounted = false;
+    };
+  }, [banner.imageUrl, isVideo]);
 
   useEffect(() => {
     if (isVideo || animType === 'none') {
@@ -108,8 +175,20 @@ function AnimatedAdBanner({ banner, height = 125 }) {
     return () => animation.stop();
   }, [animType, isVideo, motion]);
 
+  // Compute responsive height based on container width and detected aspect ratio
+  const validWidth = containerWidth > 0 ? containerWidth : 340;
+  const rawHeight = validWidth / (aspectRatio || 2.2);
+  const maxAllowedHeight = Math.min(360, Math.round(screenHeight * 0.45));
+  const height = Math.min(Math.max(Math.round(rawHeight), 85), maxAllowedHeight);
+
   if (isVideo) {
-    return <AdVideoPlayer uri={banner.imageUrl} height={height} />;
+    return (
+      <AdVideoPlayer
+        uri={banner.imageUrl}
+        height={height}
+        onRatioChange={(r) => setAspectRatio(r)}
+      />
+    );
   }
 
   const isPulse = animType === 'pulse';
@@ -118,7 +197,7 @@ function AnimatedAdBanner({ banner, height = 125 }) {
 
   const imageStyle = {
     width: '100%',
-    height,
+    height: '100%',
     opacity: isFade
       ? motion.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.85, 1, 0.85] })
       : 1,
@@ -147,7 +226,16 @@ function AnimatedAdBanner({ banner, height = 125 }) {
         <Image
           source={{ uri: banner.imageUrl }}
           style={{ width: '100%', height: '100%' }}
-          contentFit="cover"
+          contentFit="contain"
+          onLoad={(e) => {
+            const { width: w, height: h } = e.source || {};
+            if (w && h && w > 0 && h > 0) {
+              const ratio = w / h;
+              if (ratio >= 0.6 && ratio <= 4.5) {
+                setAspectRatio(ratio);
+              }
+            }
+          }}
           transition={200}
           cachePolicy="memory-disk"
         />
@@ -161,12 +249,12 @@ function AnimatedAdBanner({ banner, height = 125 }) {
             position: 'absolute',
             top: -height * 0.3,
             bottom: -height * 0.3,
-            width: 90,
+            width: Math.max(90, Math.round(validWidth * 0.3)),
             transform: [
               {
                 translateX: motion.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [-120, 500],
+                  outputRange: [-validWidth * 0.5, validWidth * 1.4],
                 }),
               },
               { rotate: '15deg' },
@@ -181,6 +269,11 @@ function AnimatedAdBanner({ banner, height = 125 }) {
 
 export function HomeBottomAdSection() {
   const { colors } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+
+  // Dynamic container width (defaults to screen width minus padding, clamped for large screens/tablets)
+  const initialCardWidth = Math.min(Math.max(windowWidth - 32 - 24, 280), 560);
+  const [contentWidth, setContentWidth] = useState(initialCardWidth);
 
   // 1. Fetch live public app settings for ads config
   const { data: publicSettings } = useQuery({
@@ -191,7 +284,7 @@ export function HomeBottomAdSection() {
 
   const adsConfig = publicSettings?.ads ?? {
     homeBottomAdProvider: 'admin',
-    admobBannerUnitId: 'ca-app-pub-3940256099942544/6300978111',
+    admobBannerUnitId: 'ca-app-pub-1028685120327829/9588291921',
     showSponsoredBadge: true,
   };
 
@@ -258,7 +351,16 @@ export function HomeBottomAdSection() {
     if (!banner) return null;
 
     return (
-      <View className="mb-6 px-4">
+      <View
+        className="mb-6 px-4"
+        onLayout={(e) => {
+          const layoutWidth = e.nativeEvent.layout.width;
+          if (layoutWidth > 0) {
+            // Subtract card inner padding (12px on left and right = 24px)
+            setContentWidth(layoutWidth - 24);
+          }
+        }}
+      >
         <Pressable
           onPress={handleBannerPress}
           disabled={!isRedirectActive}
@@ -318,8 +420,8 @@ export function HomeBottomAdSection() {
             ) : null}
           </View>
 
-          {/* Banner Graphic (Image or Video) */}
-          <AnimatedAdBanner banner={banner} height={125} />
+          {/* Banner Graphic (Image or Video) with responsive width & auto-aspect-ratio */}
+          <AnimatedAdBanner banner={banner} containerWidth={contentWidth} />
 
           {banner.note ? (
             <Text
@@ -336,8 +438,6 @@ export function HomeBottomAdSection() {
 
   // ── Option B: Google AdMob ──
   if (provider === 'admob') {
-    const unitId = adsConfig.admobBannerUnitId || 'ca-app-pub-3940256099942544/6300978111';
-
     return (
       <View className="mb-6 px-4">
         <View
@@ -346,7 +446,7 @@ export function HomeBottomAdSection() {
             borderRadius: 20,
             borderWidth: 1.5,
             borderColor: colors.border,
-            padding: 12,
+            padding: 10,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.06,
@@ -355,7 +455,7 @@ export function HomeBottomAdSection() {
           }}
         >
           {/* Header Row */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, paddingHorizontal: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <View
                 style={{
@@ -381,46 +481,8 @@ export function HomeBottomAdSection() {
             </Text>
           </View>
 
-          {/* Google Ad Container */}
-          <View
-            style={{
-              width: '100%',
-              height: 100,
-              borderRadius: 14,
-              backgroundColor: colors.surfaceAlt,
-              borderWidth: 1,
-              borderColor: colors.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 12,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <Text style={{ fontSize: 20 }}>📊</Text>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>
-                Google AdMob Banner Space
-              </Text>
-            </View>
-            <Text
-              numberOfLines={1}
-              style={{ fontSize: 10.5, color: colors.textMuted, textAlign: 'center' }}
-            >
-              Unit ID: {unitId}
-            </Text>
-            <View
-              style={{
-                marginTop: 6,
-                backgroundColor: `${colors.primary}12`,
-                paddingHorizontal: 8,
-                paddingVertical: 2.5,
-                borderRadius: 6,
-              }}
-            >
-              <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>
-                Active Ad Network Provider
-              </Text>
-            </View>
-          </View>
+          {/* Google AdMob Banner */}
+          <AdBanner />
         </View>
       </View>
     );
@@ -428,3 +490,4 @@ export function HomeBottomAdSection() {
 
   return null;
 }
+

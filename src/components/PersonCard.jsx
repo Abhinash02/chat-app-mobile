@@ -5,15 +5,14 @@ import { Avatar } from './ui.jsx';
 import { formatRelativeTime } from '../lib/format.js';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
-export const CARD_WIDTH = 150;
-export const CARD_HEIGHT = 232;
+export const CARD_WIDTH = 156;
+export const CARD_HEIGHT = 244;
 
 /**
- * One person card in the horizontal discovery feed.
+ * One person card in the horizontal discovery feed (Online Now / Browse Everyone).
  *
- * ✅  APK + Web safe — zero use of CSS-only properties like `inset: 0`.
- *     All positioning uses explicit top/right/bottom/left values.
- *     Fixed dimensions guarantee the card never collapses in native builds.
+ * Engineered with explicit Android DPI font metric safe zones so text and bottom
+ * action buttons never clip, freeze, or overflow on Android APK or Web.
  */
 export function PersonCard({
   person,
@@ -26,42 +25,48 @@ export function PersonCard({
 }) {
   const { colors } = useTheme();
 
-  const isOnline = presence?.[person.id]?.isOnline ?? person.isOnline;
-  const hasBio = Boolean(person.bio?.trim());
+  if (!person) return null;
+
+  const isOnline = presence?.[person.id]?.isOnline ?? person.isOnline ?? false;
+  const hasBio = Boolean(person.bio && person.bio.trim().length > 0);
   const ageLabel = person.ageGroup ? `Age ${person.ageGroup}` : null;
   const metaText = [ageLabel, person.city].filter(Boolean).join(' • ');
   const hasDistance =
-    person.distanceKm !== null && person.distanceKm !== undefined;
+    person.distanceKm !== null && person.distanceKm !== undefined && !isNaN(person.distanceKm);
 
   function handleCardPress() {
-    router.push(`/user/${person.id}`);
+    if (person.id) {
+      router.push(`/user/${person.id}`);
+    }
   }
 
   function handleChatPress(e) {
     e?.stopPropagation?.();
     if (onPress) {
       onPress(person);
-    } else {
+    } else if (person.id) {
       router.push(`/user/${person.id}`);
     }
   }
+
+  const displayName = person.nickname || person.name || 'User';
 
   return (
     <Pressable
       onPress={handleCardPress}
       disabled={isOpening}
       accessibilityRole="button"
-      accessibilityLabel={`View profile of ${person.nickname}${isOnline ? ', online now' : ''}`}
+      accessibilityLabel={`View profile of ${displayName}${isOnline ? ', online now' : ''}`}
       style={({ pressed }) => [
         styles.card,
         {
           width,
           height,
           backgroundColor: colors.surface,
-          borderColor: isOnline ? `${colors.primary}50` : colors.border,
+          borderColor: isOnline ? `${colors.primary}55` : colors.border,
           shadowColor: isOnline ? colors.primary : '#000000',
-          shadowOpacity: isOnline ? 0.18 : 0.08,
-          elevation: isOnline ? 5 : 2,
+          shadowOpacity: isOnline ? 0.16 : 0.06,
+          elevation: isOnline ? 4 : 2,
           transform: [{ scale: pressed && !isOpening ? 0.97 : 1 }],
           opacity: isOpening ? 0.72 : 1,
         },
@@ -79,17 +84,15 @@ export function PersonCard({
 
       {/* ── Card body ── */}
       <View style={styles.body}>
-
-        {/* --- Top section: avatar + name + status + bio --- */}
+        {/* --- Top section: avatar + name + status --- */}
         <View style={styles.topSection}>
-          {/* Avatar */}
           <Avatar
             uri={person.avatarUrl}
-            name={person.nickname}
+            name={displayName}
             gender={person.gender}
             emoji={person.avatarEmoji}
             color={person.avatarColor}
-            size={60}
+            size={56}
             isOnline={isOnline}
             showPresence
           />
@@ -99,7 +102,7 @@ export function PersonCard({
             numberOfLines={1}
             style={[styles.name, { color: colors.textPrimary }]}
           >
-            {person.nickname}
+            {displayName}
           </Text>
 
           {/* Online / Seen badge */}
@@ -111,7 +114,7 @@ export function PersonCard({
               ]}
             >
               <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>Online now</Text>
+              <Text style={styles.onlineText}>Online</Text>
             </View>
           ) : (
             <View
@@ -125,41 +128,41 @@ export function PersonCard({
                 style={[styles.seenText, { color: colors.textMuted }]}
               >
                 {person.lastSeenAt
-                  ? `Seen ${formatRelativeTime(person.lastSeenAt)} ago`
+                  ? `Seen ${formatRelativeTime(person.lastSeenAt)}`
                   : 'Offline'}
               </Text>
             </View>
           )}
+        </View>
 
-          {/* Bio / meta — always shows age below bio when both are present */}
-          <View style={styles.bioArea}>
-            {hasBio ? (
-              <Text
-                numberOfLines={2}
-                style={[styles.bioText, { color: colors.textSecondary }]}
-              >
-                {person.bio}
-              </Text>
-            ) : null}
-            {metaText ? (
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.metaText,
-                  { color: hasBio ? colors.textMuted : colors.primary },
-                ]}
-              >
-                {metaText}
-              </Text>
-            ) : !hasBio ? (
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                ✨ Say hi
-              </Text>
-            ) : null}
-          </View>
+        {/* --- Middle section: bio / location --- */}
+        <View style={styles.bioArea}>
+          {hasBio ? (
+            <Text
+              numberOfLines={2}
+              style={[styles.bioText, { color: colors.textSecondary }]}
+            >
+              {person.bio}
+            </Text>
+          ) : null}
 
-          {/* Distance badge */}
-          {hasDistance && (
+          {metaText ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.metaText,
+                { color: hasBio ? colors.textMuted : colors.primary },
+              ]}
+            >
+              {metaText}
+            </Text>
+          ) : !hasBio ? (
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+              ✨ Say hi
+            </Text>
+          ) : null}
+
+          {hasDistance ? (
             <View
               style={[
                 styles.distanceBadge,
@@ -167,10 +170,10 @@ export function PersonCard({
               ]}
             >
               <Text style={[styles.distanceText, { color: colors.primary }]}>
-                📍 {person.distanceKm} KM{'\n'}AWAY
+                📍 {person.distanceKm} km away
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* --- Chat button pinned at bottom --- */}
@@ -182,7 +185,7 @@ export function PersonCard({
               backgroundColor: colors.primary,
               shadowColor: colors.primary,
               opacity: pressed ? 0.88 : 1,
-              transform: [{ scale: pressed ? 0.97 : 1 }],
+              transform: [{ scale: pressed ? 0.96 : 1 }],
             },
           ]}
         >
@@ -203,10 +206,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 22,
     borderWidth: 1.5,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 14,
-    // APK-safe: no `overflow: hidden` on the outer Pressable so shadow renders on Android
-    // The inner body clips correctly with its own borderRadius
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 10,
   },
   onlineStrip: {
     position: 'absolute',
@@ -221,9 +222,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 8,
+    paddingTop: 12,
+    paddingBottom: 10,
     borderRadius: 22,
     overflow: 'hidden',
   },
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 13,
     fontWeight: '800',
-    marginTop: 7,
+    marginTop: 5,
     textAlign: 'center',
     letterSpacing: 0.1,
     width: '100%',
@@ -243,10 +244,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    borderRadius: 10,
+    marginTop: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
     borderWidth: 1,
   },
   onlineDot: {
@@ -261,10 +262,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   seenBadge: {
-    marginTop: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 10,
+    marginTop: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
   seenText: {
     fontSize: 9,
@@ -272,17 +273,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bioArea: {
-    minHeight: 44,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    marginTop: 5,
-    gap: 3,
+    paddingVertical: 2,
+    gap: 2,
   },
   bioText: {
     fontSize: 9.5,
     textAlign: 'center',
-    lineHeight: 13,
+    lineHeight: 12.5,
   },
   metaText: {
     fontSize: 9.5,
@@ -295,38 +296,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   distanceBadge: {
-    marginTop: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    marginTop: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
     alignItems: 'center',
   },
   distanceText: {
-    fontSize: 9,
-    fontWeight: '900',
+    fontSize: 8.5,
+    fontWeight: '800',
     textAlign: 'center',
-    lineHeight: 13,
-    letterSpacing: 0.3,
   },
   chatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 4,
     width: '100%',
-    height: 34,
-    borderRadius: 17,
-    shadowOpacity: 0.32,
-    shadowRadius: 6,
+    height: 32,
+    borderRadius: 16,
+    shadowOpacity: 0.28,
+    shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
-    marginTop: 8,
+    marginTop: 4,
   },
   chatEmoji: {
-    fontSize: 11,
+    fontSize: 10,
   },
   chatLabel: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.2,
   },

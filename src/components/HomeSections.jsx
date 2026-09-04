@@ -10,7 +10,7 @@ import { useTheme } from '../theme/ThemeProvider.jsx';
  * A titled row with an optional action on the right.
  */
 export function SectionHeader({ title, badge, action, onAction }) {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <View className="mb-3 flex-row items-center gap-2">
@@ -51,15 +51,21 @@ export function SectionHeader({ title, badge, action, onAction }) {
   );
 }
 
-/** A live room, with who is in it. Fixed dimensions for 100% APK & Web compatibility. */
+/** A live room card in the horizontal discovery row. */
 function RoomCard({ room, onPress }) {
   const { colors } = useTheme();
+
+  if (!room) return null;
+
+  const participantsList = Array.isArray(room.participants) ? room.participants : [];
+  const participantCount = room.participantCount ?? participantsList.length;
+  const maxParticipants = room.maxParticipants || 20;
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Join ${room.name}`}
+      accessibilityLabel={`Join ${room.name || 'Room'}`}
       style={({ pressed }) => ({
         width: 220,
         height: 132,
@@ -118,7 +124,7 @@ function RoomCard({ room, onPress }) {
           {room.distanceKm !== null && room.distanceKm !== undefined
             ? `📍 ${room.distanceKm} km · `
             : ''}
-          👥 {room.participantCount || 0}/{room.maxParticipants || 20}
+          👥 {participantCount}/{maxParticipants}
         </Text>
       </View>
 
@@ -127,7 +133,7 @@ function RoomCard({ room, onPress }) {
           numberOfLines={1}
           style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary, letterSpacing: 0.1 }}
         >
-          {room.name}
+          {room.name || 'Untitled Room'}
         </Text>
         <Text
           numberOfLines={1}
@@ -139,9 +145,9 @@ function RoomCard({ room, onPress }) {
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {(room.participants ?? []).slice(0, 3).map((participant, index) => (
+          {participantsList.slice(0, 3).map((participant, index) => (
             <View
-              key={participant.userId || index}
+              key={participant.userId || participant.id || index}
               style={{
                 marginLeft: index === 0 ? 0 : -8,
                 zIndex: 3 - index,
@@ -151,7 +157,7 @@ function RoomCard({ room, onPress }) {
               }}
             >
               <Avatar
-                name={participant.nickname}
+                name={participant.nickname || 'User'}
                 gender={participant.gender}
                 emoji={participant.avatarEmoji}
                 color={participant.avatarColor}
@@ -159,7 +165,7 @@ function RoomCard({ room, onPress }) {
               />
             </View>
           ))}
-          {(!room.participants || room.participants.length === 0) && (
+          {participantsList.length === 0 && (
             <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: 'italic' }}>
               Be first to join
             </Text>
@@ -187,6 +193,8 @@ function RoomCard({ room, onPress }) {
 function GameCard({ game, onPress }) {
   const { colors, radius } = useTheme();
 
+  if (!game) return null;
+
   return (
     <Pressable
       onPress={onPress}
@@ -201,7 +209,7 @@ function GameCard({ game, onPress }) {
         borderColor: colors.border,
       }}
     >
-      <Text style={{ fontSize: 30 }}>{game.emoji}</Text>
+      <Text style={{ fontSize: 30 }}>{game.emoji || '🎮'}</Text>
       <Text
         numberOfLines={1}
         className="mt-2 text-xs font-bold"
@@ -229,20 +237,19 @@ function RowSkeleton({ width, height }) {
 }
 
 /**
- * A horizontally scrolling row of cards.
- *
- * `horizontal` FlatLists get the same virtualisation as vertical ones, which
- * matters when a row can hold every live room.
+ * A horizontally scrolling row of cards with Android nested scroll enabled.
  */
 function CardRow({ data, isLoading, renderItem, keyExtractor, skeleton }) {
   if (isLoading) return <RowSkeleton {...skeleton} />;
-  if (!data?.length) return null;
+  const safeData = Array.isArray(data) ? data : [];
+  if (safeData.length === 0) return null;
 
   return (
     <FlatList
-      data={data}
+      data={safeData}
       horizontal
       showsHorizontalScrollIndicator={false}
+      nestedScrollEnabled={true}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       contentContainerStyle={{ paddingRight: 4 }}
@@ -256,7 +263,7 @@ export function GamesRow({ games, isLoading }) {
       data={games}
       isLoading={isLoading}
       skeleton={{ width: 116, height: 108 }}
-      keyExtractor={(item) => item.key}
+      keyExtractor={(item) => String(item?.key || item?.id || Math.random())}
       renderItem={({ item }) => (
         <GameCard game={item} onPress={() => router.push('/(tabs)/games')} />
       )}
@@ -266,10 +273,6 @@ export function GamesRow({ games, isLoading }) {
 
 /**
  * The tile that starts a room.
- *
- * It sits at the end of the row rather than only in the header, because an
- * empty or short row is exactly when someone might want to open one — and a
- * list with nothing in it should not be a dead end.
  */
 function CreateRoomCard() {
   const { colors } = useTheme();
@@ -348,16 +351,26 @@ function CreateRoomCard() {
 export function LiveRoomsRow({ rooms, isLoading }) {
   if (isLoading) return <RowSkeleton width={220} height={132} />;
 
+  const safeRooms = Array.isArray(rooms) ? rooms : [];
+
   return (
     <FlatList
-      data={rooms ?? []}
+      data={safeRooms}
       horizontal
       showsHorizontalScrollIndicator={false}
-      keyExtractor={(item) => item.id}
+      nestedScrollEnabled={true}
+      keyExtractor={(item) => String(item?.id || Math.random())}
       contentContainerStyle={{ paddingRight: 4, paddingVertical: 4 }}
       ListFooterComponent={<CreateRoomCard />}
       renderItem={({ item }) => (
-        <RoomCard room={item} onPress={() => router.push(`/room/${item.id}`)} />
+        <RoomCard
+          room={item}
+          onPress={() => {
+            if (item?.id) {
+              router.push(`/room/${item.id}`);
+            }
+          }}
+        />
       )}
     />
   );

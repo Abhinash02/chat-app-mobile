@@ -1,14 +1,12 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Text, View } from 'react-native';
 
-import { PersonCard } from './PersonCard.jsx';
+import { CARD_HEIGHT, CARD_WIDTH, PersonCard } from './PersonCard.jsx';
 import { Skeleton } from './Loader.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
-const CARD_WIDTH = 150;
 const CARD_GAP = 12;
-const CARD_HEIGHT = 232;
-const PAGE_SIZE = 10; // how many to show at first, then load more
+const PAGE_SIZE = 10;
 
 /**
  * Inline "loading more" spinner at the end of the row
@@ -19,7 +17,7 @@ function LoadingMoreCard() {
     <View
       style={{
         width: 80,
-        height: 230,
+        height: CARD_HEIGHT,
         alignItems: 'center',
         justifyContent: 'center',
         marginLeft: CARD_GAP,
@@ -34,134 +32,70 @@ function LoadingMoreCard() {
 }
 
 /**
- * "All caught up" card — premium end-of-list indicator
+ * "All caught up" card indicator at end of list
  */
 function EndCard() {
   const { colors } = useTheme();
   return (
     <View
       style={{
-        width: 130,
-        height: 232,
+        width: 120,
+        height: CARD_HEIGHT,
         marginLeft: CARD_GAP,
         borderRadius: 22,
         borderWidth: 1.5,
         borderColor: `${colors.primary}30`,
         backgroundColor: colors.surface,
         shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.16,
-        shadowRadius: 12,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 3,
         overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 12,
+        gap: 6,
       }}
     >
-      {/* Top glow blob */}
+      <Text style={{ fontSize: 24 }}>🎉</Text>
       <View
         style={{
-          position: 'absolute',
-          top: -20,
-          left: -20,
-          width: 100,
-          height: 100,
-          borderRadius: 50,
-          backgroundColor: `${colors.primary}22`,
-        }}
-      />
-      {/* Bottom glow blob */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: -15,
-          right: -15,
-          width: 80,
-          height: 80,
-          borderRadius: 40,
           backgroundColor: `${colors.primary}18`,
-        }}
-      />
-
-      {/* Content */}
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingHorizontal: 12,
-          paddingVertical: 16,
-          gap: 6,
+          borderRadius: 8,
+          paddingHorizontal: 6,
+          paddingVertical: 3,
         }}
       >
-        {/* Sparkle icon cluster */}
-        <View style={{ alignItems: 'center', marginBottom: 2 }}>
-          <Text style={{ fontSize: 8, marginBottom: -4, marginLeft: 18, opacity: 0.7 }}>✨</Text>
-          <Text style={{ fontSize: 26 }}>🎉</Text>
-          <Text style={{ fontSize: 8, marginTop: -4, marginRight: 18, opacity: 0.7 }}>✨</Text>
-        </View>
-
-        {/* Primary label */}
-        <View
-          style={{
-            backgroundColor: `${colors.primary}18`,
-            borderRadius: 10,
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderWidth: 1,
-            borderColor: `${colors.primary}30`,
-          }}
-        >
-          <Text
-            style={{
-              color: colors.primary,
-              fontSize: 10,
-              fontWeight: '900',
-              textAlign: 'center',
-              letterSpacing: 0.3,
-            }}
-          >
-            All caught up!
-          </Text>
-        </View>
-
-        {/* Divider dot row */}
-        <View style={{ flexDirection: 'row', gap: 3, alignItems: 'center' }}>
-          {[0.3, 0.6, 1, 0.6, 0.3].map((op, i) => (
-            <View
-              key={i}
-              style={{
-                width: 3,
-                height: 3,
-                borderRadius: 2,
-                backgroundColor: colors.primary,
-                opacity: op,
-              }}
-            />
-          ))}
-        </View>
-
-        {/* Subtitle */}
         <Text
           style={{
-            color: colors.textMuted,
-            fontSize: 9,
+            color: colors.primary,
+            fontSize: 9.5,
+            fontWeight: '900',
             textAlign: 'center',
-            lineHeight: 13,
-            fontWeight: '500',
           }}
         >
-          You've seen{'\n'}everyone! 👀
+          All caught up!
         </Text>
       </View>
+      <Text
+        style={{
+          color: colors.textMuted,
+          fontSize: 8.5,
+          textAlign: 'center',
+          lineHeight: 12,
+        }}
+      >
+        You've seen everyone ✨
+      </Text>
     </View>
   );
 }
 
 /**
- * A swipeable row of people with inline infinite scroll.
- *
- * - Shows PAGE_SIZE cards initially.
- * - When user reaches the end, more are appended inline — no new page opens.
- * - Fully live: new users added via real-time presence updates appear automatically.
+ * A swipeable horizontal row of people (Online Now / Browse Everyone).
+ * Built with full Android APK nested scroll resilience.
  */
 export function BrowseRow({
   people,
@@ -170,25 +104,24 @@ export function BrowseRow({
   presence,
   onOpen,
   openingId,
-  onLoadMore,         // optional: () => Promise<void> — fetches next page from parent
-  isLoadingMore,      // optional: boolean
+  onLoadMore,
+  isLoadingMore,
   actionLabel,
 }) {
   const { colors } = useTheme();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const shown = people?.slice(0, visibleCount) ?? [];
-  const allLocalLoaded = visibleCount >= (people?.length ?? 0);
-  const hasMoreRemote = total != null ? (people?.length ?? 0) < total : false;
+  const safePeople = Array.isArray(people) ? people : [];
+  const shown = safePeople.slice(0, visibleCount);
+  const allLocalLoaded = visibleCount >= safePeople.length;
+  const hasMoreRemote = total != null ? safePeople.length < total : false;
 
   const handleEndReached = useCallback(() => {
     if (isLoadingMore) return;
 
     if (!allLocalLoaded) {
-      // Show more from already-fetched array
       setVisibleCount((c) => c + PAGE_SIZE);
     } else if (hasMoreRemote && onLoadMore) {
-      // Fetch next page from server — parent appends to `people`
       onLoadMore();
     }
   }, [allLocalLoaded, hasMoreRemote, isLoadingMore, onLoadMore]);
@@ -199,7 +132,8 @@ export function BrowseRow({
         data={[0, 1, 2, 3]}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
+        nestedScrollEnabled={true}
+        contentContainerStyle={{ paddingVertical: 4, paddingRight: 16 }}
         keyExtractor={(item) => String(item)}
         renderItem={() => (
           <View style={{ marginRight: CARD_GAP }}>
@@ -210,7 +144,7 @@ export function BrowseRow({
     );
   }
 
-  if (!people?.length) return null;
+  if (safePeople.length === 0) return null;
 
   const showLoadingMore = isLoadingMore && allLocalLoaded && hasMoreRemote;
   const showEnd = allLocalLoaded && !hasMoreRemote && shown.length > 0;
@@ -220,10 +154,10 @@ export function BrowseRow({
       data={shown}
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
-      keyExtractor={(item) => item.id}
-      snapToInterval={CARD_WIDTH + CARD_GAP}
-      decelerationRate="fast"
+      nestedScrollEnabled={true}
+      removeClippedSubviews={false}
+      contentContainerStyle={{ paddingVertical: 4, paddingRight: 16 }}
+      keyExtractor={(item) => String(item?.id || Math.random())}
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.5}
       ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
@@ -239,13 +173,14 @@ export function BrowseRow({
           person={item}
           presence={presence}
           width={CARD_WIDTH}
+          height={CARD_HEIGHT}
           actionLabel={actionLabel}
-          isOpening={openingId === item.id}
-          onPress={() => onOpen(item)}
+          isOpening={openingId === item?.id}
+          onPress={() => onOpen?.(item)}
         />
       )}
     />
   );
 }
 
-export { CARD_WIDTH };
+export { CARD_WIDTH, CARD_HEIGHT };
