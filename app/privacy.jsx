@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
           </View>
           <Text className="text-xs leading-5" style={{ color: colors.textSecondary }}>
             • <Text className="font-bold" style={{ color: colors.textPrimary }}>Hardware-Level Protection:</Text> Screen recording and screenshot capture are actively blocked inside private 1-on-1 chats, random video/voice calls, and voice rooms.
-            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Confidentiality:</Text> Images, voice notes, live camera feeds, and messages cannot be recorded or saved to other users' galleries without authorization.
+            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Confidentiality:</Text> Images, voice notes, live camera feeds, and messages cannot be recorded or saved to other users&rsquo; galleries without authorization.
           </Text>
         </Card>
 
@@ -141,18 +141,46 @@ export default function PrivacyPolicy() {
             </Text>
           </View>
           <Text className="text-xs leading-5" style={{ color: colors.textSecondary }}>
-            • <Text className="font-bold" style={{ color: colors.textPrimary }}>Instant Block & Report:</Text> You can block or report any abusive user at any time directly from the chat or call menu.
-            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Message Deletion:</Text> You can {'"Delete for Everyone"'} to remove messages from both participants' conversation history.
-            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Permanent Account Deletion:</Text> You have the right to permanently delete your account at any time in App Settings, which instantly wipes your profile, active sessions, and data.
+            • <Text className="font-bold" style={{ color: colors.textPrimary }}>Automatic word filtering:</Text> Messages, photo captions, and voice-room chat pass through an automated filter that masks abusive and sexual terms in English, Hindi, and Punjabi. It runs on our servers as the message is sent. This is pattern matching against a word list, not a person reading your chats — no human sees a message because of it.
+            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>What gets stored:</Text> The filtered version is what is saved and delivered. Masked words are replaced before the message is written, so the original wording is not kept.
+            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Instant Block &amp; Report:</Text> You can block or report any user at any time from the chat or call menu.
+            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>What a report captures:</Text> Filing a report saves a snapshot of recent messages in that conversation so our team can review what happened. That snapshot is kept even if either person later deletes those messages. This is the one case where a person reads part of a conversation, and only after somebody reports it.
+            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Message Deletion:</Text> You can {'"Delete for Everyone"'} to remove messages from both participants&rsquo; conversation history. This does not remove them from a report already filed.
+            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Permanent Account Deletion:</Text> You have the right to permanently delete your account at any time in App Settings, which instantly wipes your profile, active sessions, and data. Reports filed against an account may be retained for safety and legal purposes after deletion.
           </Text>
         </Card>
 
-        {/* Section 7: Contact Us */}
+        {/* Section 7: the conduct rules, mirrored from the Terms of Use so that
+            nobody has to read both documents to find out what is not allowed. */}
+        <Card className="mb-3.5">
+          <View className="flex-row items-center gap-2 mb-2">
+            <Ionicons name="hand-left" size={16} color="#EF4444" />
+            <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
+              7. What Is Not Allowed
+            </Text>
+          </View>
+          <Text className="text-xs leading-5" style={{ color: colors.textSecondary }}>
+            Vibe Chat is a place to meet people and talk. It is not an adult platform. These rules
+            apply in chats, voice rooms, photo posts, captions, status updates, and profiles:
+            {'\n'}
+            {'\n'}• <Text className="font-bold text-red-500">No abusive or vulgar language</Text> — swearing, insults, and gaali in any language, including Roman script.
+            {'\n'}• <Text className="font-bold text-red-500">No sexual talk</Text> — sexual conversation, propositions, or explicit descriptions, even where both people appear willing.
+            {'\n'}• <Text className="font-bold text-red-500">No nudity or sexual media</Text> — sending, posting, or requesting nude or sexual photos, videos, or voice notes. Asking is a violation on its own.
+            {'\n'}• <Text className="font-bold text-red-500">No sexual solicitation</Text> — offering or asking for paid sexual services or content, for coins or for money.
+            {'\n'}• <Text className="font-bold text-red-500">No harassment</Text> — messaging someone who has asked you to stop, or intimidating, stalking, threatening, or impersonating anyone.
+            {'\n'}• <Text className="font-bold text-red-500">No hate speech</Text> — attacks based on religion, caste, region, gender, sexuality, disability, or ethnicity.
+            {'\n'}• <Text className="font-bold text-red-500">Nothing involving minors</Text> — the service is 18+. Sexual content involving a minor, or any attempt to contact one, is reported to the authorities.
+            {'\n'}
+            {'\n'}Violations lead to content removal, suspension, or permanent termination depending on severity. The most serious result in immediate permanent termination with no warning, and coins on a terminated account are forfeited. Full detail is in the Terms of Use.
+          </Text>
+        </Card>
+
+        {/* Section 8: Contact Us */}
         <Card>
           <View className="flex-row items-center gap-2 mb-2">
             <Ionicons name="mail" size={16} color={colors.primary} />
             <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-              7. Contact Privacy & Grievance Team
+              8. Contact Privacy & Grievance Team
             </Text>
           </View>
           <Text className="text-xs leading-5" style={{ color: colors.textSecondary }}>

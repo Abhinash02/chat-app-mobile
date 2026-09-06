@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Ionicons } from '@expo/vector-icons';
 
+import { AuthHero } from '../../src/components/AuthHero.jsx';
 import { Field, GradientButton, Input } from '../../src/components/ui.jsx';
+import { LanguagePicker } from '../../src/components/LanguagePicker.jsx';
+import { MAX_LANGUAGES, guessLanguagesFromDevice } from '../../src/constants/languages.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
@@ -88,7 +90,6 @@ export default function Register() {
   const { colors, radius } = useTheme();
   const { register } = useAuth();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
   // Pre-fill referral code from deep-link query param (?ref=XXXXXXXX)
@@ -102,6 +103,9 @@ export default function Register() {
     gender: '',
     ageGroup: '18-21',
     zodiacSign: null,
+    // Seeded from the device locale — see guessLanguagesFromDevice. A lazy
+    // initialiser so the lookup runs once rather than on every keystroke.
+    languages: guessLanguagesFromDevice(),
     referralCode: incomingRef,
   });
   const [errors, setErrors] = useState({});
@@ -129,6 +133,9 @@ export default function Register() {
         gender: form.gender,
         ageGroup: form.ageGroup,
         zodiacSign: form.zodiacSign || null,
+        // Omitted entirely when nothing was picked, so the server applies its
+        // own default rather than being handed an empty array to interpret.
+        ...(form.languages.length ? { languages: form.languages } : {}),
         referralCode: form.referralCode || null,
       });
 
@@ -156,45 +163,20 @@ export default function Register() {
       style={{ backgroundColor: colors.background }}
     >
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
-        className="px-6"
+        showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          onPress={() => router.replace('/(auth)/login')}
-          className="mb-6 flex-row items-center gap-2 self-start px-3.5 py-2 active:opacity-75"
-          style={{
-            backgroundColor: colors.surface,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: colors.border,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.05,
-            shadowRadius: 6,
-            elevation: 2,
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Back to Sign In"
-        >
-          <View
-            className="h-6 w-6 items-center justify-center rounded-full"
-            style={{ backgroundColor: `${colors.primary}18` }}
-          >
-            <Ionicons name="chevron-back" size={15} color={colors.primary} />
-          </View>
-          <Text className="text-xs font-bold tracking-tight pr-1" style={{ color: colors.textPrimary }}>
-            Back to Sign In
-          </Text>
-        </Pressable>
+        <AuthHero
+          title="Create your account"
+          subtitle="It takes a minute. We will email you a code to confirm it is you."
+          onBack={() => router.replace('/(auth)/login')}
+          // The signup form is long; a shorter hero keeps the first field
+          // above the fold instead of pushing it off the screen.
+          compact
+        />
 
-        <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          Create your account
-        </Text>
-        <Text className="mb-4 mt-1.5 text-base" style={{ color: colors.textMuted }}>
-          It takes a minute. We will email you a code to confirm it is you.
-        </Text>
-
+        <View className="px-6 pt-6">
         {/* Referral banner — only shown when the user arrived via a referral link */}
         {incomingRef ? (
           <View
@@ -313,6 +295,18 @@ export default function Register() {
           </View>
         </Field>
 
+        {/* Languages you speak */}
+        <Field
+          label="Languages you speak"
+          hint={`Pick up to ${MAX_LANGUAGES}. We show you people who speak the same ones, so a chat can actually go somewhere.`}
+        >
+          <LanguagePicker
+            value={form.languages}
+            onChange={(next) => set('languages', next)}
+            hint="Optional — skip this and you will see everyone."
+          />
+        </Field>
+
         {/* Age Bracket Selection */}
         <Field label="Age Bracket" hint="Shown on your profile so you can match with people in your range.">
           <View className="flex-row flex-wrap gap-2.5">
@@ -428,6 +422,7 @@ export default function Register() {
               Sign in
             </Text>
           </Pressable>
+        </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

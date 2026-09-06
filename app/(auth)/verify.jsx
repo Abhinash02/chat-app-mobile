@@ -7,6 +7,7 @@ import { GradientButton } from '../../src/components/ui.jsx';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
+import { BackButton } from '../../src/components/ScreenHeader.jsx';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -80,11 +81,9 @@ export default function Verify() {
       className="flex-1 px-6"
       style={{ backgroundColor: colors.background, paddingTop: insets.top + 24 }}
     >
-      <Pressable onPress={() => router.back()} className="mb-6 self-start" accessibilityRole="button">
-        <Text className="text-base" style={{ color: colors.textSecondary }}>
-          ← Back
-        </Text>
-      </Pressable>
+      <View className="mb-6 self-start">
+        <BackButton fallback="/(auth)/login" />
+      </View>
 
       <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
         Check your email

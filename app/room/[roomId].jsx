@@ -10,7 +10,6 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
 
 import { ImageBubble, VideoBubble } from '../../src/components/MediaBubble.jsx';
 import { RoomComposer } from '../../src/components/RoomComposer.jsx';
@@ -24,6 +23,7 @@ import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
 import { useScreenCaptureProtection } from '../../src/hooks/useScreenCaptureProtection.js';
+import { BackButton } from '../../src/components/ScreenHeader.jsx';
 
 /**
  * What actually sits inside a bubble, chosen by message type.
@@ -357,24 +357,7 @@ export default function RoomScreen() {
         }}
       >
         <View className="flex-row items-center gap-3 flex-1">
-          <Pressable
-            onPress={leave}
-            accessibilityRole="button"
-            accessibilityLabel="Back to rooms"
-            style={({ pressed }) => ({
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: colors.surfaceAlt || `${colors.primary}12`,
-              borderWidth: 1,
-              borderColor: colors.border,
-              opacity: pressed ? 0.75 : 1,
-            })}
-          >
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-          </Pressable>
+          <BackButton onPress={leave} />
 
           <View className="flex-1">
             <Text numberOfLines={1} className="text-base font-bold" style={{ color: colors.textPrimary }}>

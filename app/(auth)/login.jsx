@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Ionicons } from '@expo/vector-icons';
-
+import { AuthHero } from '../../src/components/AuthHero.jsx';
 import { Field, GradientButton, Input } from '../../src/components/ui.jsx';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
@@ -14,7 +12,6 @@ export default function Login() {
   const { colors } = useTheme();
   const { signIn } = useAuth();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,45 +47,38 @@ export default function Login() {
       style={{ backgroundColor: colors.background }}
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 24, paddingBottom: 32 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }}
         keyboardShouldPersistTaps="handled"
-        className="px-6"
+        showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/welcome'))}
-          className="mb-6 flex-row items-center gap-2 self-start px-3.5 py-2 active:opacity-75"
+        <AuthHero
+          title="Welcome back"
+          subtitle="Sign in to pick up where you left off."
+          onBack={() =>
+            router.canGoBack() ? router.back() : router.replace('/(auth)/welcome')
+          }
+        />
+
+        {/*
+          The form sits on a card lifted over the gradient's bottom edge, so the
+          two read as one surface rather than a banner with a form beneath it.
+        */}
+        <View
           style={{
+            marginTop: -18,
+            marginHorizontal: 16,
+            padding: 20,
+            borderRadius: 24,
             backgroundColor: colors.surface,
-            borderRadius: 999,
             borderWidth: 1,
             borderColor: colors.border,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.05,
-            shadowRadius: 6,
-            elevation: 2,
+            shadowColor: '#0F0817',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.08,
+            shadowRadius: 18,
+            elevation: 4,
           }}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
         >
-          <View
-            className="h-6 w-6 items-center justify-center rounded-full"
-            style={{ backgroundColor: `${colors.primary}18` }}
-          >
-            <Ionicons name="chevron-back" size={15} color={colors.primary} />
-          </View>
-          <Text className="text-xs font-bold tracking-tight pr-1" style={{ color: colors.textPrimary }}>
-            Back
-          </Text>
-        </Pressable>
-
-        <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          Welcome back
-        </Text>
-        <Text className="mb-8 mt-1.5 text-base" style={{ color: colors.textMuted }}>
-          Sign in to pick up where you left off.
-        </Text>
-
         <Field label="Email">
           <Input
             value={email}
@@ -147,22 +137,27 @@ export default function Login() {
           onPress={handleSubmit}
         />
 
-        <Pressable
-          onPress={() => router.push('/(auth)/forgot-password')}
-          className="mt-5 self-center"
-          accessibilityRole="button"
-        >
-          <Text className="text-sm font-medium" style={{ color: colors.primary }}>
-            Forgot your password?
-          </Text>
-        </Pressable>
+          <Pressable
+            onPress={() => router.push('/(auth)/forgot-password')}
+            className="mt-5 self-center"
+            accessibilityRole="button"
+          >
+            <Text className="text-sm font-medium" style={{ color: colors.primary }}>
+              Forgot your password?
+            </Text>
+          </Pressable>
+        </View>
 
-        <View className="mt-auto flex-row justify-center pt-10">
+        <View className="mt-auto flex-row items-center justify-center pt-8">
           <Text className="text-sm" style={{ color: colors.textMuted }}>
             New here?{' '}
           </Text>
-          <Pressable onPress={() => router.replace('/(auth)/register')} accessibilityRole="button">
-            <Text className="text-sm font-semibold" style={{ color: colors.primary }}>
+          <Pressable
+            onPress={() => router.replace('/(auth)/register')}
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <Text className="text-sm font-bold" style={{ color: colors.primary }}>
               Create an account
             </Text>
           </Pressable>

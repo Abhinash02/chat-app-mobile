@@ -1,8 +1,10 @@
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 
+import { CartoonAvatar } from './CartoonAvatar.jsx';
 import { Gradient } from './Gradient.jsx';
 import { ScreenLoader } from './Loader.jsx';
+
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
 /**
@@ -98,9 +100,23 @@ export function Button({
   );
 }
 
-export function GradientButton({ title, onPress, isLoading, disabled, className = '' }) {
+/**
+ * A filled, gradient-backed button.
+ *
+ * `gradient` overrides the theme's brand pair with an explicit two-colour
+ * array. It exists so a screen offering several actions of equal weight — the
+ * payment methods, for one — can give each its own colour while keeping one
+ * button shape. Left unset, the button stays on the admin-controlled brand
+ * gradient, which is what every other caller wants.
+ */
+export function GradientButton({ title, onPress, isLoading, disabled, className = '', gradient }) {
   const { colors, radius } = useTheme();
   const isDisabled = disabled || isLoading;
+
+  const fill =
+    Array.isArray(gradient) && gradient.length >= 2
+      ? gradient
+      : [colors.gradientStart, colors.gradientEnd];
 
   return (
     <Pressable
@@ -112,7 +128,7 @@ export function GradientButton({ title, onPress, isLoading, disabled, className 
       style={({ pressed }) => ({ opacity: isDisabled ? 0.5 : pressed ? 0.9 : 1 })}
     >
       <Gradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
+        colors={fill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ borderRadius: radius }}
@@ -199,52 +215,53 @@ export function Card({ children, className = '', style }) {
 }
 
 /**
- * Three states, in priority order:
+ * Two states, in priority order:
  *
  *   1. the uploaded photo, once there is one
- *   2. the emoji assigned at signup, which every account has
- *   3. initials, for accounts that predate the emoji or came from a lean
- *      payload that did not include it
+ *   2. a gendered silhouette
  *
- * The emoji sits underneath the photo rather than beside it, so a URL that
- * fails to load reveals the emoji instead of leaving an empty circle.
+ * The silhouette is what WhatsApp and Instagram both settle on, and for the
+ * same reason: it reads instantly as "no photo yet" at any size, where an
+ * emoji reads as a deliberate choice the person made. It also renders
+ * identically on every device — emoji do not, and the assigned face changed
+ * character between Android versions.
+ *
+ * `emoji` and `color` are still accepted so the dozens of existing call sites
+ * keep working unchanged; they are simply no longer drawn.
  */
 export function Avatar({
   uri,
-  name = '',
   gender,
-  emoji,
-  color,
   size = 48,
+  // Which face this person wears. Same id, same expression, every render.
+  seed,
   isOnline,
   showPresence = false,
+  // Accepted and ignored. Every call site still passes these; taking them here
+  // rather than deleting them everywhere keeps one change from touching forty
+  // files, and leaves the door open if a photo-less identity is ever wanted
+  // again.
+  name: _name,
+  emoji: _emoji,
+  color: _color,
 }) {
   const { colors } = useTheme();
 
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-
-  const genderTint = gender === 'female' ? colors.femaleAccent : colors.maleAccent;
-  const background = emoji ? (color ?? genderTint) : `${genderTint}22`;
+  // Theme colour rather than a gendered pink/blue: the character carries the
+  // distinction, so the tint is free to match the rest of the app.
+  const genderTint = colors.primary;
   const dotSize = Math.max(10, size * 0.24);
 
   return (
     <View style={{ width: size, height: size }}>
       <View
         className="items-center justify-center overflow-hidden"
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: background }}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${genderTint}1F` }}
       >
-        {emoji ? (
-          <Text style={{ fontSize: size * 0.52 }}>{emoji}</Text>
-        ) : (
-          <Text style={{ color: genderTint, fontSize: size * 0.36, fontWeight: '700' }}>
-            {initials}
-          </Text>
-        )}
+        {/* Drawn slightly larger than the circle and pinned to the bottom, so
+            the character is cropped at the shoulders like a real portrait
+            rather than floating in the middle with space under it. */}
+        <CartoonAvatar gender={gender} seed={seed} size={size} />
 
         {uri ? (
           <Image

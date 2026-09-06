@@ -12,14 +12,14 @@ import { Avatar, EmptyState } from '../../src/components/ui.jsx';
 import { BrowseRow } from '../../src/components/BrowseRow.jsx';
 import { BannerCarousel } from '../../src/components/BannerCarousel.jsx';
 import { HomeBottomAdSection } from '../../src/components/HomeBottomAdSection.jsx';
-import { DailyCoinsCard } from '../../src/components/DailyCoinsCard.jsx';
 import { LocationPrompt } from '../../src/components/LocationPrompt.jsx';
 import { VerifyBanner } from '../../src/components/VerifyBanner.jsx';
-import { GamesRow, LiveRoomsRow, SectionHeader } from '../../src/components/HomeSections.jsx';
+import { SectionHeader } from '../../src/components/HomeSections.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
-import { chatApi, gamesApi, roomsApi, usersApi } from '../../src/api/endpoints.js';
+import { chatApi, usersApi } from '../../src/api/endpoints.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
+import { languageNativeList } from '../../src/constants/languages.js';
 import { storage } from '../../src/lib/storage.js';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
@@ -87,6 +87,19 @@ export default function Discover() {
   const queryClient = useQueryClient();
 
   const [onlineOnly, setOnlineOnly] = useState(false);
+
+  /*
+   * "People I can actually talk to."
+   *
+   * Starts on for anyone who picked languages at signup, because that is what
+   * picking them was for — but it stays a visible, reversible chip rather than
+   * a hidden rule, so nobody is quietly shown a smaller app than exists.
+   * Someone who never chose any language has nothing to filter by, so the
+   * chip is not offered at all.
+   */
+  const myLanguages = user?.languages ?? [];
+  const hasLanguages = myLanguages.length > 0;
+  const [matchLanguages, setMatchLanguages] = useState(hasLanguages);
   const [useNearby, setUseNearby] = useState(false);
   const [coordinates, setCoordinates] = useState(null);
   const [openingId, setOpeningId] = useState(null);
@@ -113,11 +126,12 @@ export default function Discover() {
   }, []);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
-    queryKey: ['discover', { onlineOnly, coordinates }],
+    queryKey: ['discover', { onlineOnly, coordinates, matchLanguages: matchLanguages && hasLanguages }],
     queryFn: () =>
       usersApi.discover({
         limit: 30,
         onlineOnly: String(onlineOnly),
+        ...(matchLanguages && hasLanguages ? { matchMyLanguages: 'true' } : {}),
         ...(coordinates ? { latitude: coordinates.latitude, longitude: coordinates.longitude } : {}),
       }),
   });
@@ -212,15 +226,6 @@ export default function Discover() {
    * people twice under different headings padded the screen without telling
    * anyone anything new.
    */
-  /*
-   * Only in play while the nearby filter is on, so the rooms row and the
-   * people feed can never disagree about whether location is being used.
-   *
-   * Declared above every query that reads it: `const` is hoisted but stays
-   * unusable until this line runs, so referencing it earlier throws.
-   */
-  const nearbyCoordinates = useNearby ? coordinates : null;
-
   // ── Online now: auto-refresh every 20s + instantly on any presence change ──
   const [onlineAll, setOnlineAll] = useState([]);
   const [onlineTotal, setOnlineTotal] = useState(0);
@@ -228,8 +233,13 @@ export default function Discover() {
   const onlineCursorRef = useRef(null);
 
   const { data: onlineData, isLoading: isLoadingOnline, refetch: refetchOnline } = useQuery({
-    queryKey: ['discover', 'online'],
-    queryFn: () => usersApi.discover({ onlineOnly: true, limit: 20 }),
+    queryKey: ['discover', 'online', matchLanguages && hasLanguages],
+    queryFn: () =>
+      usersApi.discover({
+        onlineOnly: true,
+        limit: 20,
+        ...(matchLanguages && hasLanguages ? { matchMyLanguages: 'true' } : {}),
+      }),
     refetchInterval: 20_000,   // Auto-refresh every 20 seconds
     staleTime: 0,
   });
@@ -243,13 +253,34 @@ export default function Discover() {
     }
   }, [onlineData]);
 
-  // Auto-refresh when any user goes online/offline via socket presence
+  /*
+   * Auto-refresh when someone actually goes online or offline.
+   *
+   * `presence` is replaced wholesale on every socket tick, so depending on the
+   * object itself fired a network refetch per event — a refetch storm that
+   * re-rendered both discovery rows each time and was enough to hang the app on
+   * a mid-range phone. The signature below only changes when the set of online
+   * ids does, which is the thing this row actually cares about.
+   */
+  const presenceSignature = Object.entries(presence)
+    .filter(([, state]) => state?.isOnline)
+    .map(([id]) => id)
+    .sort()
+    .join(',');
+
+  const didLoadPresence = useRef(false);
+
   useEffect(() => {
-    const presenceKeys = Object.keys(presence);
-    if (presenceKeys.length > 0) {
-      refetchOnline();
+    // The first signature arrives with the socket handshake and matches what
+    // the query already fetched, so refetching on it is pure waste.
+    if (!didLoadPresence.current) {
+      didLoadPresence.current = true;
+      return undefined;
     }
-  }, [presence]);
+
+    const timer = setTimeout(() => refetchOnline(), 400);
+    return () => clearTimeout(timer);
+  }, [presenceSignature, refetchOnline]);
 
   // Load next page of online users inline
   const loadMoreOnline = useCallback(async () => {
@@ -259,6 +290,8 @@ export default function Discover() {
       const next = await usersApi.discover({
         onlineOnly: true,
         limit: 20,
+        // Same filter as page one: without it, scrolling quietly widens the feed.
+        ...(matchLanguages && hasLanguages ? { matchMyLanguages: 'true' } : {}),
         ...(onlineCursorRef.current ? { cursor: onlineCursorRef.current } : { skip: onlineAll.length }),
       });
       if (next?.items?.length) {
@@ -271,7 +304,7 @@ export default function Discover() {
     } finally {
       setLoadingMoreOnline(false);
     }
-  }, [isLoadingMoreOnline, onlineAll.length]);
+  }, [isLoadingMoreOnline, onlineAll.length, matchLanguages, hasLanguages]);
 
   // ── Browse everyone: accumulated with inline load-more ──
   const [browseAll, setBrowseAll] = useState([]);
@@ -294,6 +327,7 @@ export default function Discover() {
       const next = await usersApi.discover({
         limit: 20,
         onlineOnly: String(onlineOnly),
+        ...(matchLanguages && hasLanguages ? { matchMyLanguages: 'true' } : {}),
         ...(coordinates ? { latitude: coordinates.latitude, longitude: coordinates.longitude } : {}),
         ...(browseCursorRef.current ? { cursor: browseCursorRef.current } : { skip: browseAll.length }),
       });
@@ -307,28 +341,12 @@ export default function Discover() {
     } finally {
       setLoadingMoreBrowse(false);
     }
-  }, [isLoadingMoreBrowse, browseAll.length, onlineOnly, coordinates]);
+  }, [isLoadingMoreBrowse, browseAll.length, onlineOnly, coordinates, matchLanguages, hasLanguages]);
 
   /*
    * Rooms near the user when a location is already known from the discovery
    * filter, and the plain list otherwise.
    */
-  const { data: liveRooms, isLoading: isLoadingRooms } = useQuery({
-    queryKey: ['rooms', 'live', nearbyCoordinates ?? 'all'],
-    queryFn: () =>
-      roomsApi.list({
-        limit: 10,
-        ...(nearbyCoordinates ? { ...nearbyCoordinates, radiusKm: 50 } : {}),
-      }),
-    staleTime: 30_000,
-  });
-
-  const { data: games, isLoading: isLoadingGames } = useQuery({
-    queryKey: ['games'],
-    queryFn: gamesApi.list,
-    staleTime: 5 * 60 * 1000,
-  });
-
   const onlinePeople = onlineAll;
 
   const people = browseAll;
@@ -419,6 +437,13 @@ export default function Discover() {
         <FilterChip label="Everyone" active={!onlineOnly} onPress={() => setOnlineOnly(false)} />
         <FilterChip label="🟢 Online" active={onlineOnly} onPress={() => setOnlineOnly(true)} />
         <FilterChip label="📍 Nearby" active={useNearby} onPress={toggleNearby} />
+        {hasLanguages ? (
+          <FilterChip
+            label={`🗣 ${languageNativeList(myLanguages, ' ')}`}
+            active={matchLanguages}
+            onPress={() => setMatchLanguages((on) => !on)}
+          />
+        ) : null}
       </View>
 
       {error ? (
@@ -439,41 +464,18 @@ export default function Discover() {
           <View className="px-4">
             <VerifyBanner />
             <BannerCarousel />
-            <DailyCoinsCard />
-
-            <Pressable
-              onPress={() => router.push('/events')}
-              className="mb-4 flex-row items-center justify-between p-3 rounded-2xl"
-              style={{
-                backgroundColor: `${colors.primary}10`,
-                borderWidth: 1,
-                borderColor: `${colors.primary}25`,
-              }}
-            >
-              <View className="flex-row items-center gap-2.5">
-                <View
-                  className="h-8 w-8 items-center justify-center rounded-xl"
-                  style={{ backgroundColor: `${colors.primary}20` }}
-                >
-                  <Text className="text-base">🎉</Text>
-                </View>
-                <View>
-                  <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>
-                    Live Events & Special Offers
-                  </Text>
-                  <Text className="text-[10px]" style={{ color: colors.textMuted }}>
-                    Festival sales, free chat hours & bonus coins
-                  </Text>
-                </View>
-              </View>
-              <View
-                className="px-2.5 py-1 rounded-full"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <Text className="text-[10px] font-bold text-white">Explore</Text>
-              </View>
-            </Pressable>
           </View>
+
+          {/*
+            * Ordered by what is worth someone's attention first.
+            *
+            * Perishable content leads: who is free to talk *right now* goes
+            * above the evergreen list of everyone, because a person online is
+            * a conversation available for the next few minutes and a profile
+            * is available forever. Promotions and the ad sit below the primary
+            * action rather than in front of it — a feed that opens on an offer
+            * reads as an advert with a chat app attached.
+            */}
 
           {/*
             * This section stays put when nobody is online, unlike the others.
@@ -529,57 +531,6 @@ export default function Discover() {
             )}
           </View>
 
-          {/* Always shown: the create tile is what makes an empty room list
-              useful rather than a dead end. */}
-          <View className="mb-5">
-            <View className="px-4">
-              <SectionHeader
-                title={nearbyCoordinates ? 'Rooms near you' : 'Voice Rooms'}
-                action="Start one"
-                onAction={() => router.push('/(tabs)/rooms?create=true')}
-              />
-            </View>
-            <View className="pl-4">
-              <LiveRoomsRow rooms={liveRooms?.items} isLoading={isLoadingRooms} />
-            </View>
-          </View>
-
-          {/* Browse Everyone (Moved right after Voice Rooms) */}
-          <View className="mb-5">
-            <View className="px-4">
-              <SectionHeader
-                title="Browse everyone"
-              />
-            </View>
-            <View className="pl-4">
-              <BrowseRow
-                people={people}
-                total={browseTotal}
-                isLoading={isLoading && browseAll.length === 0}
-                presence={presence}
-                openingId={openingId}
-                onOpen={openChat}
-                onLoadMore={loadMoreBrowse}
-                isLoadingMore={isLoadingMoreBrowse}
-              />
-            </View>
-          </View>
-
-          {(games?.length ?? 0) > 0 || isLoadingGames ? (
-            <View className="mb-5">
-              <View className="px-4">
-                <SectionHeader
-                  title="Play & Win"
-                  action="Leaderboard"
-                  onAction={() => router.push('/leaderboard')}
-                />
-              </View>
-              <View className="pl-4">
-                <GamesRow games={games} isLoading={isLoadingGames} />
-              </View>
-            </View>
-          ) : null}
-
           {/* Nearby Random Call Section */}
           <View className="mb-6 px-4">
             <Pressable
@@ -632,8 +583,62 @@ export default function Discover() {
             </Pressable>
           </View>
 
-          {/* Lower Ad Section (Option A: In-House Custom Ad | Option B: Google AdMob) */}
-          <HomeBottomAdSection />
+          {/* Browse Everyone (Moved right after Voice Rooms) */}
+          <View className="mb-5">
+            <View className="px-4">
+              <SectionHeader
+                title="Browse everyone"
+              />
+            </View>
+            <View className="pl-4">
+              <BrowseRow
+                people={people}
+                total={browseTotal}
+                isLoading={isLoading && browseAll.length === 0}
+                presence={presence}
+                openingId={openingId}
+                onOpen={openChat}
+                onLoadMore={loadMoreBrowse}
+                isLoadingMore={isLoadingMoreBrowse}
+              />
+            </View>
+          </View>
+
+          <View className="px-4">
+
+            <Pressable
+              onPress={() => router.push('/events')}
+              className="mb-4 flex-row items-center justify-between p-3 rounded-2xl"
+              style={{
+                backgroundColor: `${colors.primary}10`,
+                borderWidth: 1,
+                borderColor: `${colors.primary}25`,
+              }}
+            >
+              <View className="flex-row items-center gap-2.5">
+                <View
+                  className="h-8 w-8 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: `${colors.primary}20` }}
+                >
+                  <Text className="text-base">🎉</Text>
+                </View>
+                <View>
+                  <Text className="text-xs font-bold" style={{ color: colors.textPrimary }}>
+                    Live Events & Special Offers
+                  </Text>
+                  <Text className="text-[10px]" style={{ color: colors.textMuted }}>
+                    Festival sales, free chat hours & bonus coins
+                  </Text>
+                </View>
+              </View>
+              <View
+                className="px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: colors.primary }}
+              >
+                <Text className="text-[10px] font-bold text-white">Explore</Text>
+              </View>
+            </Pressable>
+          </View>
 
           {/* Quick Refer & Earn Short Link Card directly below Ad Section */}
           <View className="px-4 mt-2.5 mb-8">
@@ -702,6 +707,10 @@ export default function Discover() {
               </LinearGradient>
             </Pressable>
           </View>
+
+          {/* Lower Ad Section (Option A: In-House Custom Ad | Option B: Google AdMob) */}
+          <HomeBottomAdSection />
+
         </ScrollView>
       )}
     </View>

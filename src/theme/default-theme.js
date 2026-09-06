@@ -1,44 +1,51 @@
 /**
  * Bundled fallback palette.
- * Matches backend's Blush preset with complete coverage for all color tokens.
+ *
+ * Built around a single dominant brand colour the way WhatsApp and Instagram
+ * are: one hue carries every primary action, active state and accent, and
+ * everything else is a neutral or a status colour. Spreading three or four
+ * competing brand hues across a screen is what makes an app look assembled
+ * rather than designed.
  */
 export const DEFAULT_COLORS = Object.freeze({
-  primary: '#FF4E88',
-  primaryDark: '#D62E68',
-  primaryLight: '#FF8FB3',
+  primary: '#06B6D4',
+  primaryDark: '#0891B2',
+  primaryLight: '#67E8F9',
   onPrimary: '#FFFFFF',
-  secondary: '#7C4DFF',
-  accent: '#00D0C0',
-  background: '#FFF7FA',
+  secondary: '#0E7490',
+  accent: '#22D3EE',
+  background: '#F6FDFE',
   surface: '#FFFFFF',
-  surfaceAlt: '#FDEDF3',
-  border: '#F3D7E2',
-  textPrimary: '#1B1024',
-  textSecondary: '#5C4A63',
-  textMuted: '#9C8AA6',
+  surfaceAlt: '#ECFAFC',
+  border: '#D7EEF3',
+  textPrimary: '#0B2027',
+  textSecondary: '#41616B',
+  textMuted: '#8AA5AD',
   success: '#1FBF75',
   warning: '#F5A524',
   danger: '#F5325B',
   info: '#3B82F6',
-  gradientStart: '#FF4E88',
-  gradientEnd: '#7C4DFF',
-  maleAccent: '#3B82F6',
-  femaleAccent: '#FF4E88',
+  /* Kept in the same family so the gradient reads as one colour with depth,
+     not as two brands meeting in the middle. */
+  gradientStart: '#06B6D4',
+  gradientEnd: '#0E7490',
+  maleAccent: '#0EA5E9',
+  femaleAccent: '#F472B6',
   onlineDot: '#22C55E',
-  offlineDot: '#B9AFC0',
+  offlineDot: '#B4C6CC',
   coinGold: '#FFB020',
   chatBubbleIncoming: '#FFFFFF',
-  chatBubbleIncomingText: '#1B1024',
-  chatBubbleOutgoing: '#FF4E88',
+  chatBubbleIncomingText: '#0B2027',
+  chatBubbleOutgoing: '#06B6D4',
   chatBubbleOutgoingText: '#FFFFFF',
   tabBarBackground: '#FFFFFF',
-  tabBarActive: '#FF4E88',
-  tabBarInactive: '#9C8AA6',
+  tabBarActive: '#06B6D4',
+  tabBarInactive: '#8AA5AD',
   cardBackground: '#FFFFFF',
-  inputBackground: '#FDEDF3',
-  inputBorder: '#F3D7E2',
+  inputBackground: '#F2FBFC',
+  inputBorder: '#D7EEF3',
   vipGold: '#FFD700',
-  freeTalkBadge: '#FF4E88',
+  freeTalkBadge: '#06B6D4',
 });
 
 export const DEFAULT_BRANDING = Object.freeze({

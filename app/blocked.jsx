@@ -3,7 +3,7 @@ import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { goBack } from '../src/components/ScreenHeader.jsx';
+import { BackButton } from '../src/components/ScreenHeader.jsx';
 import { Avatar, Button, EmptyState, Loading } from '../src/components/ui.jsx';
 import { usersApi } from '../src/api/endpoints.js';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
@@ -61,11 +61,7 @@ export default function BlockedAccounts() {
         className="flex-row items-center gap-3 px-4 pb-3 pt-2"
         style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
       >
-        <Pressable onPress={() => goBack()} accessibilityRole="button" accessibilityLabel="Back" className="px-1">
-          <Text className="text-2xl" style={{ color: colors.textPrimary }}>
-            ‹
-          </Text>
-        </Pressable>
+        <BackButton />
         <View className="flex-1">
           <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
             Blocked Accounts

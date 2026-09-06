@@ -233,6 +233,38 @@ export async function pickFromLibrary({ allowVideo = true, videoMaxSeconds = nul
   return { asset: await normalizeAsset(result.assets?.[0]) };
 }
 
+/**
+ * Picks several photos at once, for a multi-image post.
+ *
+ * Each one goes through the same `normalizeAsset` path as a single pick, so
+ * they are shrunk on the device before any of them is uploaded — five camera
+ * photos is comfortably 20MB raw, and sending that over a phone connection is
+ * a minute of waiting the person pays for in both time and data before
+ * anything is stored.
+ *
+ * The picker's own `selectionLimit` does the capping, so someone is stopped at
+ * the point of choosing rather than told afterwards that two of their photos
+ * were dropped.
+ */
+export async function pickMultipleImages({ limit = 5 } = {}) {
+  if (!(await ensureLibraryPermission())) {
+    return { error: 'Allow photo access to share from your gallery.' };
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    quality: 0.9,
+    allowsMultipleSelection: true,
+    selectionLimit: limit,
+    allowsEditing: false,
+  });
+
+  if (result.canceled) return { cancelled: true };
+
+  const assets = await Promise.all((result.assets ?? []).slice(0, limit).map(normalizeAsset));
+  return { assets: assets.filter(Boolean) };
+}
+
 export async function captureWithCamera({ allowVideo = true, videoMaxSeconds = null } = {}) {
   if (!(await ensureCameraPermission())) {
     return { error: 'Allow camera access to take a photo.' };

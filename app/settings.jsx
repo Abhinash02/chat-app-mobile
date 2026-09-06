@@ -3,9 +3,8 @@ import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Switch, Text
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
 
-import { goBack } from '../src/components/ScreenHeader.jsx';
+import { BackButton } from '../src/components/ScreenHeader.jsx';
 import { Button, Card, Loading } from '../src/components/ui.jsx';
 import { deviceApi, notificationsApi, usersApi } from '../src/api/endpoints.js';
 import { useAuth } from '../src/hooks/useAuth.jsx';
@@ -110,18 +109,7 @@ export default function Settings() {
         style={{ borderBottomColor: colors.border, backgroundColor: colors.surface }}
       >
         <View className="flex-row items-center gap-3">
-          <Pressable
-            onPress={() => goBack()}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            className="h-10 w-10 items-center justify-center rounded-2xl border shadow-sm active:scale-95 transition"
-            style={{
-              backgroundColor: colors.surfaceAlt,
-              borderColor: colors.border,
-            }}
-          >
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-          </Pressable>
+          <BackButton />
           <View>
             <Text className="text-xl font-bold tracking-tight" style={{ color: colors.textPrimary }}>
               {t('settings.title')}

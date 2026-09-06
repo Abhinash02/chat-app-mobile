@@ -24,6 +24,11 @@ import { NumberRush } from '../../src/components/games/NumberRush.jsx';
 import { TapGame } from '../../src/components/games/TapGame.jsx';
 import { TriviaDash } from '../../src/components/games/TriviaDash.jsx';
 import { WordGuess } from '../../src/components/games/WordGuess.jsx';
+import { BubblePop } from '../../src/components/games/BubblePop.jsx';
+import { ColorMatch } from '../../src/components/games/ColorMatch.jsx';
+import { MemorySequence } from '../../src/components/games/MemorySequence.jsx';
+import { OddOneOut } from '../../src/components/games/OddOneOut.jsx';
+import { RapidRecall } from '../../src/components/games/RapidRecall.jsx';
 import { gamesApi } from '../../src/api/endpoints.js';
 import { formatCoins } from '../../src/lib/format.js';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
@@ -35,6 +40,11 @@ const GAME_METADATA = {
   'word-guess': { emoji: '🔤', color: '#06B6D4', badge: 'Word Clues', tagline: 'Guess the hidden word from smart hints' },
   'number-rush': { emoji: '🧮', color: '#10B981', badge: 'Math Sprint', tagline: 'Solve fast arithmetic puzzle chains' },
   'trivia-dash': { emoji: '🧠', color: '#EC4899', badge: 'Brain Quiz', tagline: 'Fast-paced general knowledge quiz' },
+  'color-match': { emoji: '🎨', color: '#EF4444', badge: 'Focus', tagline: 'Read the word, ignore the ink' },
+  'memory-sequence': { emoji: '🧩', color: '#0EA5E9', badge: 'Pattern', tagline: 'Repeat the pattern as it grows' },
+  'odd-one-out': { emoji: '🔍', color: '#F97316', badge: 'Spot It', tagline: 'Find the one tile that is different' },
+  'bubble-pop': { emoji: '🫧', color: '#14B8A6', badge: 'Arcade', tagline: 'Pop the bubbles, dodge the bombs' },
+  'rapid-recall': { emoji: '🔢', color: '#A855F7', badge: 'Recall', tagline: 'Remember the digits, tap them back' },
 };
 
 function GameCard({ game, onPlay, playable }) {
@@ -160,6 +170,11 @@ export default function Games() {
     'emoji-match': EmojiMatch,
     'word-guess': WordGuess,
     'trivia-dash': TriviaDash,
+    'color-match': ColorMatch,
+    'memory-sequence': MemorySequence,
+    'odd-one-out': OddOneOut,
+    'bubble-pop': BubblePop,
+    'rapid-recall': RapidRecall,
   };
 
   const isPlayable = (key) => key in PLAYABLE;

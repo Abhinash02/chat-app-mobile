@@ -5,13 +5,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenHeader } from '../src/components/ScreenHeader.jsx';
-import { Badge, Button, Card, CoinIcon, Loading } from '../src/components/ui.jsx';
+import { Badge, Button, CoinIcon, Loading } from '../src/components/ui.jsx';
 import { eventsApi } from '../src/api/endpoints.js';
 import { formatCountdown } from '../src/lib/format.js';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
 
 function EventCard({ item, onSelect }) {
-  const { colors, radius } = useTheme();
+  const { colors, fonts } = useTheme();
 
   const [msRemaining, setMsRemaining] = useState(() => {
     if (!item.endsAt) return null;
@@ -26,96 +26,135 @@ function EventCard({ item, onSelect }) {
     return () => clearInterval(timer);
   }, [item.endsAt]);
 
-  const hasPerks = item.rewardCoins > 0 || item.discountPercent > 0 || item.rewardFreeMinutes > 0;
+
+  /*
+   * What this offer actually gives you, as one line of plain text.
+   *
+   * These were three coloured chips — amber, emerald, indigo — which put three
+   * more brand colours on a screen that already has one, and turned the useful
+   * part of the offer into decoration. Read as a sentence they are quicker to
+   * take in and cost nothing visually.
+   */
+  const perks = [
+    item.rewardCoins > 0 ? `${item.rewardCoins} bonus coins` : null,
+    item.discountPercent > 0 ? `${item.discountPercent}% off` : null,
+    item.rewardFreeMinutes > 0 ? `${item.rewardFreeMinutes} min free chat` : null,
+  ].filter(Boolean);
+
+  const audience =
+    item.targetGender === 'male'
+      ? 'For boys'
+      : item.targetGender === 'female'
+        ? 'For girls'
+        : 'Everyone';
+
+  const isEnding = msRemaining !== null && msRemaining < 6 * 60 * 60 * 1000;
 
   return (
+    /*
+     * A row on a page, not a card in a grid.
+     *
+     * The only line is the hairline separating one offer from the next — no
+     * border box, no shadow, no filled panel. Offers are a list; making each
+     * one a floating rectangle was what made the screen look assembled.
+     */
     <Pressable
       onPress={() => onSelect(item)}
       accessibilityRole="button"
-      className="mb-4 overflow-hidden rounded-3xl p-4 border active:scale-98 transition shadow-sm"
-      style={{
-        backgroundColor: colors.surface,
-        borderColor: `${colors.primary}30`,
-      }}
+      accessibilityLabel={`${item.title}. ${audience}.`}
+      style={({ pressed }) => ({
+        paddingVertical: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+        opacity: pressed ? 0.6 : 1,
+      })}
     >
-      <View className="flex-row items-center justify-between gap-2 mb-2">
-        <View className="flex-row items-center gap-2 flex-1">
-          <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>
-            {item.title}
-          </Text>
-          {item.badgeText ? (
-            <Badge label={item.badgeText} tone="brand" />
-          ) : null}
-        </View>
+      {/* Eyebrow: who it is for, and how long is left. The countdown only
+          takes the accent once it is genuinely urgent — a permanent red clock
+          on every row teaches people to ignore it. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text
+          style={{
+            fontSize: 10.5,
+            letterSpacing: 1.4,
+            textTransform: 'uppercase',
+            color: colors.textMuted,
+          }}
+        >
+          {audience}
+        </Text>
 
-        {msRemaining !== null && (
-          <View
-            className="px-2.5 py-1 rounded-full flex-row items-center gap-1"
-            style={{ backgroundColor: `${colors.warning || '#F59E0B'}20` }}
-          >
-            <Text className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
-              ⏱️ {formatCountdown(msRemaining)}
+        {msRemaining !== null ? (
+          <>
+            <Text style={{ fontSize: 10.5, color: colors.textMuted }}>·</Text>
+            <Text
+              style={{
+                fontSize: 10.5,
+                letterSpacing: 1.4,
+                textTransform: 'uppercase',
+                color: isEnding ? colors.primary : colors.textMuted,
+              }}
+            >
+              {formatCountdown(msRemaining)} left
             </Text>
-          </View>
-        )}
+          </>
+        ) : null}
+
+        {item.badgeText ? (
+          <>
+            <Text style={{ fontSize: 10.5, color: colors.textMuted }}>·</Text>
+            <Text
+              style={{
+                fontSize: 10.5,
+                letterSpacing: 1.4,
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+              }}
+            >
+              {item.badgeText}
+            </Text>
+          </>
+        ) : null}
       </View>
 
       <Text
-        numberOfLines={2}
-        className="text-xs leading-5 mb-3"
-        style={{ color: colors.textSecondary }}
+        style={{
+          marginTop: 9,
+          fontSize: 21,
+          lineHeight: 27,
+          letterSpacing: -0.4,
+          color: colors.textPrimary,
+          fontFamily: fonts?.display,
+        }}
       >
-        {item.description}
+        {item.title}
       </Text>
 
-      {hasPerks && (
-        <View
-          className="p-2.5 rounded-xl mb-3 flex-row flex-wrap items-center gap-2"
-          style={{ backgroundColor: colors.surfaceAlt }}
+      {item.description ? (
+        <Text
+          numberOfLines={2}
+          style={{
+            marginTop: 6,
+            fontSize: 14,
+            lineHeight: 21,
+            color: colors.textSecondary,
+          }}
         >
-          {item.rewardCoins > 0 && (
-            <View className="flex-row items-center gap-1 bg-amber-500/15 px-2 py-0.5 rounded-lg">
-              <CoinIcon size={12} />
-              <Text className="text-xs font-bold text-amber-600 dark:text-amber-400">+{item.rewardCoins} Bonus</Text>
-            </View>
-          )}
-
-          {item.discountPercent > 0 && (
-            <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-lg">
-              <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400">🏷️ {item.discountPercent}% OFF</Text>
-            </View>
-          )}
-
-          {item.rewardFreeMinutes > 0 && (
-            <View className="flex-row items-center gap-1 bg-indigo-500/15 px-2 py-0.5 rounded-lg">
-              <Text className="text-xs font-bold text-indigo-600 dark:text-indigo-400">⏱️ +{item.rewardFreeMinutes}m Free Chat</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      <View className="flex-row items-center justify-between pt-1 border-t" style={{ borderTopColor: colors.border }}>
-        <Text className="text-[11px] font-medium" style={{ color: colors.textMuted }}>
-          {item.targetGender === 'male'
-            ? '👦 Exclusive for Boys'
-            : item.targetGender === 'female'
-            ? '👧 Exclusive for Girls'
-            : '👥 Open to Everyone'}
+          {item.description}
         </Text>
+      ) : null}
 
-        <View className="flex-row items-center gap-1">
-          <Text className="text-xs font-bold" style={{ color: colors.primary }}>
-            View Details
-          </Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
-        </View>
-      </View>
+      {perks.length > 0 ? (
+        <Text style={{ marginTop: 10, fontSize: 13.5, color: colors.primary }}>
+          {perks.join('  ·  ')}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
 
 export default function Events() {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
   const [selectedEvent, setSelectedEvent] = useState(null);
 
   const { data: events = [], isLoading, isRefetching, refetch } = useQuery({

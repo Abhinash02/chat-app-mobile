@@ -23,6 +23,59 @@ export function goBack(fallback = '/(tabs)') {
 }
 
 /**
+ * The way out of a screen, as one control.
+ *
+ * `ScreenHeader` covers most screens, but several build their own header
+ * because they need something the standard one cannot carry — a chat avatar, a
+ * room's live state, a row of support tickets. Those were each drawing their
+ * own back button, and they had drifted: a bare "&lsaquo;" glyph in a <Text> on three
+ * screens, a circular "&larr;" on support, and chevrons at three different sizes
+ * elsewhere. Same gesture, six different targets, some of them barely tappable.
+ *
+ * Exported separately so a custom header can use the real control instead of
+ * approximating it.
+ */
+export function BackButton({
+  fallback = '/(tabs)',
+  variant = 'back',
+  // 'onColor' for a header sitting on a filled accent block, where the default
+  // surface treatment would read as a grey smudge. Same size and shape either
+  // way — only the colours change, so the control stays recognisable.
+  tone = 'default',
+  onPress,
+  style,
+}) {
+  const { colors } = useTheme();
+  const handlePress = onPress ?? (() => goBack(fallback));
+  const onColor = tone === 'onColor';
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={variant === 'close' ? 'Close' : 'Go back'}
+      // The visible square is 40x40; hitSlop takes the real target to 64x64,
+      // which is what makes it comfortable at the top corner of a phone.
+      hitSlop={12}
+      className="h-10 w-10 items-center justify-center rounded-2xl border shadow-sm active:scale-95 transition"
+      style={[
+        {
+          backgroundColor: onColor ? 'rgba(255,255,255,0.22)' : colors.surfaceAlt,
+          borderColor: onColor ? 'rgba(255,255,255,0.35)' : colors.border,
+        },
+        style,
+      ]}
+    >
+      <Ionicons
+        name={variant === 'close' ? 'close' : 'arrow-back'}
+        size={20}
+        color={onColor ? '#FFFFFF' : colors.textPrimary}
+      />
+    </Pressable>
+  );
+}
+
+/**
  * Header for any screen pushed outside the tab bar.
  *
  * Every such screen needs a way out, and having one component means a new
@@ -36,7 +89,7 @@ export function ScreenHeader({
   variant = 'back',
   onClose,
 }) {
-  const { colors } = useTheme();
+  const { colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
 
   const handlePress = onClose ?? (() => goBack(fallback));
@@ -51,29 +104,13 @@ export function ScreenHeader({
         borderBottomColor: colors.border,
       }}
     >
-      <Pressable
-        onPress={handlePress}
-        accessibilityRole="button"
-        accessibilityLabel={variant === 'close' ? 'Close' : 'Go back'}
-        hitSlop={12}
-        className="h-10 w-10 items-center justify-center rounded-2xl border shadow-sm active:scale-95 transition"
-        style={{
-          backgroundColor: colors.surfaceAlt,
-          borderColor: colors.border,
-        }}
-      >
-        <Ionicons
-          name={variant === 'close' ? 'close' : 'arrow-back'}
-          size={20}
-          color={colors.textPrimary}
-        />
-      </Pressable>
+      <BackButton variant={variant} onPress={handlePress} />
 
       <View className="min-w-0 flex-1">
         <Text
           numberOfLines={1}
           className="text-lg font-bold"
-          style={{ color: colors.textPrimary }}
+          style={{ color: colors.textPrimary, fontFamily: fonts?.display }}
         >
           {title}
         </Text>

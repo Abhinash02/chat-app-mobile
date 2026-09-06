@@ -13,103 +13,141 @@ import { useToast } from '../../src/components/Toast.jsx';
 
 function RoomCard({ room, onJoin, isJoining }) {
   const { colors } = useTheme();
-  const isFull = room.participantCount >= room.maxParticipants;
+
+  if (!room) return null;
+
+  const participantCount = room.participantCount || 0;
+  const maxParticipants = room.maxParticipants || 20;
+  const isFull = participantCount >= maxParticipants;
+  const isVoice = Boolean(room.isVoiceEnabled);
+  const accent = isVoice ? (colors.secondary || '#7C4DFF') : colors.primary;
+  const hasDistance = room.distanceKm !== null && room.distanceKm !== undefined;
+
+  // How full the room is, drawn as a bar rather than spelled out. A glance at
+  // the row should say which rooms are worth opening.
+  const fillRatio = Math.min(1, participantCount / maxParticipants);
 
   return (
     <Pressable
       onPress={onJoin}
       disabled={isJoining || (isFull && !room.isJoined)}
       accessibilityRole="button"
-      accessibilityLabel={`Join ${room.name}, ${room.participantCount} people inside`}
+      accessibilityLabel={`Join ${room.name || 'room'}, ${participantCount} people inside`}
       style={({ pressed }) => ({
         backgroundColor: colors.surface,
         borderRadius: 20,
-        borderWidth: 1.5,
-        borderColor: room.isJoined ? `${colors.primary}66` : colors.border,
-        padding: 14,
+        borderWidth: 1,
+        borderColor: room.isJoined ? `${colors.primary}55` : colors.border,
         marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 2,
-        opacity: isJoining ? 0.6 : pressed ? 0.88 : 1,
+        overflow: 'hidden',
+        shadowColor: '#0F0817',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 3,
+        opacity: isJoining ? 0.6 : pressed ? 0.92 : 1,
+        transform: [{ scale: pressed && !isJoining ? 0.99 : 1 }],
       })}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        {/* Room Icon Avatar Box */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+        {/* Mode tile */}
         <View
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
+            width: 52,
+            height: 52,
+            borderRadius: 18,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: room.isVoiceEnabled ? '#8B5CF618' : `${colors.primary}18`,
+            backgroundColor: `${accent}16`,
             borderWidth: 1,
-            borderColor: room.isVoiceEnabled ? '#8B5CF633' : `${colors.primary}33`,
+            borderColor: `${accent}2E`,
             flexShrink: 0,
           }}
         >
-          <Text style={{ fontSize: 22 }}>{room.isVoiceEnabled ? '🎙️' : '💬'}</Text>
+          <Ionicons name={isVoice ? 'mic' : 'chatbubbles'} size={22} color={accent} />
         </View>
 
-        {/* Room Details Column */}
+        {/* Details */}
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text numberOfLines={1} style={{ flex: 1, fontSize: 14.5, fontWeight: '800', color: colors.textPrimary }}>
-              {room.name}
+            <Text
+              numberOfLines={1}
+              style={{ flex: 1, fontSize: 15, fontWeight: '800', letterSpacing: -0.2, color: colors.textPrimary }}
+            >
+              {room.name || 'Untitled Room'}
             </Text>
-            {room.isPrivate ? <Text style={{ fontSize: 12 }}>🔒</Text> : null}
+            {room.isPrivate ? <Ionicons name="lock-closed" size={12} color={colors.textMuted} /> : null}
           </View>
 
-          {room.topic ? (
-            <Text numberOfLines={1} style={{ marginTop: 2, fontSize: 11.5, fontWeight: '500', color: colors.textSecondary }}>
-              {room.topic}
-            </Text>
-          ) : null}
+          <Text
+            numberOfLines={1}
+            style={{ marginTop: 2, fontSize: 11.5, fontWeight: '500', color: colors.textSecondary }}
+          >
+            {room.topic
+              || (room.host?.nickname ? `Hosted by ${room.host.nickname}` : 'Open to everyone')}
+          </Text>
 
-          {/* Bottom Badges Row */}
-          <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <Badge
-              label={`👥 ${room.participantCount || 0}/${room.maxParticipants || 20}`}
-              tone={isFull ? 'warning' : 'brand'}
-              size="sm"
-            />
-            {room.isVoiceEnabled ? (
-              <Badge label="Voice" tone="neutral" size="sm" />
-            ) : (
-              <Badge label="Text" tone="neutral" size="sm" />
-            )}
+          {/* Occupancy bar + counts */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            <View
+              style={{
+                flex: 1,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: colors.surfaceAlt,
+                overflow: 'hidden',
+              }}
+            >
+              <View
+                style={{
+                  width: `${Math.max(4, fillRatio * 100)}%`,
+                  height: '100%',
+                  borderRadius: 2,
+                  backgroundColor: isFull ? (colors.warning || '#F5A524') : accent,
+                }}
+              />
+            </View>
+            <Text style={{ fontSize: 10.5, fontWeight: '800', color: colors.textMuted }}>
+              {participantCount}/{maxParticipants}
+            </Text>
+          </View>
+
+          {/* Status chips */}
+          <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Badge label={isVoice ? 'Voice' : 'Text'} tone="neutral" size="sm" />
             {room.isJoined ? <Badge label="You are in" tone="success" size="sm" /> : null}
-            {room.distanceKm !== null && room.distanceKm !== undefined ? (
-              <Badge label={`📍 ${room.distanceKm} km`} tone="neutral" size="sm" />
-            ) : null}
-            {room.host?.nickname ? (
-              <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '500', color: colors.textMuted }}>
-                👑 {room.host.nickname}
-              </Text>
+            {isFull && !room.isJoined ? <Badge label="Full" tone="warning" size="sm" /> : null}
+            {hasDistance ? (
+              <Badge label={`${Math.round(Number(room.distanceKm))} km away`} tone="neutral" size="sm" />
             ) : null}
           </View>
         </View>
 
-        {/* Enter / Join Pill */}
+        {/* Enter / Join pill */}
         <View
           style={{
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 12,
-            backgroundColor: `${colors.primary}18`,
+            paddingHorizontal: 13,
+            paddingVertical: 8,
+            borderRadius: 999,
+            backgroundColor: isFull && !room.isJoined ? colors.surfaceAlt : accent,
             flexDirection: 'row',
             alignItems: 'center',
             gap: 2,
             flexShrink: 0,
           }}
         >
-          <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}>
-            {room.isJoined ? 'Open' : 'Join'}
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '800',
+              color: isFull && !room.isJoined ? colors.textMuted : (colors.onPrimary || '#FFFFFF'),
+            }}
+          >
+            {room.isJoined ? 'Open' : isFull ? 'Full' : 'Join'}
           </Text>
-          <Ionicons name="chevron-forward" size={13} color={colors.primary} />
+          {isFull && !room.isJoined ? null : (
+            <Ionicons name="chevron-forward" size={13} color={colors.onPrimary || '#FFFFFF'} />
+          )}
         </View>
       </View>
     </Pressable>
@@ -844,7 +882,7 @@ export default function Rooms() {
           ) : (
             <FlatList
               data={rooms}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item, index) => String(item?.id ?? `room-${index}`)}
               contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: (insets.bottom || 16) + 85, flexGrow: 1 }}
               refreshControl={
                 <RefreshControl

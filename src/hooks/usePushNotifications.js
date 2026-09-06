@@ -79,6 +79,26 @@ async function configureAndroidChannels() {
   }
 }
 
+/**
+ * Which EAS project this build belongs to.
+ *
+ * App config first, environment second — the opposite of the obvious order,
+ * and deliberate. `extra.eas.projectId` is baked in at build time from the same
+ * app.json that drives `updates.url`, so it always describes the app that is
+ * actually running. A `.env` value is edited by hand, is not verified against
+ * anything, and when the two disagree the push token is issued against a
+ * project the backend has no credentials for — notifications then vanish with
+ * no error anywhere. That is exactly what had happened here.
+ */
+function resolveProjectId() {
+  return (
+    Constants?.expoConfig?.extra?.eas?.projectId ??
+    Constants?.easConfig?.projectId ??
+    process.env.EXPO_PUBLIC_EAS_PROJECT_ID ??
+    null
+  );
+}
+
 export async function registerForPushNotifications() {
   if (Platform.OS === 'web') return null;
 
@@ -104,11 +124,7 @@ export async function registerForPushNotifications() {
       return null;
     }
 
-    const projectId =
-      process.env.EXPO_PUBLIC_EAS_PROJECT_ID ??
-      Constants?.expoConfig?.extra?.eas?.projectId ??
-      Constants?.easConfig?.projectId ??
-      'cd917c17-10f7-4b1a-bd44-c2da4457edd9';
+    const projectId = resolveProjectId();
 
     const tokenResponse = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined,
@@ -116,7 +132,19 @@ export async function registerForPushNotifications() {
 
     return tokenResponse?.data ?? null;
   } catch (err) {
-    console.warn('[PushNotifications] Push token registration skipped:', err?.message);
+    /*
+     * Loud on purpose. A token that never arrives is invisible — the app runs
+     * perfectly and simply never receives a notification — so the one place
+     * that knows why has to say so rather than leaving a silent warning.
+     */
+    console.warn(
+      '[PushNotifications] Could not get a push token:',
+      err?.message,
+      '\n  If this says the project does not exist, EXPO_PUBLIC_EAS_PROJECT_ID and',
+      'app.json extra.eas.projectId disagree.',
+      '\n  Note: Expo Go cannot receive remote push on Android (SDK 53+).',
+      'Use a development build or an APK.',
+    );
     return null;
   }
 }
@@ -178,22 +206,40 @@ export function usePushNotifications({ isAuthenticated, onNotificationReceived }
 
     registerForPushNotifications()
       .then(async (token) => {
-        const deviceToken = token || `ExponentPushToken[app-${Platform.OS}-fallback]`;
         if (isCancelled) return;
+
+        /*
+         * No token means no push. Nothing is sent in that case.
+         *
+         * This used to invent one — `ExponentPushToken[app-android-fallback]` —
+         * and store it, which made the app log "registered successfully" while
+         * holding nothing a notification could ever be delivered to. The server
+         * then queued sends against an address that does not exist. A failure
+         * that reports success is far more expensive to find than one that
+         * simply says what went wrong, which is what this does instead.
+         */
+        if (!token) {
+          console.warn(
+            '[PushNotifications] No push token — this device will not receive notifications.',
+            '\n  Common causes: permission denied, or running in Expo Go on Android',
+            '(remote push needs a development build or a release APK since SDK 53).',
+          );
+          return;
+        }
 
         try {
           await request({
             method: 'POST',
             url: '/notifications/devices',
             data: {
-              token: deviceToken,
+              token,
               platform: Platform.OS === 'web' ? 'web' : Platform.OS,
               deviceId: Device.modelName ?? (Platform.OS === 'web' ? 'Web Browser' : 'Mobile Device'),
               deviceName: Device.deviceName ?? Device.modelName ?? 'User Device',
               appVersion: Constants?.expoConfig?.version ?? '1.0.0',
             },
           });
-          console.log('[PushNotifications] Device token registered successfully:', deviceToken);
+          console.log('[PushNotifications] Device registered for push:', token);
         } catch (regErr) {
           console.warn('[PushNotifications] Failed to save device token on backend:', regErr?.message);
         }
@@ -236,10 +282,7 @@ export async function unregisterPushToken() {
     const Notifications = await getNotifications();
     if (!Notifications) return;
 
-    const projectId =
-      process.env.EXPO_PUBLIC_EAS_PROJECT_ID ??
-      Constants?.expoConfig?.extra?.eas?.projectId ??
-      'cd917c17-10f7-4b1a-bd44-c2da4457edd9';
+    const projectId = resolveProjectId();
     const token = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
 
     if (token?.data) {

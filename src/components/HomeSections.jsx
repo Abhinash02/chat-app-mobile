@@ -1,4 +1,5 @@
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -6,26 +7,67 @@ import { Avatar } from './ui.jsx';
 import { Skeleton } from './Loader.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
+const ROOM_CARD_WIDTH = 244;
+const ROOM_CARD_HEIGHT = 148;
+
 /**
  * A titled row with an optional action on the right.
  */
 export function SectionHeader({ title, badge, action, onAction }) {
-  const { colors } = useTheme();
+  const { colors, fonts } = useTheme();
 
   return (
-    <View className="mb-3 flex-row items-center gap-2">
-      <Text className="text-lg font-black tracking-tight" style={{ color: colors.textPrimary }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      {/* A short accent bar anchors the title — the cue that separates one
+          section from the next once the page is dense with cards. */}
+      <View
+        style={{
+          width: 3,
+          height: 16,
+          borderRadius: 2,
+          backgroundColor: colors.primary,
+        }}
+      />
+
+      <Text
+        style={{
+          fontSize: 17,
+          fontWeight: '800',
+          letterSpacing: -0.3,
+          color: colors.textPrimary,
+          fontFamily: fonts?.display,
+        }}
+      >
         {title}
       </Text>
 
       {badge ? (
         <View
-          className="px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: `${colors.success || '#10B981'}20` }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingHorizontal: 7,
+            paddingVertical: 2.5,
+            borderRadius: 999,
+            backgroundColor: `${colors.success || '#10B981'}18`,
+          }}
         >
+          <View
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: 2.5,
+              backgroundColor: colors.success || '#10B981',
+            }}
+          />
           <Text
-            className="text-[10px] font-black uppercase tracking-wider"
-            style={{ color: colors.success || '#10B981' }}
+            style={{
+              fontSize: 9,
+              fontWeight: '900',
+              letterSpacing: 0.5,
+              color: colors.success || '#10B981',
+            }}
           >
             {badge}
           </Text>
@@ -36,15 +78,17 @@ export function SectionHeader({ title, badge, action, onAction }) {
         <Pressable
           onPress={onAction}
           accessibilityRole="button"
-          className="ml-auto px-3 py-1 rounded-full border shadow-sm active:scale-95 transition"
-          style={{
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          }}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            marginLeft: 'auto',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 2,
+            opacity: pressed ? 0.6 : 1,
+          })}
         >
-          <Text className="text-xs font-bold" style={{ color: colors.primary }}>
-            {action}
-          </Text>
+          <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.primary }}>{action}</Text>
+          <Ionicons name="chevron-forward" size={13} color={colors.primary} />
         </Pressable>
       ) : null}
     </View>
@@ -60,129 +104,152 @@ function RoomCard({ room, onPress }) {
   const participantsList = Array.isArray(room.participants) ? room.participants : [];
   const participantCount = room.participantCount ?? participantsList.length;
   const maxParticipants = room.maxParticipants || 20;
+  const isVoice = Boolean(room.isVoiceEnabled);
+  const accent = isVoice ? (colors.secondary || '#7C4DFF') : colors.primary;
+  // Text sitting on the accent fill follows the theme's on-primary ink, so a
+  // pale brand colour set in the admin panel does not leave white on white.
+  const onAccent = colors.onPrimary || '#FFFFFF';
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Join ${room.name || 'Room'}`}
+      accessibilityLabel={`Join ${room.name || 'room'}, ${participantCount} inside`}
       style={({ pressed }) => ({
-        width: 220,
-        height: 132,
-        marginRight: 12,
-        backgroundColor: colors.surface,
-        borderRadius: 22,
-        borderWidth: 1.5,
+        width: ROOM_CARD_WIDTH,
+        height: ROOM_CARD_HEIGHT,
+        borderRadius: 20,
+        borderWidth: 1,
         borderColor: colors.border,
-        padding: 12,
-        justifyContent: 'space-between',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.07,
-        shadowRadius: 8,
-        elevation: 2,
-        transform: [{ scale: pressed ? 0.97 : 1 }],
+        backgroundColor: colors.surface,
+        overflow: 'hidden',
+        shadowColor: '#0F0817',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.09,
+        shadowRadius: 12,
+        elevation: 3,
+        transform: [{ scale: pressed ? 0.975 : 1 }],
       })}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 5,
-            paddingHorizontal: 8,
-            paddingVertical: 2.5,
-            borderRadius: 10,
-            backgroundColor: `${colors.success || '#10B981'}18`,
-          }}
-        >
+      {/* Tinted header carries the room's mode, so voice and text rooms are
+          told apart before any text is read. */}
+      <LinearGradient
+        colors={[`${accent}26`, `${accent}0A`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View
             style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: colors.success || '#10B981',
-            }}
-          />
-          <Text
-            style={{
-              fontSize: 10,
-              fontWeight: '800',
-              color: colors.success || '#10B981',
-              textTransform: 'uppercase',
-              letterSpacing: 0.2,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: 7,
+              paddingVertical: 3,
+              borderRadius: 999,
+              backgroundColor: accent,
             }}
           >
-            {room.isVoiceEnabled ? '🎙️ Voice' : '💬 Live'}
-          </Text>
+            <Ionicons name={isVoice ? 'mic' : 'chatbubbles'} size={9} color={onAccent} />
+            <Text style={{ fontSize: 8.5, fontWeight: '900', color: onAccent, letterSpacing: 0.4 }}>
+              {isVoice ? 'VOICE' : 'CHAT'}
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <View
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: 2.5,
+                backgroundColor: colors.success || '#10B981',
+              }}
+            />
+            <Text style={{ fontSize: 10, fontWeight: '800', color: colors.textSecondary }}>
+              {participantCount}/{maxParticipants}
+            </Text>
+          </View>
         </View>
 
         <Text
           numberOfLines={1}
-          style={{ fontSize: 10.5, fontWeight: '700', color: colors.textMuted }}
-        >
-          {room.distanceKm !== null && room.distanceKm !== undefined
-            ? `📍 ${room.distanceKm} km · `
-            : ''}
-          👥 {participantCount}/{maxParticipants}
-        </Text>
-      </View>
-
-      <View style={{ marginVertical: 2 }}>
-        <Text
-          numberOfLines={1}
-          style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary, letterSpacing: 0.1 }}
+          style={{
+            marginTop: 8,
+            fontSize: 14.5,
+            fontWeight: '800',
+            letterSpacing: -0.2,
+            color: colors.textPrimary,
+          }}
         >
           {room.name || 'Untitled Room'}
         </Text>
-        <Text
-          numberOfLines={1}
-          style={{ fontSize: 11, fontWeight: '500', color: colors.textMuted, marginTop: 2 }}
-        >
+        <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '500', color: colors.textMuted, marginTop: 1 }}>
           {room.topic || (room.host?.nickname ? `Hosted by ${room.host.nickname}` : 'Open to everyone')}
         </Text>
-      </View>
+      </LinearGradient>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {participantsList.slice(0, 3).map((participant, index) => (
-            <View
-              key={participant.userId || participant.id || index}
-              style={{
-                marginLeft: index === 0 ? 0 : -8,
-                zIndex: 3 - index,
-                borderRadius: 13,
-                borderWidth: 1.5,
-                borderColor: colors.surface,
-              }}
-            >
-              <Avatar
-                name={participant.nickname || 'User'}
-                gender={participant.gender}
-                emoji={participant.avatarEmoji}
-                color={participant.avatarColor}
-                size={24}
-              />
-            </View>
-          ))}
-          {participantsList.length === 0 && (
-            <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: 'italic' }}>
-              Be first to join
+      {/* Footer: who is inside, and the way in. */}
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
+          {participantsList.length > 0 ? (
+            <>
+              {participantsList.slice(0, 3).map((participant, index) => (
+                <View
+                  key={String(participant?.userId || participant?.id || index)}
+                  style={{
+                    marginLeft: index === 0 ? 0 : -9,
+                    zIndex: 3 - index,
+                    borderRadius: 999,
+                    borderWidth: 2,
+                    borderColor: colors.surface,
+                  }}
+                >
+                  <Avatar
+                    uri={participant?.avatarUrl}
+                    name={participant?.nickname || 'User'}
+                    gender={participant?.gender}
+                    emoji={participant?.avatarEmoji}
+                    color={participant?.avatarColor}
+                    size={26}
+                  />
+                </View>
+              ))}
+              {participantCount > 3 ? (
+                <Text style={{ marginLeft: 6, fontSize: 10.5, fontWeight: '700', color: colors.textMuted }}>
+                  +{participantCount - 3}
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textMuted }}>
+              Be the first in
             </Text>
           )}
         </View>
 
         <View
           style={{
-            paddingHorizontal: 11,
-            paddingVertical: 4,
-            borderRadius: 12,
-            backgroundColor: `${colors.primary}18`,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 3,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 999,
+            backgroundColor: accent,
           }}
         >
-          <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}>
-            Join →
-          </Text>
+          <Text style={{ fontSize: 11.5, fontWeight: '800', color: onAccent }}>Join</Text>
+          <Ionicons name="arrow-forward" size={11} color={onAccent} />
         </View>
       </View>
     </Pressable>
@@ -191,7 +258,7 @@ function RoomCard({ room, onPress }) {
 
 /** Compact tile for a game. */
 function GameCard({ game, onPress }) {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
 
   if (!game) return null;
 
@@ -199,26 +266,45 @@ function GameCard({ game, onPress }) {
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Play ${game.name}`}
-      className="mr-3 items-center justify-center px-4 py-4"
-      style={{
-        width: 116,
+      accessibilityLabel={`Play ${game.name || 'game'}`}
+      style={({ pressed }) => ({
+        width: 118,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 14,
         backgroundColor: colors.surface,
-        borderRadius: radius + 4,
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: colors.border,
-      }}
+        shadowColor: '#0F0817',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.07,
+        shadowRadius: 9,
+        elevation: 2,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
+      })}
     >
-      <Text style={{ fontSize: 30 }}>{game.emoji || '🎮'}</Text>
+      <View
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 16,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: `${colors.primary}14`,
+        }}
+      >
+        <Text style={{ fontSize: 26 }}>{game.emoji || '🎮'}</Text>
+      </View>
       <Text
         numberOfLines={1}
-        className="mt-2 text-xs font-bold"
-        style={{ color: colors.textPrimary }}
+        style={{ marginTop: 8, fontSize: 12, fontWeight: '800', color: colors.textPrimary }}
       >
-        {game.name}
+        {game.name || 'Game'}
       </Text>
-      <Text className="text-[11px]" style={{ color: colors.textMuted }}>
-        {game.personalBest > 0 ? `best ${game.personalBest}` : 'not played'}
+      <Text style={{ fontSize: 10, fontWeight: '600', color: colors.textMuted, marginTop: 1 }}>
+        {game.personalBest > 0 ? `Best ${game.personalBest}` : 'Not played'}
       </Text>
     </Pressable>
   );
@@ -226,53 +312,44 @@ function GameCard({ game, onPress }) {
 
 function RowSkeleton({ width, height }) {
   return (
-    <View className="flex-row">
-      {[0, 1, 2].map((index) => (
-        <View key={index} className="mr-3">
-          <Skeleton width={width} height={height} radius={18} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/**
- * A horizontally scrolling row of cards with Android nested scroll enabled.
- */
-function CardRow({ data, isLoading, renderItem, keyExtractor, skeleton }) {
-  if (isLoading) return <RowSkeleton {...skeleton} />;
-  const safeData = Array.isArray(data) ? data : [];
-  if (safeData.length === 0) return null;
-
-  return (
-    <FlatList
-      data={safeData}
+    <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      nestedScrollEnabled={true}
-      keyExtractor={keyExtractor}
-      renderItem={renderItem}
-      contentContainerStyle={{ paddingRight: 4 }}
-    />
+      contentContainerStyle={{ gap: 12, paddingRight: 16 }}
+    >
+      {[0, 1, 2].map((index) => (
+        <Skeleton key={index} width={width} height={height} radius={20} />
+      ))}
+    </ScrollView>
   );
 }
 
 export function GamesRow({ games, isLoading }) {
+  if (isLoading) return <RowSkeleton width={118} height={116} />;
+
+  const safeGames = Array.isArray(games) ? games : [];
+  if (safeGames.length === 0) return null;
+
   return (
-    <CardRow
-      data={games}
-      isLoading={isLoading}
-      skeleton={{ width: 116, height: 108 }}
-      keyExtractor={(item) => String(item?.key || item?.id || Math.random())}
-      renderItem={({ item }) => (
-        <GameCard game={item} onPress={() => router.push('/(tabs)/games')} />
-      )}
-    />
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 12, paddingRight: 16, paddingVertical: 4 }}
+    >
+      {safeGames.map((game, index) => (
+        <GameCard
+          key={String(game?.key || game?.id || `game-${index}`)}
+          game={game}
+          onPress={() => router.push('/(tabs)/games')}
+        />
+      ))}
+    </ScrollView>
   );
 }
 
 /**
- * The tile that starts a room.
+ * The tile that starts a room. Always last in the row, so an empty room list
+ * is still an invitation rather than a dead end.
  */
 function CreateRoomCard() {
   const { colors } = useTheme();
@@ -283,95 +360,70 @@ function CreateRoomCard() {
       accessibilityRole="button"
       accessibilityLabel="Start a room"
       style={({ pressed }) => ({
-        width: 145,
-        height: 132,
-        marginRight: 12,
-        backgroundColor: colors.surface,
-        borderRadius: 22,
-        borderWidth: 1.5,
-        borderColor: `${colors.primary}40`,
+        width: 152,
+        height: ROOM_CARD_HEIGHT,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: `${colors.primary}55`,
+        backgroundColor: colors.surfaceAlt,
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 12,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.12,
-        shadowRadius: 8,
-        elevation: 2,
-        transform: [{ scale: pressed ? 0.96 : 1 }],
+        paddingHorizontal: 12,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
       })}
     >
       <View
         style={{
-          width: 42,
-          height: 42,
-          borderRadius: 21,
+          width: 44,
+          height: 44,
+          borderRadius: 22,
           backgroundColor: colors.primary,
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: 8,
           shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 3 },
           shadowOpacity: 0.35,
-          shadowRadius: 6,
+          shadowRadius: 8,
           elevation: 3,
         }}
       >
-        <Ionicons name="add" size={24} color="#FFFFFF" />
+        <Ionicons name="add" size={26} color="#FFFFFF" />
       </View>
       <Text
         numberOfLines={1}
-        style={{
-          fontSize: 12.5,
-          fontWeight: '800',
-          color: colors.primary,
-          textAlign: 'center',
-          letterSpacing: 0.1,
-        }}
+        style={{ marginTop: 9, fontSize: 13, fontWeight: '800', color: colors.textPrimary }}
       >
         Start a Room
       </Text>
-      <View
-        style={{
-          marginTop: 5,
-          backgroundColor: `${colors.primary}18`,
-          borderRadius: 10,
-          paddingHorizontal: 8,
-          paddingVertical: 2.5,
-        }}
-      >
-        <Text style={{ fontSize: 9.5, fontWeight: '800', color: colors.primary }}>
-          Free to host
-        </Text>
-      </View>
+      <Text style={{ marginTop: 2, fontSize: 10.5, fontWeight: '600', color: colors.textMuted }}>
+        Free to host
+      </Text>
     </Pressable>
   );
 }
 
 export function LiveRoomsRow({ rooms, isLoading }) {
-  if (isLoading) return <RowSkeleton width={220} height={132} />;
+  if (isLoading) return <RowSkeleton width={ROOM_CARD_WIDTH} height={ROOM_CARD_HEIGHT} />;
 
   const safeRooms = Array.isArray(rooms) ? rooms : [];
 
   return (
-    <FlatList
-      data={safeRooms}
+    <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      nestedScrollEnabled={true}
-      keyExtractor={(item) => String(item?.id || Math.random())}
-      contentContainerStyle={{ paddingRight: 4, paddingVertical: 4 }}
-      ListFooterComponent={<CreateRoomCard />}
-      renderItem={({ item }) => (
+      contentContainerStyle={{ gap: 12, paddingRight: 16, paddingVertical: 4 }}
+    >
+      {safeRooms.map((room, index) => (
         <RoomCard
-          room={item}
+          key={String(room?.id ?? `room-${index}`)}
+          room={room}
           onPress={() => {
-            if (item?.id) {
-              router.push(`/room/${item.id}`);
-            }
+            if (room?.id) router.push(`/room/${room.id}`);
           }}
         />
-      )}
-    />
+      ))}
+      <CreateRoomCard />
+    </ScrollView>
   );
 }

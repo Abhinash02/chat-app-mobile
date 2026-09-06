@@ -123,7 +123,13 @@ export default function NewStatusScreen() {
       style={{ backgroundColor: colors.background }}
     >
       <View className="flex-row items-center justify-between px-4 pb-2" style={{ paddingTop: insets.top + 8 }}>
-        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Cancel" className="px-1">
+        <Pressable
+          onPress={goBack}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+          hitSlop={12}
+          className="px-1 py-1"
+        >
           <Text className="text-[15px]" style={{ color: colors.textSecondary }}>
             Cancel
           </Text>

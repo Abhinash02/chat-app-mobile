@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 /**
  * Loads Razorpay Web SDK dynamically on web / mobile browser.
@@ -47,6 +47,8 @@ export async function launchRazorpayCheckout({
   onSuccess,
   onFailure,
   onDismiss,
+  // The hosted Payment Link the server created alongside the order.
+  shortUrl,
 }) {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const RazorpayClass = await loadRazorpaySdk();
@@ -103,6 +105,44 @@ export async function launchRazorpayCheckout({
 
     rzp.open();
     return true;
+  }
+
+  /*
+   * Native opens Razorpay's hosted page.
+   *
+   * The standard checkout is a browser SDK with no native build, so the server
+   * also creates a Payment Link when it creates the order and hands back its
+   * `shortUrl`. Opening that in the device browser gives the same cards, UPI
+   * and netbanking, and the result comes back over the webhook exactly like a
+   * web payment.
+   *
+   * Previously this simply returned `false` and the call site ignored it, so
+   * tapping "Pay with Razorpay" on Android did nothing at all — no browser, no
+   * error, no explanation.
+   */
+  if (shortUrl) {
+    const canOpen = await Linking.canOpenURL(shortUrl).catch(() => true);
+    if (!canOpen) {
+      if (onFailure) {
+        onFailure({
+          description: 'No browser available to open the payment page.',
+          reason: 'NO_BROWSER',
+        });
+      }
+      return false;
+    }
+
+    await Linking.openURL(shortUrl);
+    // Leaving for the browser is not a result. The caller starts polling on
+    // return, because the webhook may land before the person comes back.
+    return 'pending';
+  }
+
+  if (onFailure) {
+    onFailure({
+      description: 'Could not open Razorpay. Please try Cashfree or UPI.',
+      reason: 'RAZORPAY_LINK_UNAVAILABLE',
+    });
   }
 
   return false;

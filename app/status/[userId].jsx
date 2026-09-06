@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 
 import { Gradient } from '../../src/components/Gradient.jsx';
@@ -156,6 +157,7 @@ export default function StatusViewerScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const actionSheet = useActionSheet();
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const { on } = useSocket();
   const { width } = useWindowDimensions();
@@ -200,6 +202,47 @@ export default function StatusViewerScreen() {
 
     return () => off?.();
   }, [on, queryClient, userId]);
+
+  /*
+   * Liking a status, the way WhatsApp does it: anyone who can see it can react,
+   * including the author.
+   *
+   * The count and heart are updated in the cache before the request lands. A
+   * heart that waits on a round trip feels broken, and the server takes the
+   * desired state rather than a toggle, so both sides settle on the same answer
+   * either way.
+   */
+  const like = useMutation({
+    mutationFn: ({ id, next }) => statusApi.setLike(id, next),
+    onMutate: async ({ id, next }) => {
+      await queryClient.cancelQueries({ queryKey: ['status-ring', userId] });
+      const previous = queryClient.getQueryData(['status-ring', userId]);
+
+      queryClient.setQueryData(['status-ring', userId], (old) =>
+        Array.isArray(old)
+          ? old.map((entry) =>
+              entry.id === id
+                ? {
+                    ...entry,
+                    hasLiked: next,
+                    likeCount: Math.max(0, (entry.likeCount ?? 0) + (next ? 1 : -1)),
+                  }
+                : entry,
+            )
+          : old,
+      );
+
+      return { previous };
+    },
+    // Put the old numbers back rather than leaving a heart that lied.
+    onError: (_error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(['status-ring', userId], context.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['status-ring', userId] });
+      queryClient.invalidateQueries({ queryKey: ['status-feed'] });
+    },
+  });
 
   const remove = useMutation({
     mutationFn: (statusId) => statusApi.remove(statusId),
@@ -431,7 +474,13 @@ export default function StatusViewerScreen() {
             </Pressable>
           ) : null}
 
-          <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Close" className="px-2">
+          <Pressable
+            onPress={goBack}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            hitSlop={12}
+            className="px-2 py-1"
+          >
             <Text className="text-xl text-white">✕</Text>
           </Pressable>
         </View>
@@ -448,20 +497,52 @@ export default function StatusViewerScreen() {
         </View>
       ) : null}
 
-      {isOwn ? (
+      {/* Footer: the author's view count on the left, the heart on the right.
+          Everyone gets the heart; only the author gets the count. */}
+      <View
+        className="absolute left-0 right-0 flex-row items-center justify-between px-6 py-4"
+        style={{ bottom: insets.bottom }}
+        pointerEvents="box-none"
+      >
+        {isOwn ? (
+          <Pressable
+            onPress={() => setIsViewerSheetOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Seen by ${current.viewCount ?? 0}`}
+            className="flex-row items-center gap-2"
+          >
+            <Ionicons name="eye-outline" size={17} color="rgba(255,255,255,0.9)" />
+            <Text className="text-[14px] font-medium text-white">
+              {current.viewCount ?? 0} {current.viewCount === 1 ? 'view' : 'views'}
+            </Text>
+          </Pressable>
+        ) : (
+          <View />
+        )}
+
         <Pressable
-          onPress={() => setIsViewerSheetOpen(true)}
+          onPress={() => like.mutate({ id: current.id, next: !current.hasLiked })}
+          hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel={`Seen by ${current.viewCount ?? 0}`}
-          className="absolute left-0 right-0 flex-row items-center justify-center gap-2 py-4"
-          style={{ bottom: insets.bottom }}
+          accessibilityLabel={current.hasLiked ? 'Remove like' : 'Like this status'}
+          accessibilityState={{ selected: Boolean(current.hasLiked) }}
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 7,
+            transform: [{ scale: pressed ? 0.9 : 1 }],
+          })}
         >
-          <Text className="text-base">👁️</Text>
-          <Text className="text-[14px] font-medium text-white">
-            {current.viewCount ?? 0} {current.viewCount === 1 ? 'view' : 'views'}
-          </Text>
+          <Ionicons
+            name={current.hasLiked ? 'heart' : 'heart-outline'}
+            size={26}
+            color={current.hasLiked ? (colors.primary || '#FFFFFF') : '#FFFFFF'}
+          />
+          {current.likeCount > 0 ? (
+            <Text className="text-[14px] font-medium text-white">{current.likeCount}</Text>
+          ) : null}
         </Pressable>
-      ) : null}
+      </View>
 
       {isViewerSheetOpen ? (
         <ViewerSheet statusId={current.id} onClose={() => setIsViewerSheetOpen(false)} />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
+import { FlatList, Platform, RefreshControl, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -11,6 +11,9 @@ import { chatApi, usersApi } from '../src/api/endpoints.js';
 import { useSocket } from '../src/hooks/useSocket.jsx';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
 import { useToast } from '../src/components/Toast.jsx';
+
+const GRID_GAP = 12;
+const GRID_PADDING = 16;
 
 /**
  * Everyone, as a scrollable grid.
@@ -38,6 +41,7 @@ export default function Browse() {
   });
 
   async function openChat(person) {
+    if (!person?.id) return;
     setOpeningId(person.id);
 
     try {
@@ -58,15 +62,16 @@ export default function Browse() {
     }
   }
 
-  const people = data?.items ?? [];
+  const people = Array.isArray(data?.items) ? data.items : [];
+  const skeletons = Array.from({ length: 6 }, (_, index) => ({ id: `skeleton-${index}` }));
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
         title={onlineOnly ? 'Online now' : 'Everyone'}
         subtitle={
           people.length > 0
-            ? `${data?.meta?.total ?? people.length} ${onlineOnly ? 'online' : 'people'}`
+            ? `${data?.meta?.total ?? people.length} ${onlineOnly ? 'online right now' : 'people to meet'}`
             : undefined
         }
       />
@@ -75,11 +80,25 @@ export default function Browse() {
         <EmptyState emoji="📡" title="Could not load anyone" description={error.message} />
       ) : (
         <FlatList
-          data={isLoading ? Array.from({ length: 6 }, (_, i) => ({ id: `skeleton-${i}` })) : people}
-          keyExtractor={(item) => item.id}
+          data={isLoading ? skeletons : people}
+          keyExtractor={(item, index) => String(item?.id ?? `row-${index}`)}
+          /* Virtualisation tuning. React Native's defaults keep roughly ten
+             screens of rows mounted, which is fine on a flagship and is what
+             makes long lists stutter on the mid-range Android phones most of
+             these users are on. Smaller batches and a tighter window cost a
+             little more work while flinging fast and a lot less memory. */
+          removeClippedSubviews={Platform.OS === 'android'}
+          initialNumToRender={8}
+          maxToRenderPerBatch={6}
+          windowSize={9}
           numColumns={2}
-          columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
-          contentContainerStyle={{ paddingVertical: 16, gap: 12, flexGrow: 1 }}
+          columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: GRID_PADDING }}
+          contentContainerStyle={{
+            paddingVertical: GRID_PADDING,
+            gap: GRID_GAP,
+            flexGrow: 1,
+          }}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -90,17 +109,17 @@ export default function Browse() {
           }
           renderItem={({ item }) =>
             isLoading ? (
-              <View className="flex-1">
+              <View style={{ flex: 1 }}>
                 <PersonCardSkeleton />
               </View>
             ) : (
-              <View className="flex-1">
+              <View style={{ flex: 1 }}>
                 <PersonCard
                   person={item}
                   presence={presence}
                   width="100%"
-                  isOpening={openingId === item.id}
-                  onPress={() => openChat(item)}
+                  isOpening={openingId === item?.id}
+                  onPress={openChat}
                 />
               </View>
             )

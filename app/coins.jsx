@@ -1,13 +1,23 @@
-import { useEffect, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  AppState,
+  Linking,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
-import { goBack } from '../src/components/ScreenHeader.jsx';
+import { BackButton } from '../src/components/ScreenHeader.jsx';
 import { Badge, Button, Card, CoinIcon, Field, GradientButton, Input, Loading } from '../src/components/ui.jsx';
+import { DailyCoinsCard } from '../src/components/DailyCoinsCard.jsx';
 import { coinsApi, paymentsApi, withdrawalsApi } from '../src/api/endpoints.js';
 import { formatCoins, formatCountdown, formatRupees } from '../src/lib/format.js';
 import { launchCashfreeCheckout } from '../src/lib/cashfree.js';
@@ -491,11 +501,21 @@ function GirlsEarningsCard({ wallet: propWallet }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [liveEarnings, setLiveEarnings] = useState(null);
 
-  // Live query for reactive real-time earnings settings from backend
+  /*
+   * Earnings settings, kept fresh.
+   *
+   * This polled every three seconds — twenty requests a minute, per open
+   * screen — while the socket listener directly below already applies admin
+   * changes the instant they are saved. The poll was doing nothing the socket
+   * did not do sooner, at the cost of battery, mobile data and server load.
+   *
+   * Kept as a slow safety net rather than removed, because a dropped socket
+   * should not leave the screen stale forever.
+   */
   const { data: earningsStatusData, refetch } = useQuery({
     queryKey: ['earnings-status'],
     queryFn: () => withdrawalsApi.getEarningsStatus(),
-    refetchInterval: 3_000,
+    refetchInterval: 60_000,
   });
 
   // Direct 0ms socket listener: Updates state INSTANTLY on admin save with zero delay
@@ -1184,6 +1204,85 @@ export default function Coins() {
     onError: (error) => toast.error(error.message ?? 'Could not verify payment yet'),
   });
 
+  /*
+   * Watches for a Razorpay payment that finished outside the app.
+   *
+   * Native has no callback: the person leaves for the browser, pays, and comes
+   * back with the app none the wiser. The webhook credits the order server-side
+   * regardless — this only decides whether the screen notices now or on the
+   * next launch, which is the difference between "it worked" and "it ate my
+   * money".
+   *
+   * Polled on a timer and again the moment the app returns to the foreground,
+   * because coming back is the strongest hint there is that something changed.
+   * Bounded at three minutes: past that the webhook has either landed or the
+   * person walked away, and an endless timer is its own bug.
+   */
+  const razorpayPoll = useRef(null);
+
+  const stopRazorpayPolling = useCallback(() => {
+    if (razorpayPoll.current?.timer) clearInterval(razorpayPoll.current.timer);
+    if (razorpayPoll.current?.subscription) razorpayPoll.current.subscription.remove();
+    razorpayPoll.current = null;
+  }, []);
+
+  const startRazorpayPolling = useCallback(
+    (orderId) => {
+      if (!orderId) return;
+      stopRazorpayPolling();
+
+      let attempts = 0;
+      const MAX_ATTEMPTS = 30; // 30 x 6s = 3 minutes
+      let checking = false;
+
+      const check = async () => {
+        if (checking) return;
+        checking = true;
+        attempts += 1;
+
+        try {
+          const res = await paymentsApi.verifyRazorpay({ orderId });
+          const isPaid =
+            res?.alreadyCredited || res?.status === 'paid' || res?.order?.status === 'paid';
+
+          if (isPaid) {
+            stopRazorpayPolling();
+            toast.coins('Payment verified! Coins credited to your wallet 🎉');
+            queryClient.invalidateQueries({ queryKey: ['wallet'] });
+            queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+            queryClient.invalidateQueries({ queryKey: ['my-profile'] });
+            setActiveOrder(null);
+            return;
+          }
+
+          if (res?.status === 'failed' || res?.order?.status === 'failed') {
+            stopRazorpayPolling();
+            toast.error(res?.failureReason || 'That payment did not go through.');
+            setActiveOrder(null);
+            return;
+          }
+        } catch {
+          // A failed check is not a failed payment — the next tick tries again.
+        } finally {
+          checking = false;
+        }
+
+        if (attempts >= MAX_ATTEMPTS) stopRazorpayPolling();
+      };
+
+      const timer = setInterval(check, 6000);
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') check();
+      });
+
+      razorpayPoll.current = { timer, subscription };
+    },
+    [queryClient, stopRazorpayPolling, toast],
+  );
+
+  // A timer that outlives its screen keeps firing into a component that is gone.
+  useEffect(() => stopRazorpayPolling, [stopRazorpayPolling]);
+
   const createRazorpayOrder = useMutation({
     mutationFn: () => paymentsApi.createRazorpayOrder(activePackageId),
     onSuccess: async (result) => {
@@ -1198,9 +1297,11 @@ export default function Coins() {
         checkout,
       });
 
-      await launchRazorpayCheckout({
+      const outcome = await launchRazorpayCheckout({
         keyId: checkout.keyId,
         orderId: checkout.orderId || checkout.providerOrderId,
+        // Native cannot run the browser SDK; it opens this hosted page instead.
+        shortUrl: checkout.shortUrl,
         amountInPaise: checkout.amountInPaise,
         currency: checkout.currency,
         name: checkout.name || 'Vibe Chat',
@@ -1229,6 +1330,18 @@ export default function Coins() {
           toast.info('Razorpay payment window closed');
         },
       }).catch(() => undefined);
+
+      /*
+       * The app left for the browser, so nothing will call back into it.
+       *
+       * The webhook credits the order server-side either way; this only decides
+       * how quickly the screen catches up. Polling verify is what turns "I paid
+       * and the app still says nothing" into coins appearing on return.
+       */
+      if (outcome === 'pending') {
+        toast.info('Complete the payment in your browser, then come back here.');
+        startRazorpayPolling(result.order?.id);
+      }
     },
     onError: (error) => toast.error(error.message ?? 'Could not start Razorpay payment'),
   });
@@ -1363,15 +1476,7 @@ export default function Coins() {
           </Text>
         </View>
 
-        <Pressable
-          onPress={() => goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          className="h-9 w-9 rounded-full items-center justify-center shadow-xs active:scale-95 transition"
-          style={{ backgroundColor: colors.surfaceAlt }}
-        >
-          <Ionicons name="close" size={20} color={colors.textSecondary} />
-        </Pressable>
+        <BackButton variant="close" fallback="/(tabs)/profile" />
       </View>
 
       <ScrollView
@@ -1758,6 +1863,11 @@ export default function Coins() {
               ))}
             </View>
 
+            {/* Moved here from the home feed: the daily bonus is part of the
+                coin balance, and this is the screen someone opens to think
+                about coins. */}
+            <DailyCoinsCard />
+
             {options?.packages?.length === 0 ? (
               <Card>
                 <Text className="text-sm" style={{ color: colors.textMuted }}>
@@ -1777,9 +1887,9 @@ export default function Coins() {
               ) : null}
 
               {canPayCashfree ? (
-                <Button
+                <GradientButton
                   title="⚡ Pay with Cashfree (UPI & NetBanking)"
-                  variant="outline"
+                  gradient={[colors.info || '#3B82F6', '#4F46E5']}
                   isLoading={createCashfreeOrder.isPending}
                   disabled={!activePackageId}
                   onPress={() => createCashfreeOrder.mutate()}
@@ -1787,9 +1897,9 @@ export default function Coins() {
               ) : null}
 
               {canPayByUpi ? (
-                <Button
+                <GradientButton
                   title="📱 Pay via Direct UPI QR"
-                  variant="ghost"
+                  gradient={[colors.warning || '#F5A524', '#EA580C']}
                   isLoading={createUpiOrder.isPending}
                   disabled={!activePackageId}
                   onPress={() => createUpiOrder.mutate()}

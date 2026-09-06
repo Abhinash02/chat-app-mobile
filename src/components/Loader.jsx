@@ -190,19 +190,35 @@ export function Skeleton({ width = '100%', height = 14, radius = 8, style }) {
   );
 }
 
-/** The shape of one discovery card, shown while the feed loads. */
+/**
+ * The shape of one discovery card, shown while the feed loads.
+ *
+ * Mirrors PersonCard's photo-over-plate split so the grid does not visibly
+ * reflow when the real cards arrive.
+ */
 export function PersonCardSkeleton() {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <View
-      className="mb-3 flex-1 items-center p-3"
-      style={{ backgroundColor: colors.surface, borderRadius: radius, borderWidth: 1, borderColor: colors.border }}
+      style={{
+        height: 248,
+        backgroundColor: colors.surface,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.border,
+        overflow: 'hidden',
+      }}
     >
-      <Skeleton width={72} height={72} radius={36} />
-      <Skeleton width="60%" height={12} style={{ marginTop: 12 }} />
-      <Skeleton width="40%" height={10} style={{ marginTop: 8 }} />
-      <Skeleton width="80%" height={9} style={{ marginTop: 10 }} />
+      <Skeleton width="100%" height={164} radius={0} />
+
+      <View style={{ paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10, justifyContent: 'space-between', flex: 1 }}>
+        <View>
+          <Skeleton width="88%" height={9} />
+          <Skeleton width="62%" height={9} style={{ marginTop: 5 }} />
+        </View>
+        <Skeleton width="100%" height={32} radius={999} />
+      </View>
     </View>
   );
 }

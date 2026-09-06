@@ -8,13 +8,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { goBack } from '../../src/components/ScreenHeader.jsx';
+import { BackButton, goBack } from '../../src/components/ScreenHeader.jsx';
 import { Avatar, Badge, Button, Card, Loading } from '../../src/components/ui.jsx';
 import { chatApi, reportsApi, usersApi } from '../../src/api/endpoints.js';
+import { postsApi } from '../../src/api/endpoints.js';
+import { LANGUAGES } from '../../src/constants/languages.js';
 import { formatCoins, formatDistance, formatRelativeTime } from '../../src/lib/format.js';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
@@ -43,6 +47,15 @@ export default function UserProfileScreen() {
   const [reportReason, setReportReason] = useState('harassment');
   const [reportDetails, setReportDetails] = useState('');
   const [isOpeningChat, setIsOpeningChat] = useState(false);
+
+  const { data: postPage } = useQuery({
+    queryKey: ['posts', 'by-user', userId],
+    queryFn: () => postsApi.byUser(userId, { limit: 9 }),
+    enabled: Boolean(userId),
+  });
+
+  // `meta.total` is the real count; `items` is only the first page of it.
+  const postCount = postPage?.meta?.total ?? postPage?.items?.length ?? 0;
 
   const { data: user, isLoading, error } = useQuery({
     queryKey: ['user-profile', userId],
@@ -174,21 +187,26 @@ export default function UserProfileScreen() {
         className="flex-row items-center justify-between px-4 pb-3 pt-2"
         style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
       >
-        <Pressable onPress={() => goBack()} accessibilityRole="button" accessibilityLabel="Back" className="px-1">
-          <Text className="text-2xl" style={{ color: colors.textPrimary }}>
-            ‹
-          </Text>
-        </Pressable>
+        <BackButton />
         <Text numberOfLines={1} className="text-lg font-bold flex-1 text-center px-2" style={{ color: colors.textPrimary }}>
           {user.nickname}
         </Text>
         <Pressable
           onPress={() => setIsReportOpen(true)}
           accessibilityRole="button"
-          accessibilityLabel="Report"
-          className="p-1"
+          accessibilityLabel={`Report ${user.nickname}`}
+          hitSlop={10}
+          style={({ pressed }) => ({
+            width: 34,
+            height: 34,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: -6,
+            borderRadius: 17,
+            opacity: pressed ? 0.55 : 1,
+          })}
         >
-          <Text style={{ fontSize: 18 }}>🚩</Text>
+          <Ionicons name="flag-outline" size={19} color={colors.danger || '#DC2626'} />
         </Pressable>
       </View>
 
@@ -234,6 +252,32 @@ export default function UserProfileScreen() {
               {user.bio}
             </Text>
           ) : null}
+
+          {/* Which languages this person is happy talking in — the thing that
+              decides whether a chat is going to go anywhere. */}
+          {(user.languages ?? []).length > 0 ? (
+            <View className="mt-3 flex-row flex-wrap justify-center gap-1.5 px-4">
+              {user.languages.map((code) => {
+                const language = LANGUAGES.find((entry) => entry.code === code);
+                return (
+                  <View
+                    key={code}
+                    className="flex-row items-center gap-1 px-2.5 py-1"
+                    style={{ backgroundColor: `${colors.primary}12`, borderRadius: 999 }}
+                  >
+                    <Text className="text-[12px] font-bold" style={{ color: colors.primary }}>
+                      {language?.native ?? code}
+                    </Text>
+                    {language ? (
+                      <Text className="text-[10px]" style={{ color: colors.textMuted }}>
+                        {language.label}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
         </View>
 
         {/* Stats Row */}
@@ -276,6 +320,62 @@ export default function UserProfileScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Their photo posts, as a grid of covers. Tapping one opens the post
+            itself rather than a gallery — the comments are the point.
+
+            The whole section is absent for someone who has posted nothing —
+            an empty grid with a heading over it is just a hole in the page. */}
+        {postCount > 0 ? (
+          <View className="mt-6">
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className="text-base font-black" style={{ color: colors.textPrimary }}>
+                Photos
+              </Text>
+              <Text className="text-xs font-semibold" style={{ color: colors.textMuted }}>
+                {postCount} {postCount === 1 ? 'post' : 'posts'}
+              </Text>
+            </View>
+
+            <View className="flex-row flex-wrap gap-1.5">
+              {postPage.items.map((post) => (
+                <Pressable
+                  key={post.id}
+                  onPress={() => router.push(`/post/${post.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open post"
+                  style={{ width: '32%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden' }}
+                >
+                  <Image
+                    source={{ uri: post.images?.[0]?.url }}
+                    style={{ width: '100%', height: '100%' }}
+                    contentFit="cover"
+                    transition={180}
+                    cachePolicy="memory-disk"
+                    recyclingKey={post.id}
+                  />
+                  {post.images?.length > 1 ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 5,
+                        right: 5,
+                        paddingHorizontal: 5,
+                        paddingVertical: 1.5,
+                        borderRadius: 999,
+                        backgroundColor: 'rgba(27,16,36,0.7)',
+                      }}
+                    >
+                      <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF' }}>
+                        {post.images.length}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* Primary Action Buttons */}
         <View className="mt-6 gap-3">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,11 +10,12 @@ import {
   View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { LinearGradient } from 'expo-linear-gradient';
+
+import { ShareTargets } from '../src/components/ShareTargets.jsx';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 
-import { goBack } from '../src/components/ScreenHeader.jsx';
+import { BackButton } from '../src/components/ScreenHeader.jsx';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
 import { useToast } from '../src/components/Toast.jsx';
 import { useSocket } from '../src/hooks/useSocket.jsx';
@@ -139,19 +140,28 @@ export default function ReferScreen() {
     }
   }
 
+  /*
+   * One source for the invite text and link, so the share row and the button
+   * below it can never send two different messages.
+   */
+  const inviteUrl =
+    link ||
+    (typeof window !== 'undefined' && window.location?.origin
+      ? `${window.location.origin}/register?ref=${code}`
+      : `https://app.vibechat.app/register?ref=${code}`);
+
+  const inviteMessage = code
+    ? `🎁 Join me on Vibe Chat!\nUse my referral code: ${code}\nSign up here: ${inviteUrl}`
+    : '';
+
   async function handleShare() {
     if (!code) {
       toast.info('Referral code still loading...');
       return;
     }
 
-    const shareUrl =
-      link ||
-      (typeof window !== 'undefined' && window.location?.origin
-        ? `${window.location.origin}/register?ref=${code}`
-        : `https://app.vibechat.app/register?ref=${code}`);
-
-    const shareText = `🎁 Join me on Vibe Chat!\nUse my referral code: ${code}\nSign up here: ${shareUrl}`;
+    const shareUrl = inviteUrl;
+    const shareText = inviteMessage;
 
     // Web Browser Share
     if (Platform.OS === 'web') {
@@ -197,15 +207,10 @@ export default function ReferScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header with Admin-Managed Dynamic Gradient */}
-      <LinearGradient
-        colors={[
-          colors.gradientStart || colors.primary || '#7C3AED',
-          colors.gradientEnd || colors.secondary || '#EC4899',
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      {/* Flat accent header. */}
+      <View
         style={{
+          backgroundColor: colors.primary,
           paddingTop: Math.max(insets.top + 10, 24),
           paddingBottom: 28,
           paddingHorizontal: 20,
@@ -213,18 +218,7 @@ export default function ReferScreen() {
       >
         {/* Top bar with back and live sync indicator */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <Pressable
-            onPress={() => goBack()}
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.22)',
-              borderRadius: 12,
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-            }}
-            hitSlop={10}
-          >
-            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>← Back</Text>
-          </Pressable>
+          <BackButton tone="onColor" />
 
           <View
             style={{
@@ -266,7 +260,7 @@ export default function ReferScreen() {
             </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <FlatList
         data={history}
@@ -397,26 +391,42 @@ export default function ReferScreen() {
                         overflow: 'hidden',
                       }}
                     >
-                      <LinearGradient
-                        colors={[
-                          colors.gradientStart || colors.primary || '#7C3AED',
-                          colors.gradientEnd || colors.secondary || '#EC4899',
-                        ]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
+                      <View
                         style={{
                           position: 'absolute',
                           top: 0,
                           left: 0,
                           right: 0,
                           bottom: 0,
-                          borderRadius: 14,
+                          borderRadius: 8,
+                          backgroundColor: colors.primary,
                         }}
                       />
-                      <Text style={{ color: colors.onPrimary || '#fff', fontWeight: '800', fontSize: 14 }}>
-                        🚀 Share Link
+                      <Text style={{ color: colors.onPrimary || '#fff', fontWeight: '600', fontSize: 14 }}>
+                        Share link
                       </Text>
                     </Pressable>
+                  </View>
+
+                  {/* Send it straight to the app people actually use, instead
+                      of making them find it inside the system sheet. */}
+                  <View style={{ marginTop: 16 }}>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: '900',
+                        letterSpacing: 0.6,
+                        color: colors.textMuted,
+                        marginBottom: 10,
+                      }}
+                    >
+                      SEND INVITE VIA
+                    </Text>
+                    <ShareTargets
+                      message={inviteMessage}
+                      url={inviteUrl}
+                      title="Join me on Vibe Chat!"
+                    />
                   </View>
                 </>
               )}

@@ -1,3 +1,46 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * The app typeface, for the web build.
+ *
+ * Native has no font inheritance and is handled in `src/lib/app-font.js`. The
+ * browser does inherit, but a plain rule on :root is not enough:
+ * react-native-web puts its own font stack on every Text through a generated
+ * class (`css-text-…`), and a class beats an inherited value.
+ *
+ * So the selector matches that class through an attribute — `#root [class*=]`
+ * outranks a single class, which is what makes this win. Crucially it is *not*
+ * `!important`: icon fonts (Ionicons) set `font-family` inline on the element,
+ * and an inline style beats any selector that is not !important. That is the
+ * whole reason the glyphs keep rendering instead of turning into letters.
+ *
+ * The weight variants exist because Android will not synthesise bold for a
+ * custom family, so each weight is a separate registered family. Matching that
+ * on the web keeps the two builds looking the same rather than having the
+ * browser fake a bold that the phone cannot.
+ */
+#root [class*="css-text-"],
+#root [class*="css-textinput-"],
+#root input,
+#root textarea {
+  font-family: 'Cause-Regular', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+#root [class*="css-text-"].font-medium,
+#root [class*="css-text-"].font-semibold,
+#root [class*="css-text-"][style*="font-weight: 500"],
+#root [class*="css-text-"][style*="font-weight: 600"] {
+  font-family: 'Cause-SemiBold', system-ui, -apple-system, sans-serif;
+}
+
+#root [class*="css-text-"].font-bold,
+#root [class*="css-text-"].font-extrabold,
+#root [class*="css-text-"].font-black,
+#root [class*="css-text-"][style*="font-weight: 700"],
+#root [class*="css-text-"][style*="font-weight: 800"],
+#root [class*="css-text-"][style*="font-weight: 900"],
+#root [class*="css-text-"][style*="font-weight: bold"] {
+  font-family: 'Cause-Bold', system-ui, -apple-system, sans-serif;
+}

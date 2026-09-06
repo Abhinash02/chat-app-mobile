@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
  */
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
-import { bannersApi } from '../api/endpoints.js';
+import { bannersApi, settingsApi } from '../api/endpoints.js';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 
 const AUTO_ADVANCE_MS = 5000;
@@ -174,9 +174,29 @@ export function BannerCarousel() {
 
   const bannerHeight = Math.round(width / 4);
 
+  /*
+   * The section switch, the same one the bottom ad space has.
+   *
+   * Turning the carousel off in the panel used to do nothing here — the only
+   * control was per-banner, so hiding the section meant switching every banner
+   * off one at a time and turning it back on meant redoing that.
+   *
+   * Defaults to on while the settings request is in flight, so an existing
+   * install does not blink its banners away on every cold start.
+   */
+  const { data: publicSettings } = useQuery({
+    queryKey: ['publicSettings'],
+    queryFn: settingsApi.public,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isSectionOn = publicSettings?.ads?.homeTopBannerEnabled !== false;
+
   const { data: banners = [] } = useQuery({
     queryKey: ['banners', 'home_top'],
     queryFn: () => bannersApi.listLive({ placement: 'home_top' }),
+    // Not even asked for while the section is off.
+    enabled: isSectionOn,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -224,7 +244,8 @@ export function BannerCarousel() {
     }
   }, []);
 
-  if (banners.length === 0) return null;
+  // Off at the section level, or simply nothing live to show.
+  if (!isSectionOn || banners.length === 0) return null;
 
   return (
     <View

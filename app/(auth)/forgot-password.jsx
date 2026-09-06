@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
+import { AuthHero } from '../../src/components/AuthHero.jsx';
 import { Field, GradientButton, Input } from '../../src/components/ui.jsx';
 import { request } from '../../src/api/client.js';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
@@ -11,7 +12,6 @@ import { useToast } from '../../src/components/Toast.jsx';
 export default function ForgotPassword() {
   const { colors } = useTheme();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
 
   // Two steps in one screen: asking for the code, then using it.
   const [step, setStep] = useState('request');
@@ -71,29 +71,85 @@ export default function ForgotPassword() {
       style={{ backgroundColor: colors.background }}
     >
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
-        className="px-6"
+        showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          onPress={() => (step === 'reset' ? setStep('request') : router.back())}
-          className="mb-6 self-start"
-          accessibilityRole="button"
+        <AuthHero
+          title={step === 'request' ? 'Reset your password' : 'Enter the code'}
+          subtitle={
+            step === 'request'
+              ? 'Tell us your email and we will send a code to reset it.'
+              : `Enter the code we sent to ${email} and choose a new password.`
+          }
+          // Back steps within the screen before it leaves it, so someone who
+          // mistyped their email is not thrown out of the flow to fix it.
+          onBack={() => {
+            // Step back inside the screen first, so someone who mistyped their
+            // email fixes it here instead of being thrown out of the flow.
+            if (step === 'reset') {
+              setStep('request');
+              return;
+            }
+
+            /*
+             * `router.back()` alone is a no-op when there is nothing to go back
+             * to — a reload, or a deep link straight to this screen — which is
+             * exactly how the button ended up doing nothing. Sign-in is where
+             * back means to go from here, so that is the fallback.
+             */
+            if (router.canGoBack()) router.back();
+            else router.replace('/(auth)/login');
+          }}
+          compact
+        />
+
+        {/* Two steps, shown as progress: "enter the code" is not a dead end,
+            it is the second half of something already underway. */}
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, marginTop: 18 }}>
+          {['request', 'reset'].map((name, position) => {
+            const isDone = step === 'reset' && position === 0;
+            const isCurrent = step === name;
+            return (
+              <View key={name} style={{ flex: 1, gap: 6 }}>
+                <View
+                  style={{
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: isDone || isCurrent ? colors.primary : colors.border,
+                  }}
+                />
+                <Text
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: '800',
+                    letterSpacing: 0.3,
+                    color: isDone || isCurrent ? colors.primary : colors.textMuted,
+                  }}
+                >
+                  {position === 0 ? '1 · YOUR EMAIL' : '2 · NEW PASSWORD'}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+
+        <View
+          style={{
+            marginTop: 16,
+            marginHorizontal: 16,
+            padding: 20,
+            borderRadius: 24,
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            shadowColor: '#0F0817',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.08,
+            shadowRadius: 18,
+            elevation: 4,
+          }}
         >
-          <Text className="text-base" style={{ color: colors.textSecondary }}>
-            ← Back
-          </Text>
-        </Pressable>
-
-        <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          {step === 'request' ? 'Reset your password' : 'Enter the code'}
-        </Text>
-        <Text className="mb-7 mt-1.5 text-base leading-6" style={{ color: colors.textMuted }}>
-          {step === 'request'
-            ? 'Tell us your email and we will send a code to reset it.'
-            : `Enter the code we sent to ${email} and choose a new password.`}
-        </Text>
-
         {step === 'request' ? (
           <>
             <Field label="Email">
@@ -179,6 +235,7 @@ export default function ForgotPassword() {
             </Text>
           </View>
         ) : null}
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

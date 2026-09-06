@@ -61,6 +61,8 @@ export const coinsApi = {
   dailyBonus: () => request({ method: 'GET', url: '/coins/daily-bonus' }),
   getDailyBonus: () => request({ method: 'GET', url: '/coins/daily-bonus' }),
   claimDailyBonus: () => request({ method: 'POST', url: '/coins/daily-bonus/claim' }),
+  /* Declines the current window: no coins, next interval starts now. */
+  skipDailyBonus: () => request({ method: 'POST', url: '/coins/daily-bonus/skip' }),
 };
 
 export const paymentsApi = {
@@ -115,6 +117,41 @@ export const roomsApi = {
     }),
 };
 
+/**
+ * Photo posts: up to five images, with likes and comments.
+ *
+ * Uploads get the long timeout the other media endpoints use — several photos
+ * over a phone connection routinely outlast the default.
+ */
+export const postsApi = {
+  feed: (params) => requestList({ method: 'GET', url: '/posts', params }),
+  byUser: (userId, params) => requestList({ method: 'GET', url: `/posts/user/${userId}`, params }),
+  get: (postId) => request({ method: 'GET', url: `/posts/${postId}` }),
+
+  create: (formData) =>
+    request({
+      method: 'POST',
+      url: '/posts',
+      data: formData,
+      timeout: 120_000,
+    }),
+
+  update: (postId, data) => request({ method: 'PATCH', url: `/posts/${postId}`, data }),
+  remove: (postId) => request({ method: 'DELETE', url: `/posts/${postId}` }),
+
+  /** `like` is the desired state, so a retry cannot toggle it back. */
+  setLike: (postId, like) => request({ method: 'POST', url: `/posts/${postId}/like`, data: { like } }),
+
+  comments: (postId, params) =>
+    requestList({ method: 'GET', url: `/posts/${postId}/comments`, params }),
+  addComment: (postId, text) =>
+    request({ method: 'POST', url: `/posts/${postId}/comments`, data: { text } }),
+  updateComment: (commentId, text) =>
+    request({ method: 'PATCH', url: `/posts/comments/${commentId}`, data: { text } }),
+  removeComment: (commentId) =>
+    request({ method: 'DELETE', url: `/posts/comments/${commentId}` }),
+};
+
 export const statusApi = {
   feed: () => request({ method: 'GET', url: '/status' }),
   postText: (data) => request({ method: 'POST', url: '/status/text', data }),
@@ -129,6 +166,9 @@ export const statusApi = {
 
   byUser: (userId) => request({ method: 'GET', url: `/status/user/${userId}` }),
   markViewed: (statusId) => request({ method: 'POST', url: `/status/${statusId}/view` }),
+  /* `like` is the desired state, so a retry cannot toggle it back. */
+  setLike: (statusId, like) =>
+    request({ method: 'POST', url: `/status/${statusId}/like`, data: { like } }),
   viewers: (statusId) => request({ method: 'GET', url: `/status/${statusId}/viewers` }),
   remove: (statusId) => request({ method: 'DELETE', url: `/status/${statusId}` }),
 };

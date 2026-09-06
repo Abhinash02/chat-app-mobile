@@ -17,19 +17,20 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { Avatar, Badge, Button, Card, Loading } from '../src/components/ui.jsx';
+import { Badge, Card } from '../src/components/ui.jsx';
 import { supportApi } from '../src/api/endpoints.js';
-import { useAuth } from '../src/hooks/useAuth.jsx';
 import { useSocket } from '../src/hooks/useSocket.jsx';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
 import { useToast } from '../src/components/Toast.jsx';
 import { Ionicons } from '@expo/vector-icons';
+import { BackButton } from '../src/components/ScreenHeader.jsx';
 
 const ISSUE_CATEGORIES = [
   { id: 'billing', label: '💳 Coins & Payment Issue', description: 'Failed payment, missing coins, or billing questions', emoji: '💳' },
   { id: 'account', label: '👤 Account & Profile', description: 'Login issues, profile picture, or account security', emoji: '👤' },
   { id: 'technical', label: '⚡ Technical / Voice Call', description: 'Audio bugs, connection issues, or voice room problems', emoji: '⚡' },
   { id: 'bug', label: '🐛 App Crash / Bug', description: 'UI glitches, frozen screen, or unexpected crashes', emoji: '🐛' },
+  { id: 'safety', label: '🛡️ Safety / Report Abuse', description: 'Abusive language, sexual messages, harassment, or someone asking for money', emoji: '🛡️' },
   { id: 'other', label: '❓ General Question', description: 'General help, feedback, or general inquiries', emoji: '❓' },
 ];
 
@@ -49,11 +50,15 @@ const PRESET_QUESTIONS = [
     subject: 'Chat audio / room call issue',
     message: 'Hi, I am experiencing an issue with audio during live room calls or sending voice notes.',
   },
+  {
+    category: 'safety',
+    subject: 'Reporting abusive or inappropriate behaviour',
+    message: 'Hello, someone on the app is behaving inappropriately. Please review this. I can share their nickname and what happened.',
+  },
 ];
 
 export default function CustomerSupportScreen() {
-  const { colors, radius } = useTheme();
-  const { user } = useAuth();
+  const { colors } = useTheme();
   const { socket } = useSocket();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -73,7 +78,7 @@ export default function CustomerSupportScreen() {
   const flatListRef = useRef(null);
 
   // Fetch list of user's support tickets
-  const { data: myTickets = [], isLoading: isLoadingTickets, refetch: refetchTickets } = useQuery({
+  const { data: myTickets = [], refetch: refetchTickets } = useQuery({
     queryKey: ['my-support-tickets'],
     queryFn: supportApi.myTickets,
     staleTime: 10_000,
@@ -255,14 +260,6 @@ export default function CustomerSupportScreen() {
     });
   };
 
-  const handleBackNav = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/profile');
-    }
-  };
-
   const selectedCategoryObj = ISSUE_CATEGORIES.find((c) => c.id === issueType) || ISSUE_CATEGORIES[0];
 
   return (
@@ -282,15 +279,7 @@ export default function CustomerSupportScreen() {
         }}
         className="flex-row items-center justify-between shadow-sm"
       >
-        <Pressable
-          onPress={handleBackNav}
-          className="h-9 w-9 items-center justify-center rounded-full"
-          style={{ backgroundColor: colors.surfaceAlt }}
-        >
-          <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
-            ←
-          </Text>
-        </Pressable>
+        <BackButton fallback="/(tabs)/profile" />
 
         <View className="items-center">
           <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>

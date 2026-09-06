@@ -5,6 +5,7 @@ const ACCESS_TOKEN_KEY = 'vibe.accessToken';
 const REFRESH_TOKEN_KEY = 'vibe.refreshToken';
 const USER_KEY = 'vibe.user';
 const LOCATION_ASKED_KEY = 'vibe.locationAsked';
+const THEME_KEY = 'vibe.theme';
 
 /**
  * Session storage.
@@ -91,6 +92,29 @@ export const storage = {
 
   async setLocationAsked() {
     await write(LOCATION_ASKED_KEY, 'true');
+  },
+
+  /**
+   * The last theme the server actually served.
+   *
+   * Kept so a reload can paint the colours the app had a moment ago rather
+   * than the palette compiled into the build. Without it every launch shows
+   * the bundled default for as long as `/theme/active` takes to answer, and
+   * then visibly repaints — which reads as a bug even though nothing is wrong.
+   */
+  async getCachedTheme() {
+    const raw = await read(THEME_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // A truncated or older-format entry is not worth keeping.
+      return null;
+    }
+  },
+
+  async setCachedTheme(theme) {
+    await write(THEME_KEY, theme ? JSON.stringify(theme) : null);
   },
 
   async getLanguage() {

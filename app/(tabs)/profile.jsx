@@ -6,16 +6,19 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Avatar, Badge, CoinIcon, Field, Input, Loading } from '../../src/components/ui.jsx';
 import { WalletHeader } from '../../src/components/WalletHeader.jsx';
 import { AdBanner } from '../../src/components/AdBanner';
-import { feedbackApi, supportApi, usersApi } from '../../src/api/endpoints.js';
+import { feedbackApi, postsApi, supportApi, usersApi } from '../../src/api/endpoints.js';
 import { formatCoins } from '../../src/lib/format.js';
 import { appendFile } from '../../src/lib/media.js';
 import { useAuth } from '../../src/hooks/useAuth.jsx';
 import { useSocket } from '../../src/hooks/useSocket.jsx';
+import { LanguagePicker } from '../../src/components/LanguagePicker.jsx';
+import { MAX_LANGUAGES } from '../../src/constants/languages.js';
 import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 import { useToast } from '../../src/components/Toast.jsx';
 import { useLanguage } from '../../src/i18n/LanguageProvider.jsx';
@@ -68,6 +71,7 @@ function useMenuSections({ router, user, wallet, unreadSupportCount, onOpenFeedb
             : undefined,
           onPress: () => router.push('/coins'),
         },
+        { icon: 'images-outline', tint: '#ec4899', label: 'My Photo Posts', onPress: () => router.push('/posts') },
         { icon: 'time-outline', tint: '#3b82f6', label: t('profile.menu.transactionHistory'), onPress: () => router.push('/transactions') },
         { icon: 'gift-outline', tint: '#8b5cf6', label: 'Refer & Earn 🎁', onPress: () => router.push('/refer') },
         { icon: 'shield-checkmark-outline', tint: '#ef4444', label: t('profile.menu.blockedAccounts'), onPress: () => router.push('/blocked') },
@@ -113,6 +117,7 @@ export default function Profile() {
   const [bio, setBio] = useState('');
   const [nickname, setNickname] = useState('');
   const [ageGroup, setAgeGroup] = useState('18-21');
+  const [languages, setLanguages] = useState([]);
   const [zodiacSign, setZodiacSign] = useState('Leo ♌');
   const [isUploading, setIsUploading] = useState(false);
 
@@ -146,7 +151,12 @@ export default function Profile() {
     onError: (err) => toast.error(err.message ?? 'Could not submit feedback'),
   });
 
-  const { data: profile, isLoading } = useQuery({
+  const {
+    data: profile,
+    isLoading,
+    isError: hasProfileFailed,
+    refetch: refetchProfile,
+  } = useQuery({
     queryKey: ['my-profile'],
     queryFn: usersApi.me,
   });
@@ -157,6 +167,19 @@ export default function Profile() {
   });
   const unreadSupportCount = (mySupportTickets ?? []).filter((t) => t.unreadByUser).length;
 
+  /*
+   * My own posts, for the grid. Nine is one full three-across screenful — the
+   * profile is a preview, and tapping any tile opens the post itself.
+   */
+  const { data: myPostPage } = useQuery({
+    queryKey: ['posts', 'by-user', profile?.id],
+    queryFn: () => postsApi.byUser(profile.id, { limit: 9 }),
+    enabled: Boolean(profile?.id),
+  });
+
+  const myPosts = Array.isArray(myPostPage?.items) ? myPostPage.items : [];
+  const myPostCount = myPostPage?.meta?.total ?? myPosts.length;
+
   const save = useMutation({
     mutationFn: () =>
       usersApi.updateMe({
@@ -164,6 +187,7 @@ export default function Profile() {
         bio: bio.trim(),
         ageGroup,
         zodiacSign,
+        languages,
       }),
     onSuccess: async () => {
       toast.success('Profile updated successfully! ✨');
@@ -178,6 +202,7 @@ export default function Profile() {
     setNickname(profile?.nickname ?? '');
     setBio(profile?.bio ?? '');
     setAgeGroup(profile?.ageGroup ?? '18-21');
+    setLanguages(profile?.languages ?? []);
     setZodiacSign(profile?.zodiacSign ?? 'Leo ♌');
     setIsEditing(true);
   }
@@ -245,6 +270,60 @@ export default function Profile() {
     return (
       <View className="flex-1 justify-center" style={{ backgroundColor: colors.background }}>
         <Loading label={t('common.loading')} />
+      </View>
+    );
+  }
+
+  /*
+   * A profile that failed to load says so, rather than rendering its own
+   * placeholders.
+   *
+   * Every field below falls back — `@user` for the handle, zero for each stat —
+   * which is right for a field the account genuinely has not filled in, and
+   * badly wrong when the request itself failed: an unreachable API rendered as
+   * a complete, empty-looking account, and the only way to tell the difference
+   * was to open the network tab.
+   */
+  if (hasProfileFailed) {
+    return (
+      <View
+        className="flex-1 items-center justify-center px-8"
+        style={{ backgroundColor: colors.background }}
+      >
+        <Ionicons name="cloud-offline-outline" size={40} color={colors.textMuted} />
+
+        <Text
+          className="mt-4 text-center text-base font-semibold"
+          style={{ color: colors.textPrimary }}
+        >
+          Could not load your profile
+        </Text>
+
+        <Text
+          className="mt-2 text-center text-sm leading-5"
+          style={{ color: colors.textSecondary }}
+        >
+          You are still signed in — the app just could not reach the server. Check your connection
+          and try again.
+        </Text>
+
+        <Pressable
+          onPress={() => refetchProfile()}
+          accessibilityRole="button"
+          accessibilityLabel="Try loading your profile again"
+          style={({ pressed }) => ({
+            marginTop: 22,
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            borderRadius: 8,
+            backgroundColor: colors.primary,
+            opacity: pressed ? 0.88 : 1,
+          })}
+        >
+          <Text style={{ color: colors.onPrimary, fontSize: 14.5, fontWeight: '600' }}>
+            Try again
+          </Text>
+        </Pressable>
       </View>
     );
   }
@@ -393,83 +472,168 @@ export default function Profile() {
           />
         </View>
 
-        {/* ---------- 1-Click App Language Switcher Card ---------- */}
-        <View
-          style={{
-            marginTop: 16,
-            marginBottom: 16,
-            backgroundColor: colors.surface,
-            borderRadius: 22,
-            borderWidth: 1.5,
-            borderColor: `${colors.primary}35`,
-            padding: 16,
-            overflow: 'hidden',
-            shadowColor: colors.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 12,
-            elevation: 3,
-          }}
-        >
-          {/* Header Strip with Top-Right Active Badge */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, marginRight: 8 }}>
-              <View
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 12,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: `${colors.primary}18`,
-                  flexShrink: 0,
-                }}
-              >
-                <Text style={{ fontSize: 18 }}>🌐</Text>
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text
-                  numberOfLines={1}
-                  style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary }}
+        {/* ---------- My photos, Instagram-style ---------- */}
+        <View style={{ marginTop: 16 }}>
+          <View className="mb-3 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="grid" size={15} color={colors.textPrimary} />
+              <Text className="text-base font-black" style={{ color: colors.textPrimary }}>
+                My Photos
+              </Text>
+              {myPostCount > 0 ? (
+                <View
+                  className="px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: `${colors.primary}18` }}
                 >
-                  {t('profile.appLanguage')}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={{ fontSize: 10.5, color: colors.textMuted, marginTop: 1 }}
-                >
-                  {t('profile.languageSub')}
-                </Text>
-              </View>
+                  <Text className="text-[10px] font-black" style={{ color: colors.primary }}>
+                    {myPostCount}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
-            {/* Top-Right Active Language Indicator */}
+            <Pressable
+              onPress={() => router.push('/posts/new')}
+              accessibilityRole="button"
+              accessibilityLabel="New photo post"
+              hitSlop={8}
+              className="flex-row items-center gap-1 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor: colors.primary }}
+            >
+              <Ionicons name="add" size={13} color={colors.onPrimary || '#FFFFFF'} />
+              <Text className="text-[11.5px] font-bold" style={{ color: colors.onPrimary || '#FFFFFF' }}>
+                New post
+              </Text>
+            </Pressable>
+          </View>
+
+          {myPosts.length > 0 ? (
+            <View className="flex-row flex-wrap gap-1.5">
+              {myPosts.map((post) => (
+                <Pressable
+                  key={post.id}
+                  onPress={() => router.push(`/post/${post.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open post"
+                  style={{ width: '32%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden' }}
+                >
+                  <Image
+                    source={{ uri: post.images?.[0]?.url }}
+                    style={{ width: '100%', height: '100%' }}
+                    contentFit="cover"
+                    transition={180}
+                    cachePolicy="memory-disk"
+                    recyclingKey={post.id}
+                  />
+                  {post.images?.length > 1 ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 5,
+                        right: 5,
+                        paddingHorizontal: 5,
+                        paddingVertical: 1.5,
+                        borderRadius: 999,
+                        backgroundColor: 'rgba(11,32,39,0.72)',
+                      }}
+                    >
+                      <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF' }}>
+                        {post.images.length}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => router.push('/posts/new')}
+              accessibilityRole="button"
+              className="items-center justify-center py-7 px-4"
+              style={{
+                borderRadius: 18,
+                borderWidth: 1.5,
+                borderStyle: 'dashed',
+                borderColor: `${colors.primary}55`,
+                backgroundColor: colors.surfaceAlt,
+              }}
+            >
+              <Ionicons name="images-outline" size={26} color={colors.primary} />
+              <Text className="mt-2 text-[13px] font-bold" style={{ color: colors.textPrimary }}>
+                No photos yet
+              </Text>
+              <Text className="mt-0.5 text-[11px]" style={{ color: colors.textMuted }}>
+                Share up to 5 in one post
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* ---------- App language ----------
+            The same control as Settings, deliberately: this is one setting in
+            two places, and it should not be two different components with two
+            different behaviours. Horizontal, not the old 2x2 grid — a grid of
+            eleven languages was a wall that pushed the rest of the profile off
+            the screen. */}
+        <Text
+          className="mb-2 mt-6 px-1 text-xs font-semibold uppercase tracking-wide"
+          style={{ color: colors.textMuted }}
+        >
+          {t('profile.appLanguage')}
+        </Text>
+
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: radius,
+            padding: 14,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+              <Text
+                numberOfLines={1}
+                style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary }}
+              >
+                {t('profile.appLanguage')}
+              </Text>
+              <Text numberOfLines={1} style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
+                {t('profile.languageSub')}
+              </Text>
+            </View>
+
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 5,
                 paddingHorizontal: 10,
-                paddingVertical: 4.5,
-                borderRadius: 14,
+                paddingVertical: 4,
+                borderRadius: 12,
                 backgroundColor: `${colors.primary}18`,
                 borderWidth: 1,
                 borderColor: `${colors.primary}35`,
                 flexShrink: 0,
               }}
             >
-              <Text style={{ fontSize: 12 }}>{currentLanguage.flag}</Text>
+              <Text style={{ fontSize: 12 }}>{currentLanguage?.flag || '🌐'}</Text>
               <Text
                 numberOfLines={1}
                 style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}
               >
-                {currentLanguage.nativeName}
+                {currentLanguage?.nativeName || 'English'}
               </Text>
             </View>
           </View>
 
-          {/* Quick 1-Click Language Chips (2x2 Grid, 100% APK & Web Safe) */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {availableLanguages.map((lang) => {
               const isSelected = language === lang.code;
               return (
@@ -480,9 +644,10 @@ export default function Profile() {
                     toast.success(`${lang.flag} ${lang.nativeName}`);
                   }}
                   accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Switch language to ${lang.label}`}
                   style={({ pressed }) => ({
-                    width: '48.5%',
+                    minWidth: 140,
                     minHeight: 52,
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -498,7 +663,13 @@ export default function Profile() {
                 >
                   <Text style={{ fontSize: 20 }}>{lang.flag}</Text>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
                       <Text
                         numberOfLines={1}
                         style={{
@@ -539,7 +710,7 @@ export default function Profile() {
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
 
         {/* ---------- Girls Chat Earnings Premium Banner ---------- */}
@@ -829,6 +1000,14 @@ export default function Profile() {
                   );
                 })}
               </View>
+            </Field>
+
+            <Field label="Languages you speak">
+              <LanguagePicker
+                value={languages}
+                onChange={setLanguages}
+                hint={`Up to ${MAX_LANGUAGES}. Used to show you people you can actually talk to.`}
+              />
             </Field>
 
             <Field label="Zodiac Sign (Optional)">

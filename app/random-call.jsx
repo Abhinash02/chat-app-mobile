@@ -4,7 +4,7 @@ import {
   Text,
   Pressable,
   Platform,
-  Dimensions,
+  ScrollView,
   Animated,
   Easing,
 } from 'react-native';
@@ -18,6 +18,7 @@ import { Avatar } from '../src/components/ui.jsx';
 import { useToast } from '../src/components/Toast.jsx';
 import { Ionicons } from '@expo/vector-icons';
 import { useScreenCaptureProtection } from '../src/hooks/useScreenCaptureProtection.js';
+import { BackButton } from '../src/components/ScreenHeader.jsx';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
@@ -32,7 +33,7 @@ const ICE_SERVERS = {
 export default function RandomCallScreen() {
   useScreenCaptureProtection();
   const { user } = useAuth();
-  const { colors } = useTheme();
+  const { colors, fonts } = useTheme();
   const { socket } = useSocket();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -413,227 +414,285 @@ export default function RandomCallScreen() {
       {/* 1. IDLE / SETUP SCREEN */}
       {/* ========================================================================= */}
       {callState === 'idle' && (
-        <View
-          style={{
-            flex: 1,
-            paddingTop: insets.top + 16,
-            paddingBottom: insets.bottom + 20,
-            paddingHorizontal: 20,
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          {/* Top Header Bar */}
-          <View className="w-full flex-row items-center justify-between">
-            {/* Attractive Theme-Styled Back Button */}
-            <Pressable
-              onPress={() => {
-                if (router.canGoBack()) router.back();
-                else router.replace('/(tabs)');
-              }}
-              className="h-10 w-10 items-center justify-center rounded-2xl border shadow-sm active:scale-95 transition"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-            </Pressable>
-
-            {/* Header Badge */}
-            <View
-              className="flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full border shadow-sm"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <Ionicons name="location" size={13} color={colors.primary} />
-              <Text
-                className="text-xs font-black tracking-widest uppercase"
-                style={{ color: colors.textPrimary }}
-              >
-                NEARBY RANDOM CALL
-              </Text>
-            </View>
-            <View className="w-10" />
-          </View>
-
-          {/* Center Content & Explanation */}
-          <View className="items-center w-full max-w-sm px-1">
-            {/* Glowing Call Icon */}
-            <View
-              className="h-20 w-20 rounded-3xl items-center justify-center mb-4 border-2 shadow-2xl"
-              style={{
-                backgroundColor: colors.primary + '18',
-                borderColor: colors.primary,
-              }}
-            >
-              <Ionicons name="call" size={32} color={colors.primary} />
-            </View>
-
-            <Text
-              className="text-2xl font-black text-center tracking-tight"
-              style={{ color: colors.textPrimary }}
-            >
-              Nearby Random Call
-            </Text>
-
-            <Text
-              className="text-xs text-center mt-1.5 mb-3 leading-relaxed"
-              style={{ color: colors.textSecondary }}
-            >
-              Connect instantly in a private 1-on-1 voice or video call with people closest to your
-              current location.
-            </Text>
-
-            {/* Inspiring Connection Quote */}
-            <View
-              className="mb-4 px-3.5 py-2.5 rounded-2xl border shadow-sm w-full"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <Text
-                className="text-xs italic text-center leading-relaxed"
-                style={{ color: colors.textSecondary }}
-              >
-                “Every great connection begins with a simple ‘Hello’.” ✨
-              </Text>
-            </View>
-
-            {/* Mode Selection Cards: 1st Voice Call (Default), 2nd Video Call */}
-            <View className="flex-row items-center gap-2.5 w-full mb-3">
-              {/* 1st: Voice Call Card (Default) */}
-              <Pressable
-                onPress={() => setIsVideoMode(false)}
-                className="flex-1 p-3.5 rounded-2xl border transition items-center shadow-sm active:scale-95"
-                style={{
-                  backgroundColor: !isVideoMode
-                    ? colors.primary + '15'
-                    : colors.surface,
-                  borderColor: !isVideoMode
-                    ? colors.primary
-                    : colors.border,
-                }}
-              >
-                <View
-                  className="h-10 w-10 rounded-full items-center justify-center mb-2"
-                  style={{
-                    backgroundColor: !isVideoMode
-                      ? colors.primary
-                      : colors.surfaceAlt || colors.border,
-                  }}
-                >
-                  <Ionicons
-                    name="mic"
-                    size={18}
-                    color={!isVideoMode ? (colors.onPrimary || '#FFFFFF') : colors.textSecondary}
-                  />
-                </View>
-                <Text
-                  className="text-xs font-black"
-                  style={{ color: colors.textPrimary }}
-                >
-                  Voice Call
-                </Text>
-                <Text
-                  className="text-[10px] mt-0.5 text-center"
-                  style={{ color: colors.textSecondary }}
-                >
-                  Crystal-clear audio
-                </Text>
-              </Pressable>
-
-              {/* 2nd: Video Call Card */}
-              <Pressable
-                onPress={() => setIsVideoMode(true)}
-                className="flex-1 p-3.5 rounded-2xl border transition items-center shadow-sm active:scale-95"
-                style={{
-                  backgroundColor: isVideoMode
-                    ? colors.primary + '15'
-                    : colors.surface,
-                  borderColor: isVideoMode
-                    ? colors.primary
-                    : colors.border,
-                }}
-              >
-                <View
-                  className="h-10 w-10 rounded-full items-center justify-center mb-2"
-                  style={{
-                    backgroundColor: isVideoMode
-                      ? colors.primary
-                      : colors.surfaceAlt || colors.border,
-                  }}
-                >
-                  <Ionicons
-                    name="videocam"
-                    size={18}
-                    color={isVideoMode ? (colors.onPrimary || '#FFFFFF') : colors.textSecondary}
-                  />
-                </View>
-                <Text
-                  className="text-xs font-black"
-                  style={{ color: colors.textPrimary }}
-                >
-                  Video Call
-                </Text>
-                <Text
-                  className="text-[10px] mt-0.5 text-center"
-                  style={{ color: colors.textSecondary }}
-                >
-                  Face-to-face HD live
-                </Text>
-              </Pressable>
-            </View>
-
-            {/* Feature Badges List */}
-            <View
-              className="w-full flex-row items-center justify-between px-3.5 py-2.5 rounded-2xl border shadow-sm"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <View className="flex-row items-center gap-1.5">
-                <Ionicons name="navigate-circle" size={15} color={colors.success || '#10B981'} />
-                <Text className="text-[11px] font-semibold" style={{ color: colors.textSecondary }}>
-                  Nearest First
-                </Text>
-              </View>
-              <View className="flex-row items-center gap-1.5">
-                <Ionicons name="shield-checkmark" size={15} color={colors.info || '#3B82F6'} />
-                <Text className="text-[11px] font-semibold" style={{ color: colors.textSecondary }}>
-                  Encrypted P2P
-                </Text>
-              </View>
-              <View className="flex-row items-center gap-1.5">
-                <Ionicons name="flash" size={15} color={colors.warning || '#F59E0B'} />
-                <Text className="text-[11px] font-semibold" style={{ color: colors.textSecondary }}>
-                  Instant Skip
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Start Search CTA Button */}
-          <Pressable
-            onPress={handleStartSearch}
-            className="w-full py-4 rounded-2xl items-center justify-center flex-row gap-2 shadow-2xl active:scale-95 transition"
+        /*
+         * Top-aligned and scrollable rather than `space-between` on a fixed
+         * frame. Spreading four blocks across the full height left two large
+         * empty bands — one under the header, one above the button — that read
+         * as a screen that failed to load rather than as breathing room.
+         */
+        <View style={{ flex: 1, paddingTop: insets.top + 12 }}>
+          {/* ── Header ── */}
+          <View
             style={{
-              backgroundColor: colors.primary,
-              boxShadow: `0 8px 24px -4px ${colors.primary}60`,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              paddingHorizontal: 16,
+              paddingBottom: 8,
             }}
           >
-            <Ionicons name="call" size={20} color={colors.onPrimary || '#FFFFFF'} />
-            <Text
-              className="text-base font-black tracking-wide"
-              style={{ color: colors.onPrimary || '#FFFFFF' }}
+            <BackButton />
+
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 17, fontWeight: '800', letterSpacing: -0.3, color: colors.textPrimary }}>
+                Random Call
+              </Text>
+              <Text style={{ fontSize: 11.5, fontWeight: '500', color: colors.textMuted, marginTop: 1 }}>
+                1-on-1 with someone nearby
+              </Text>
+            </View>
+
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                paddingHorizontal: 9,
+                paddingVertical: 5,
+                borderRadius: 999,
+                backgroundColor: `${colors.success || '#10B981'}18`,
+              }}
             >
-              Start Random Call Now
+              <View
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: 2.5,
+                  backgroundColor: colors.success || '#10B981',
+                }}
+              />
+              <Text style={{ fontSize: 9.5, fontWeight: '900', letterSpacing: 0.4, color: colors.success || '#10B981' }}>
+                LIVE
+              </Text>
+            </View>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* ── Hero ── */}
+            <View style={{ alignItems: 'center', marginBottom: 26 }}>
+              <View
+                style={{
+                  backgroundColor: colors.primary,
+                  width: 92,
+                  height: 92,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: colors.primary,
+                  shadowOffset: { width: 0, height: 10 },
+                  shadowOpacity: 0.35,
+                  shadowRadius: 22,
+                  elevation: 8,
+                }}
+              >
+                <Ionicons name="call" size={40} color={colors.onPrimary} />
+              </View>
+
+              <Text
+                style={{
+                  marginTop: 18,
+                  fontSize: 25,
+                  fontWeight: '900',
+                  letterSpacing: -0.6,
+                  textAlign: 'center',
+                  color: colors.textPrimary,
+                  fontFamily: fonts?.display,
+                }}
+              >
+                Talk to someone new
+              </Text>
+              <Text
+                style={{
+                  marginTop: 7,
+                  fontSize: 13.5,
+                  lineHeight: 20,
+                  textAlign: 'center',
+                  color: colors.textSecondary,
+                  paddingHorizontal: 8,
+                }}
+              >
+                We find the closest person who is free right now and put you straight through.
+              </Text>
+            </View>
+
+            {/* ── Mode ── */}
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: '900',
+                letterSpacing: 0.8,
+                color: colors.textMuted,
+                marginBottom: 10,
+              }}
+            >
+              HOW DO YOU WANT TO TALK?
             </Text>
-          </Pressable>
+
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 22 }}>
+              {[
+                { video: false, icon: 'mic', label: 'Voice', hint: 'Crystal-clear audio' },
+                { video: true, icon: 'videocam', label: 'Video', hint: 'Face to face, HD' },
+              ].map((mode) => {
+                const isActive = isVideoMode === mode.video;
+                return (
+                  <Pressable
+                    key={mode.label}
+                    onPress={() => setIsVideoMode(mode.video)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isActive }}
+                    accessibilityLabel={`${mode.label} call`}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      alignItems: 'center',
+                      paddingVertical: 18,
+                      paddingHorizontal: 12,
+                      borderRadius: 20,
+                      backgroundColor: isActive ? `${colors.primary}12` : colors.surface,
+                      borderWidth: isActive ? 2 : 1,
+                      borderColor: isActive ? colors.primary : colors.border,
+                      transform: [{ scale: pressed ? 0.98 : 1 }],
+                    })}
+                  >
+                    <View
+                      style={{
+                        width: 46,
+                        height: 46,
+                        borderRadius: 23,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: isActive ? colors.primary : colors.surfaceAlt,
+                      }}
+                    >
+                      <Ionicons
+                        name={mode.icon}
+                        size={21}
+                        color={isActive ? (colors.onPrimary || '#FFFFFF') : colors.textMuted}
+                      />
+                    </View>
+
+                    <Text
+                      style={{
+                        marginTop: 10,
+                        fontSize: 14,
+                        fontWeight: '800',
+                        color: isActive ? colors.primary : colors.textPrimary,
+                      }}
+                    >
+                      {mode.label}
+                    </Text>
+                    <Text style={{ marginTop: 2, fontSize: 10.5, color: colors.textMuted, textAlign: 'center' }}>
+                      {mode.hint}
+                    </Text>
+
+                    {isActive ? (
+                      <View style={{ position: 'absolute', top: 10, right: 10 }}>
+                        <Ionicons name="checkmark-circle" size={17} color={colors.primary} />
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* ── What to expect ── */}
+            <View
+              style={{
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+                paddingVertical: 6,
+              }}
+            >
+              {[
+                { icon: 'navigate', tint: colors.success || '#10B981', title: 'Nearest first', hint: 'People closest to you are matched sooner' },
+                { icon: 'shield-checkmark', tint: colors.info || '#3B82F6', title: 'Private and direct', hint: 'The call runs peer to peer, not through a room' },
+                { icon: 'flash', tint: colors.warning || '#F5A524', title: 'Skip anytime', hint: 'Not clicking? Move on with one tap' },
+              ].map((row, index) => (
+                <View
+                  key={row.title}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                    borderTopWidth: index === 0 ? 0 : 1,
+                    borderTopColor: colors.border,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: `${row.tint}18`,
+                    }}
+                  >
+                    <Ionicons name={row.icon} size={16} color={row.tint} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>
+                      {row.title}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }} numberOfLines={1}>
+                      {row.hint}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* ── Start, pinned so it is reachable without scrolling ── */}
+          <View
+            style={{
+              paddingHorizontal: 20,
+              paddingTop: 12,
+              paddingBottom: (insets.bottom || 12) + 12,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              backgroundColor: colors.surface,
+            }}
+          >
+            <Pressable
+              onPress={handleStartSearch}
+              accessibilityRole="button"
+              accessibilityLabel={`Start ${isVideoMode ? 'video' : 'voice'} call`}
+              style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] })}
+            >
+              <View
+                style={{
+                  backgroundColor: colors.primary,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 9,
+                  height: 54,
+                  borderRadius: 18,
+                  shadowColor: colors.primary,
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.32,
+                  shadowRadius: 14,
+                  elevation: 6,
+                }}
+              >
+                <Ionicons name={isVideoMode ? 'videocam' : 'call'} size={19} color="#FFFFFF" />
+                <Text style={{ fontSize: 16, fontWeight: '900', letterSpacing: 0.2, color: '#FFFFFF' }}>
+                  Start {isVideoMode ? 'Video' : 'Voice'} Call
+                </Text>
+              </View>
+            </Pressable>
+
+            <Text style={{ marginTop: 9, fontSize: 10.5, textAlign: 'center', color: colors.textMuted }}>
+              Be kind. Calls can be reported.
+            </Text>
+          </View>
         </View>
       )}
 

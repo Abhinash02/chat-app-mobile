@@ -15,7 +15,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { goBack } from '../../src/components/ScreenHeader.jsx';
+import { BackButton } from '../../src/components/ScreenHeader.jsx';
 import { useActionSheet } from '../../src/components/ActionSheet.jsx';
 import { MessageTicks } from '../../src/components/chat/MessageTicks.jsx';
 import { ReactionChips, ReactionPicker } from '../../src/components/chat/ReactionBar.jsx';
@@ -652,24 +652,7 @@ export default function ChatScreen() {
           borderBottomColor: colors.border,
         }}
       >
-        <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/chats'))}
-          accessibilityRole="button"
-          accessibilityLabel="Back to chats"
-          style={({ pressed }) => ({
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.surfaceAlt || `${colors.primary}12`,
-            borderWidth: 1,
-            borderColor: colors.border,
-            opacity: pressed ? 0.75 : 1,
-          })}
-        >
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-        </Pressable>
+        <BackButton fallback="/(tabs)/chats" />
 
         <Pressable
           onPress={() => {
@@ -737,6 +720,15 @@ export default function ChatScreen() {
         ref={listRef}
         data={groupedMessages}
         keyExtractor={(item) => item.id}
+        /* Virtualisation tuning. React Native's defaults keep roughly ten
+           screens of rows mounted, which is fine on a flagship and is what
+           makes long lists stutter on the mid-range Android phones most of
+           these users are on. Smaller batches and a tighter window cost a
+           little more work while flinging fast and a lot less memory. */
+        removeClippedSubviews={Platform.OS === 'android'}
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        windowSize={11}
         contentContainerStyle={{ paddingVertical: 12, flexGrow: 1, justifyContent: 'flex-end' }}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         renderItem={({ item }) => (
