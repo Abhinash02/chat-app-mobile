@@ -87,6 +87,14 @@
       ],
       "expo-video",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.0.0"
+          }
+        }
+      ],
+      [
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-1028685120327829~9779863612",
