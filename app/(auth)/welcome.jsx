@@ -100,57 +100,76 @@ export default function Welcome() {
             Voice rooms, quick games, and thirty minutes free to start.
           </Text>
 
-          {/* ── Actions ──
-              One solid button for what the screen is for, plain text for the
-              other. Two filled buttons would make neither of them the answer to
-              "what do I do here". */}
-          <Pressable
-            onPress={() => router.push('/(auth)/register')}
-            accessibilityRole="button"
-            accessibilityLabel="Create an account"
-            style={({ pressed }) => ({
-              marginTop: 34,
-              backgroundColor: colors.primary,
-              paddingVertical: 17,
-              alignItems: 'center',
-              borderRadius: 6,
-              opacity: pressed ? 0.88 : 1,
-            })}
-          >
-            <Text
-              style={{
-                color: colors.onPrimary,
-                fontSize: 15.5,
-                letterSpacing: 0.2,
-                fontWeight: '600',
-              }}
+          {/* ── Actions ── */}
+          <View style={{ marginTop: 32, gap: 12 }}>
+            <Pressable
+              onPress={() => router.push('/(auth)/register')}
+              accessibilityRole="button"
+              accessibilityLabel="Create an account"
+              style={({ pressed }) => ({
+                backgroundColor: colors.primary || '#06B6D4',
+                paddingVertical: 16,
+                paddingHorizontal: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: radius || 14,
+                shadowColor: colors.primary || '#06B6D4',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.28,
+                shadowRadius: 10,
+                elevation: 4,
+                transform: [{ scale: pressed ? 0.985 : 1 }],
+                opacity: pressed ? 0.9 : 1,
+              })}
             >
-              Create an account
-            </Text>
-          </Pressable>
+              <Text
+                style={{
+                  color: '#FFFFFF',
+                  fontSize: 16,
+                  letterSpacing: 0.3,
+                  fontWeight: '700',
+                }}
+              >
+                ✨ Create an account
+              </Text>
+            </Pressable>
 
-          <Pressable
-            onPress={() => router.push('/(auth)/login')}
-            accessibilityRole="button"
-            accessibilityLabel="Sign in"
-            hitSlop={10}
-            style={({ pressed }) => ({
-              marginTop: 20,
-              alignSelf: 'center',
-              opacity: pressed ? 0.55 : 1,
-            })}
-          >
-            <Text style={{ fontSize: 14.5, color: colors.textPrimary }}>
-              I already have an account
-            </Text>
-          </Pressable>
+            <Pressable
+              onPress={() => router.push('/(auth)/login')}
+              accessibilityRole="button"
+              accessibilityLabel="I already have an account"
+              style={({ pressed }) => ({
+                backgroundColor: colors.surfaceAlt || '#ECFAFC',
+                borderWidth: 1.5,
+                borderColor: colors.border || '#D7EEF3',
+                paddingVertical: 15,
+                paddingHorizontal: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: radius || 14,
+                transform: [{ scale: pressed ? 0.985 : 1 }],
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <Text
+                style={{
+                  fontSize: 15.5,
+                  fontWeight: '700',
+                  color: colors.primary || '#0891B2',
+                  letterSpacing: 0.2,
+                }}
+              >
+                I already have an account
+              </Text>
+            </Pressable>
+          </View>
 
           <Text
             style={{
-              marginTop: 26,
+              marginTop: 22,
               fontSize: 11.5,
               lineHeight: 17,
-              color: colors.textMuted,
+              color: colors.textMuted || '#8AA5AD',
               maxWidth: 290,
             }}
           >
