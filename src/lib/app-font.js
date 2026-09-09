@@ -65,9 +65,12 @@ function patch(Component) {
     // An explicit family wins — this is what keeps icon fonts intact.
     if (flattened.fontFamily) return element;
 
-    return React.cloneElement(element, {
-      style: [{ fontFamily: familyFor(flattened) }, element.props?.style],
-    });
+    const family = familyFor(flattened);
+    const style = Platform.OS === 'android'
+      ? [element.props?.style, { fontFamily: family, fontWeight: 'normal' }]
+      : [{ fontFamily: family }, element.props?.style];
+
+    return React.cloneElement(element, { style });
   };
 
   Component.__causeFontPatched = true;

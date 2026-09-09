@@ -202,15 +202,15 @@ export function PersonCardSkeleton() {
   return (
     <View
       style={{
-        height: 248,
+        height: 254,
         backgroundColor: colors.surface,
-        borderRadius: 20,
+        borderRadius: 18,
         borderWidth: 1,
         borderColor: colors.border,
         overflow: 'hidden',
       }}
     >
-      <Skeleton width="100%" height={164} radius={0} />
+      <Skeleton width="100%" height={136} radius={0} />
 
       <View style={{ paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10, justifyContent: 'space-between', flex: 1 }}>
         <View>
