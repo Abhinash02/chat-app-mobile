@@ -127,7 +127,7 @@ export default function TermsOfUse() {
             8. Account Deletion & Termination
           </Text>
           <Text className="text-xs leading-5" style={{ color: colors.textSecondary }}>
-            • You may permanently delete your account at any time through Settings. Deletion deactivates your profile and revokes all active sessions instantly.
+            • You may request permanent deletion of your account at any time through Settings. Requests are reviewed by our team, usually within 24 hours; once approved, your profile is deactivated and all active sessions are revoked.
             {'\n'}• Vibe Chat reserves the right to terminate accounts that violate safety guidelines or these terms.
           </Text>
         </Card>

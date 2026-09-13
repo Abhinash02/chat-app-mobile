@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { BackButton } from '../src/components/ScreenHeader.jsx';
 import { Button, Card, Loading } from '../src/components/ui.jsx';
-import { deviceApi, notificationsApi, usersApi } from '../src/api/endpoints.js';
+import { accountDeletionApi, deviceApi, notificationsApi, usersApi } from '../src/api/endpoints.js';
+import { DELETION_REASONS, REVIEW_WINDOW_HOURS } from '../src/constants/deletion-reasons.js';
 import { useAuth } from '../src/hooks/useAuth.jsx';
 import { registerForPushNotifications, triggerLocalNotification } from '../src/hooks/usePushNotifications.js';
 import { useSounds } from '../src/hooks/useSounds.jsx';
@@ -59,6 +60,8 @@ export default function Settings() {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+  const [selectedReason, setSelectedReason] = useState(null);
+  const [reasonDetail, setReasonDetail] = useState('');
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['my-profile'],
@@ -74,14 +77,45 @@ export default function Settings() {
     onError: (error) => toast.error(error.message ?? 'Could not save that'),
   });
 
-  const deleteAccountMutation = useMutation({
-    mutationFn: () => usersApi.deleteAccount(),
-    onSuccess: async () => {
-      toast.info('Account deleted successfully.');
-      await signOut();
-      router.replace('/(auth)/welcome');
+  /*
+   * Closing an account is a request an administrator reviews, not something
+   * this screen carries out. So the app has to show where that request got to
+   * rather than simply offering the button again — someone who asked yesterday
+   * and sees an unchanged "Delete account" row has no way to tell whether it
+   * was ever received.
+   */
+  const { data: deletionRequest } = useQuery({
+    queryKey: ['account-deletion'],
+    queryFn: accountDeletionApi.myRequest,
+  });
+
+  const isDeletionPending = deletionRequest?.status === 'pending';
+  const selectedReasonMeta = DELETION_REASONS.find((entry) => entry.code === selectedReason);
+  const isDetailMissing = Boolean(selectedReasonMeta?.requiresDetail) && !reasonDetail.trim();
+
+  const requestDeletionMutation = useMutation({
+    mutationFn: () =>
+      accountDeletionApi.submit({
+        reason: selectedReason,
+        reasonDetail: reasonDetail.trim() || undefined,
+      }),
+    onSuccess: () => {
+      setIsDeleteModalOpen(false);
+      setSelectedReason(null);
+      setReasonDetail('');
+      queryClient.invalidateQueries({ queryKey: ['account-deletion'] });
+      toast.success(`Request sent. We'll review it within ${REVIEW_WINDOW_HOURS} hours.`);
     },
-    onError: (error) => toast.error(error.message ?? 'Could not delete account'),
+    onError: (error) => toast.error(error.message ?? 'Could not send that request'),
+  });
+
+  const cancelDeletionMutation = useMutation({
+    mutationFn: () => accountDeletionApi.cancel(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['account-deletion'] });
+      toast.success('Your account will stay open.');
+    },
+    onError: (error) => toast.error(error.message ?? 'Could not cancel that'),
   });
 
   function setPreference(key, value) {
@@ -444,17 +478,67 @@ export default function Settings() {
             onPress={() => setIsSignOutModalOpen(true)}
           />
 
-          <Button
-            title={t('settings.deleteAccount')}
-            variant="ghost"
-            tone="danger"
-            isLoading={deleteAccountMutation.isPending}
-            onPress={() => setIsDeleteModalOpen(true)}
-          />
+          {/* While a request is open the row stops being an action and becomes
+              a status: what was asked, and the way back out of it. */}
+          {isDeletionPending ? (
+            <View
+              style={{
+                backgroundColor: `${colors.warning || '#F5A524'}14`,
+                borderColor: `${colors.warning || '#F5A524'}44`,
+                borderWidth: 1,
+                borderRadius: radius,
+                padding: 14,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 13.5,
+                  lineHeight: 18,
+                  fontWeight: '800',
+                  color: colors.textPrimary,
+                }}
+              >
+                ⏳ Deletion request under review
+              </Text>
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontSize: 12.5,
+                  lineHeight: 18,
+                  color: colors.textSecondary,
+                }}
+              >
+                Our team reviews these within {REVIEW_WINDOW_HOURS} hours. Your account stays open
+                and works normally until then — you can still change your mind.
+              </Text>
+
+              <View className="mt-3">
+                <Button
+                  title="Keep my account"
+                  variant="outline"
+                  isLoading={cancelDeletionMutation.isPending}
+                  onPress={() => cancelDeletionMutation.mutate()}
+                />
+              </View>
+            </View>
+          ) : (
+            <Button
+              title={t('settings.deleteAccount')}
+              variant="ghost"
+              tone="danger"
+              onPress={() => setIsDeleteModalOpen(true)}
+            />
+          )}
         </View>
 
+        {/* Not `auth.deleteDesc` any more: that string promises the account is
+            deactivated and messaging disabled the moment you tap, which stopped
+            being true when deletion became something an administrator reviews.
+            Literal copy here rather than a new key, so the eleven translations
+            do not silently fall back to an English sentence that is wrong. */}
         <Text className="mt-6 text-center text-xs leading-4" style={{ color: colors.textMuted }}>
-          {t('auth.deleteDesc')}
+          Deleting your account is reviewed by our team first. Nothing is removed while it is
+          pending, and you can cancel any time before it is approved.
         </Text>
       </ScrollView>
 
@@ -595,23 +679,120 @@ export default function Settings() {
             </View>
 
             <Text className="text-xl font-bold text-center" style={{ color: colors.textPrimary }}>
-              {t('auth.deleteTitle')}
+              Request account deletion
             </Text>
 
             <Text
               className="text-sm text-center mt-2.5 leading-5"
               style={{ color: colors.textSecondary }}
             >
-              {t('auth.deleteDesc')}
+              Tell us why you are leaving. Your request goes to our team and we will review it
+              within {REVIEW_WINDOW_HOURS} hours — your account stays open until then.
             </Text>
+
+            {/* Asking before confirming, not after. A reason collected on the
+                way out is the only feedback we get from someone leaving, and
+                picking one is also a moment's pause before a decision that
+                cannot be undone once it is approved. */}
+            <ScrollView
+              style={{ maxHeight: 260, width: '100%' }}
+              showsVerticalScrollIndicator={false}
+              className="mt-4"
+            >
+              {DELETION_REASONS.map((entry) => {
+                const isChosen = selectedReason === entry.code;
+
+                return (
+                  <Pressable
+                    key={entry.code}
+                    onPress={() => setSelectedReason(entry.code)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isChosen }}
+                    className="active:opacity-80"
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      padding: 12,
+                      marginBottom: 8,
+                      borderRadius: radius,
+                      borderWidth: 1.5,
+                      borderColor: isChosen ? colors.danger : colors.border,
+                      backgroundColor: isChosen ? `${colors.danger}12` : colors.surfaceAlt,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 9,
+                        marginTop: 1,
+                        borderWidth: 2,
+                        borderColor: isChosen ? colors.danger : colors.border,
+                        backgroundColor: isChosen ? colors.danger : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {isChosen ? (
+                        <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '900' }}>✓</Text>
+                      ) : null}
+                    </View>
+
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        style={{
+                          fontSize: 13.5,
+                          lineHeight: 18,
+                          fontWeight: '700',
+                          color: colors.textPrimary,
+                        }}
+                      >
+                        {entry.label}
+                      </Text>
+                      <Text
+                        style={{
+                          marginTop: 2,
+                          fontSize: 11.5,
+                          lineHeight: 16,
+                          color: colors.textMuted,
+                        }}
+                      >
+                        {entry.hint}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+
+              {selectedReasonMeta?.requiresDetail ? (
+                <TextInput
+                  value={reasonDetail}
+                  onChangeText={setReasonDetail}
+                  placeholder="Tell us a little more…"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  maxLength={500}
+                  style={{
+                    minHeight: 76,
+                    padding: 12,
+                    marginBottom: 8,
+                    borderRadius: radius,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    fontSize: 13.5,
+                    textAlignVertical: 'top',
+                  }}
+                />
+              ) : null}
+            </ScrollView>
 
             <View className="w-full gap-2.5 mt-6">
               <Pressable
-                onPress={() => {
-                  setIsDeleteModalOpen(false);
-                  deleteAccountMutation.mutate();
-                }}
-                disabled={deleteAccountMutation.isPending}
+                onPress={() => requestDeletionMutation.mutate()}
+                disabled={!selectedReason || isDetailMissing || requestDeletionMutation.isPending}
                 className="w-full items-center justify-center py-3.5 px-4 flex-row gap-2"
                 style={{
                   backgroundColor: colors.danger,
@@ -621,16 +802,15 @@ export default function Settings() {
                   shadowOpacity: 0.35,
                   shadowRadius: 8,
                   elevation: 4,
+                  opacity: !selectedReason || isDetailMissing ? 0.5 : 1,
                 }}
               >
-                {deleteAccountMutation.isPending ? (
+                {requestDeletionMutation.isPending ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
                     <Text style={{ fontSize: 16 }}>🗑️</Text>
-                    <Text className="text-base font-bold text-white">
-                      {t('auth.yesDelete')}
-                    </Text>
+                    <Text className="text-base font-bold text-white">Request deletion</Text>
                   </>
                 )}
               </Pressable>

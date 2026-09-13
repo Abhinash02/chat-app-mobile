@@ -31,23 +31,42 @@ export default function PrivacyPolicy() {
         </View>
 
         {/* CRITICAL SAFETY WARNING BANNER */}
+        {/* One box, not two.
+            `shadow-sm` compiles to an Android `elevation` — nativewind's shadow
+            plugin sets `-rn-elevation` from the shadow value — and elevation
+            draws the view's own silhouette as a lit surface. Over a fill at 8%
+            alpha that surface showed through as a second, hard-edged rectangle
+            behind the panel, which is the box inside a box on the APK. A tinted
+            alert has no need of a shadow: the border already lifts it off the
+            page, and every other shadow in the app sits on an opaque fill where
+            the silhouette has nothing to show through.
+
+            `space-y-2` went with it. It is a `> * + *` selector utility, and a
+            React Native style object has no way to express "every child after
+            the first", so the gap is stated on the child that needs it. */}
         <View
-          className="mb-4 p-4 rounded-3xl border shadow-sm space-y-2"
+          className="mb-4 p-4 rounded-3xl border"
           style={{
             backgroundColor: 'rgba(239, 68, 68, 0.08)',
             borderColor: 'rgba(239, 68, 68, 0.3)',
           }}
         >
-          <View className="flex-row items-center gap-2">
+          {/* Top-aligned, and the heading takes the remaining width: it runs to
+              two lines on a phone, and without `flex-1` it pushes past the icon
+              instead of wrapping beside it. */}
+          <View className="flex-row items-start gap-2">
             <View className="h-8 w-8 rounded-xl items-center justify-center bg-red-500/20">
               <Ionicons name="alert-circle" size={18} color="#EF4444" />
             </View>
-            <Text className="text-sm font-black text-red-600 dark:text-red-400">
+            <Text
+              className="flex-1 text-sm font-black text-red-600 dark:text-red-400"
+              style={{ lineHeight: 19 }}
+            >
               STRICT SAFETY NOTICE: NEVER SHARE CONTACTS OR OTPS
             </Text>
           </View>
 
-          <Text className="text-xs leading-5 text-red-700 dark:text-red-300 font-medium">
+          <Text className="mt-2 text-xs leading-5 text-red-700 dark:text-red-300 font-medium">
             • <Text className="font-bold">No Contact Information Sharing:</Text> Never share your mobile phone number, WhatsApp number, Instagram/Snapchat handle, personal email, or home address in chats or calls.
             {'\n'}• <Text className="font-bold">Never Share OTPs or Passwords:</Text> Vibe Chat staff will <Text className="font-bold underline">NEVER</Text> ask for your verification OTP, password, UPI PIN, or banking credentials. Anyone asking for OTPs is attempting fraud.
             {'\n'}• <Text className="font-bold">Zero Tolerance for Scams:</Text> Soliciting personal contact details or external payment links violates our Community Guidelines and will result in <Text className="font-bold">immediate, permanent account termination and device banning</Text>.
@@ -146,7 +165,7 @@ export default function PrivacyPolicy() {
             {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Instant Block &amp; Report:</Text> You can block or report any user at any time from the chat or call menu.
             {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>What a report captures:</Text> Filing a report saves a snapshot of recent messages in that conversation so our team can review what happened. That snapshot is kept even if either person later deletes those messages. This is the one case where a person reads part of a conversation, and only after somebody reports it.
             {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Message Deletion:</Text> You can {'"Delete for Everyone"'} to remove messages from both participants&rsquo; conversation history. This does not remove them from a report already filed.
-            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Permanent Account Deletion:</Text> You have the right to permanently delete your account at any time in App Settings, which instantly wipes your profile, active sessions, and data. Reports filed against an account may be retained for safety and legal purposes after deletion.
+            {'\n'}• <Text className="font-bold" style={{ color: colors.textPrimary }}>Permanent Account Deletion:</Text> You have the right to request permanent deletion of your account at any time in App Settings. Requests are reviewed by our team, usually within 24 hours, and your account stays open until then — you can cancel the request before it is approved. Once approved, your account is closed and all active sessions are signed out. Reports filed against an account may be retained for safety and legal purposes after deletion.
           </Text>
         </Card>
 

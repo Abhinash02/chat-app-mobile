@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 
@@ -62,6 +62,7 @@ const styles = StyleSheet.create({
   },
   livePillText: {
     fontSize: 8.5,
+    lineHeight: 11,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: 0.4,
@@ -75,6 +76,7 @@ const styles = StyleSheet.create({
   },
   mutedPillText: {
     fontSize: 8.5,
+    lineHeight: 11,
     fontWeight: '800',
     color: '#FFFFFF',
     includeFontPadding: false,
@@ -86,14 +88,23 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
     justifyContent: 'flex-start',
   },
+  /*
+   * Every text style here pairs `includeFontPadding: false` with an explicit
+   * `lineHeight`. Dropping the font padding on Android removes the metrics the
+   * platform would otherwise use to size the line box, and a custom family
+   * (Cause) does not always supply usable ones in its place — leaving the line
+   * free to collapse to nothing. Stating the height keeps the glyphs on screen.
+   */
   name: {
     fontSize: 13.5,
+    lineHeight: 17,
     fontWeight: '800',
     letterSpacing: 0.1,
     includeFontPadding: false,
   },
   subtitle: {
     fontSize: 10.5,
+    lineHeight: 13,
     fontWeight: '600',
     marginTop: 2,
     includeFontPadding: false,
@@ -121,11 +132,13 @@ const styles = StyleSheet.create({
   },
   langChipText: {
     fontSize: 9,
+    lineHeight: 12,
     fontWeight: '700',
     includeFontPadding: false,
   },
   langMore: {
     fontSize: 8.5,
+    lineHeight: 11,
     fontWeight: '700',
     alignSelf: 'center',
     includeFontPadding: false,
@@ -149,6 +162,7 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     fontSize: 11,
+    lineHeight: 14,
     fontWeight: '800',
     includeFontPadding: false,
     letterSpacing: 0.2,
@@ -226,7 +240,19 @@ function PersonCardComponent({
         disabled={isOpening}
         accessibilityRole="button"
         accessibilityLabel={`View profile of ${displayName}${isOnline ? ', online now' : ''}`}
-        style={({ pressed }) => [{ flex: 1, opacity: pressed && !isOpening ? 0.9 : 1 }]}
+        /*
+         * A plain style object, not `({ pressed }) => …`.
+         *
+         * NativeWind registers `cssInterop` against Pressable for every element
+         * in the tree, and its native runtime treats `props.style` as an object
+         * it can walk and assign into. Handed a function it cannot, so the
+         * style is lost — taking this `flex: 1` with it, which collapsed the
+         * card body and left the name, subtitle and chips with no height. Press
+         * feedback comes from the `active:` class instead, which is the path
+         * the interop actually supports.
+         */
+        className="active:opacity-90"
+        style={{ flex: 1 }}
       >
         {/* ── Compact Media & Avatar Box ── */}
         <View
@@ -334,13 +360,12 @@ function PersonCardComponent({
           disabled={isOpening}
           accessibilityRole="button"
           accessibilityLabel={`${actionLabel} with ${displayName}`}
-          style={({ pressed }) => [
+          className="active:opacity-90"
+          style={[
             styles.cta,
             {
               backgroundColor: primaryColor,
               shadowColor: primaryColor,
-              opacity: pressed ? 0.88 : 1,
-              transform: [{ scale: pressed ? 0.97 : 1 }],
             },
           ]}
         >

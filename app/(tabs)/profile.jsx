@@ -311,16 +311,16 @@ export default function Profile() {
           onPress={() => refetchProfile()}
           accessibilityRole="button"
           accessibilityLabel="Try loading your profile again"
-          style={({ pressed }) => ({
+          className="active:opacity-90"
+          style={{
             marginTop: 22,
             paddingHorizontal: 24,
             paddingVertical: 12,
             borderRadius: 8,
-            backgroundColor: colors.primary,
-            opacity: pressed ? 0.88 : 1,
-          })}
+            backgroundColor: colors.primary || '#7C4DFF',
+          }}
         >
-          <Text style={{ color: colors.onPrimary, fontSize: 14.5, fontWeight: '600' }}>
+          <Text style={{ color: colors.onPrimary || '#FFFFFF', fontSize: 14.5, fontWeight: '600' }}>
             Try again
           </Text>
         </Pressable>
@@ -633,7 +633,14 @@ export default function Profile() {
             </View>
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            /* The trailing padding is what stops the last chip sitting flush
+               against the card's edge, where a half-cut glyph reads as broken
+               rather than as a row that carries on scrolling. */
+            contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+          >
             {availableLanguages.map((lang) => {
               const isSelected = language === lang.code;
               return (
@@ -646,7 +653,18 @@ export default function Profile() {
                   accessibilityRole="button"
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Switch language to ${lang.label}`}
-                  style={({ pressed }) => ({
+                  /*
+                   * A plain object, not `({ pressed }) => …`.
+                   *
+                   * NativeWind wraps every Pressable and reads `props.style`
+                   * as an object it can walk, so a function is dropped whole in
+                   * a release build. Losing this one took `flexDirection: 'row'`
+                   * with it — and a View defaults to column — which stacked the
+                   * flag above the name and left every chip with no width, no
+                   * padding and no border at all.
+                   */
+                  className="active:opacity-90"
+                  style={{
                     minWidth: 140,
                     minHeight: 52,
                     flexDirection: 'row',
@@ -654,12 +672,13 @@ export default function Profile() {
                     paddingHorizontal: 12,
                     paddingVertical: 8,
                     borderRadius: 14,
-                    backgroundColor: isSelected ? `${colors.primary}15` : colors.surfaceAlt,
+                    backgroundColor: isSelected
+                      ? `${colors.primary || '#7C4DFF'}15`
+                      : colors.surfaceAlt || '#F3F4F6',
                     borderWidth: 1.5,
-                    borderColor: isSelected ? colors.primary : colors.border,
+                    borderColor: isSelected ? colors.primary || '#7C4DFF' : colors.border || '#E5E7EB',
                     gap: 10,
-                    transform: [{ scale: pressed ? 0.97 : 1 }],
-                  })}
+                  }}
                 >
                   <Text style={{ fontSize: 20 }}>{lang.flag}</Text>
                   <View style={{ flex: 1, minWidth: 0 }}>
@@ -717,7 +736,8 @@ export default function Profile() {
         {isGirl && (
           <Pressable
             onPress={() => router.push('/coins')}
-            style={({ pressed }) => ({
+            className="active:opacity-95"
+            style={{
               marginTop: 16,
               borderRadius: radius + 8,
               overflow: 'hidden',
@@ -726,9 +746,7 @@ export default function Profile() {
               shadowOpacity: 0.22,
               shadowRadius: 16,
               elevation: 7,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-              opacity: pressed ? 0.95 : 1,
-            })}
+            }}
           >
             {/* Header strip */}
             <View

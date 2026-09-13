@@ -110,7 +110,11 @@ export function DailyBonusModal() {
         <View
           style={{
             width: '100%',
-            backgroundColor: colors.surface,
+            // Capped so the card stays a dialog on a tablet rather than
+            // stretching the full width of the screen.
+            maxWidth: 380,
+            alignSelf: 'center',
+            backgroundColor: colors.surface || '#FFFFFF',
             borderRadius: 14,
             paddingHorizontal: 24,
             paddingTop: 30,
@@ -124,8 +128,9 @@ export function DailyBonusModal() {
               style={{
                 marginTop: 18,
                 fontSize: 30,
+                lineHeight: 38,
                 letterSpacing: -0.8,
-                color: colors.textPrimary,
+                color: colors.textPrimary || '#1B1024',
                 fontFamily: fonts?.display,
               }}
             >
@@ -138,7 +143,7 @@ export function DailyBonusModal() {
                 fontSize: 14.5,
                 lineHeight: 21,
                 textAlign: 'center',
-                color: colors.textSecondary,
+                color: colors.textSecondary || '#5C4A63',
               }}
             >
               Your daily bonus is ready. Claim it to add the coins to your balance.
@@ -150,16 +155,36 @@ export function DailyBonusModal() {
             disabled={isBusy}
             accessibilityRole="button"
             accessibilityLabel={`Claim ${amount} coins`}
-            style={({ pressed }) => ({
+            /*
+             * A plain object, not `({ pressed }) => …`.
+             *
+             * NativeWind applies `cssInterop` to every Pressable, and its
+             * native runtime walks `props.style` as an object. A function is
+             * not one, so the whole style was dropped in the release build:
+             * the fill, the padding and the radius went with it, leaving white
+             * `onPrimary` text on the white card — a button that held its space
+             * but drew nothing. The `active:` class gives the press feedback
+             * the removed `pressed` branch used to.
+             */
+            className="active:opacity-90"
+            style={{
               marginTop: 24,
-              backgroundColor: colors.primary,
+              backgroundColor: colors.primary || '#7C4DFF',
               paddingVertical: 15,
-              borderRadius: 6,
+              borderRadius: 10,
               alignItems: 'center',
-              opacity: isBusy ? 0.6 : pressed ? 0.88 : 1,
-            })}
+              justifyContent: 'center',
+              opacity: isBusy ? 0.6 : 1,
+            }}
           >
-            <Text style={{ color: colors.onPrimary, fontSize: 15, fontWeight: '600' }}>
+            <Text
+              style={{
+                color: colors.onPrimary || '#FFFFFF',
+                fontSize: 15,
+                lineHeight: 20,
+                fontWeight: '600',
+              }}
+            >
               {claim.isPending ? 'Claiming…' : 'Claim now'}
             </Text>
           </Pressable>
@@ -172,17 +197,19 @@ export function DailyBonusModal() {
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="No thanks, skip today's bonus"
-            style={({ pressed }) => ({
+            className="active:opacity-60"
+            style={{
               marginTop: 14,
               alignSelf: 'center',
               flexDirection: 'row',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: 6,
-              opacity: isBusy ? 0.4 : pressed ? 0.55 : 1,
-            })}
+              opacity: isBusy ? 0.4 : 1,
+            }}
           >
-            <Ionicons name="close" size={14} color={colors.textMuted} />
-            <Text style={{ fontSize: 13.5, color: colors.textMuted }}>
+            <Ionicons name="close" size={14} color={colors.textMuted || '#9C8AA6'} />
+            <Text style={{ fontSize: 13.5, lineHeight: 18, color: colors.textMuted || '#9C8AA6' }}>
               No thanks — skip today
             </Text>
           </Pressable>

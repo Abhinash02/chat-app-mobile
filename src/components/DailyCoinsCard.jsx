@@ -105,7 +105,9 @@ export function DailyCoinsCard() {
 
       <View className="flex-row items-center gap-2.5">
         <View
-          className="h-10 w-10 items-center justify-center rounded-xl shadow-sm"
+          /* No shadow: nativewind turns one into an Android elevation, whose
+             lit silhouette shows through a 15%-alpha fill as a doubled edge. */
+          className="h-10 w-10 items-center justify-center rounded-xl"
           style={{ backgroundColor: `${colors.coinGold}25` }}
         >
           <CoinIcon size={24} />

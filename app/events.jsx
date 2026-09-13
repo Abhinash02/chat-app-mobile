@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenHeader } from '../src/components/ScreenHeader.jsx';
-import { Badge, Button, CoinIcon, Loading } from '../src/components/ui.jsx';
+import { Badge, CoinIcon, Loading } from '../src/components/ui.jsx';
 import { eventsApi } from '../src/api/endpoints.js';
 import { formatCountdown } from '../src/lib/format.js';
 import { useTheme } from '../src/theme/ThemeProvider.jsx';
@@ -62,12 +62,22 @@ function EventCard({ item, onSelect }) {
       onPress={() => onSelect(item)}
       accessibilityRole="button"
       accessibilityLabel={`${item.title}. ${audience}.`}
-      style={({ pressed }) => ({
+      /*
+       * A plain object, not `({ pressed }) => …`.
+       *
+       * NativeWind wraps every Pressable and reads `props.style` as an object
+       * it can walk, so a function is dropped outright in a release build —
+       * taking the row's vertical padding and, with it, the hairline that is
+       * the only thing separating one offer from the next. The rows then ran
+       * together as loose text on an empty page. Press feedback moves to the
+       * `active:` class, which the interop does support.
+       */
+      className="active:opacity-60"
+      style={{
         paddingVertical: 20,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-        opacity: pressed ? 0.6 : 1,
-      })}
+        borderBottomColor: colors.border || '#F3D7E2',
+      }}
     >
       {/* Eyebrow: who it is for, and how long is left. The countdown only
           takes the accent once it is genuinely urgent — a permanent red clock
@@ -76,9 +86,13 @@ function EventCard({ item, onSelect }) {
         <Text
           style={{
             fontSize: 10.5,
+            // Stated rather than inferred: uppercase text at this size, in a
+            // custom family, is where Android's own line metrics are least
+            // reliable.
+            lineHeight: 14,
             letterSpacing: 1.4,
             textTransform: 'uppercase',
-            color: colors.textMuted,
+            color: colors.textMuted || '#9C8AA6',
           }}
         >
           {audience}
@@ -86,13 +100,14 @@ function EventCard({ item, onSelect }) {
 
         {msRemaining !== null ? (
           <>
-            <Text style={{ fontSize: 10.5, color: colors.textMuted }}>·</Text>
+            <Text style={{ fontSize: 10.5, lineHeight: 14, color: colors.textMuted || '#9C8AA6' }}>·</Text>
             <Text
               style={{
                 fontSize: 10.5,
+                lineHeight: 14,
                 letterSpacing: 1.4,
                 textTransform: 'uppercase',
-                color: isEnding ? colors.primary : colors.textMuted,
+                color: isEnding ? colors.primary || '#7C4DFF' : colors.textMuted || '#9C8AA6',
               }}
             >
               {formatCountdown(msRemaining)} left
@@ -102,13 +117,14 @@ function EventCard({ item, onSelect }) {
 
         {item.badgeText ? (
           <>
-            <Text style={{ fontSize: 10.5, color: colors.textMuted }}>·</Text>
+            <Text style={{ fontSize: 10.5, lineHeight: 14, color: colors.textMuted || '#9C8AA6' }}>·</Text>
             <Text
               style={{
                 fontSize: 10.5,
+                lineHeight: 14,
                 letterSpacing: 1.4,
                 textTransform: 'uppercase',
-                color: colors.textMuted,
+                color: colors.textMuted || '#9C8AA6',
               }}
             >
               {item.badgeText}
@@ -245,8 +261,13 @@ export default function Events() {
             onPress={(e) => e.stopPropagation()}
             className="p-6 rounded-3xl border shadow-2xl overflow-hidden"
             style={{
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
+              // Capped and centred so the dialog stays a dialog on a tablet
+              // rather than stretching to the full width of the screen.
+              width: '100%',
+              maxWidth: 420,
+              alignSelf: 'center',
+              backgroundColor: colors.surface || '#FFFFFF',
+              borderColor: colors.border || '#F3D7E2',
             }}
           >
             {/* Header */}
@@ -342,8 +363,12 @@ export default function Events() {
             {/* Action CTA Button */}
             <Pressable
               onPress={() => handleAction(selectedEvent)}
-              className="py-3.5 px-5 rounded-2xl flex-row items-center justify-center gap-2 shadow-md active:scale-98 transition"
-              style={{ backgroundColor: colors.primary }}
+              /* The press feedback here used to name a scale step Tailwind
+                 does not define — the scale runs …90, 95, 100, 105… — so the
+                 class generated nothing and the button never responded to a
+                 touch. An opacity step is a real utility. */
+              className="py-3.5 px-5 rounded-2xl flex-row items-center justify-center gap-2 shadow-md active:opacity-90"
+              style={{ backgroundColor: colors.primary || '#7C4DFF' }}
             >
               <Text className="text-sm font-black text-white uppercase tracking-wider">
                 {selectedEvent?.actionUrl === 'rooms'

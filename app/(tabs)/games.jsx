@@ -325,7 +325,11 @@ export default function Games() {
             }}
           >
             <View
-              className="h-10 w-10 rounded-2xl items-center justify-center border shadow-sm"
+              /* No `shadow-sm`: it becomes an Android elevation, and the lit
+                 silhouette shows through this 15%-alpha fill as a doubled
+                 edge. The parent keeps its shadow — that one sits on an
+                 opaque surface, where there is nothing to show through. */
+              className="h-10 w-10 rounded-2xl items-center justify-center border"
               style={{
                 backgroundColor: 'rgba(245, 165, 36, 0.15)',
                 borderColor: 'rgba(245, 165, 36, 0.35)',

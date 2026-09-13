@@ -583,9 +583,14 @@ function GirlsEarningsCard({ wallet: propWallet }) {
       <View className="flex-col md:flex-row gap-4 items-start">
         {/* Left Column (Main Balances & Progress) */}
         <View className="w-full md:flex-1">
-          {/* Hero Glassmorphic Card */}
+          {/* Hero Glassmorphic Card.
+
+              No `shadow-sm`: nativewind compiles a shadow into an Android
+              elevation, and the lit silhouette of that elevation shows through
+              this 6%-alpha fill as a second hard-edged rectangle. The border
+              is what separates the card from the page here. */}
           <View
-            className="p-4 sm:p-6 rounded-3xl mb-4 border shadow-sm"
+            className="p-4 sm:p-6 rounded-3xl mb-4 border"
             style={{
               backgroundColor: `${colors.primary}0F`,
               borderColor: `${colors.primary}35`,

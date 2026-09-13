@@ -18,7 +18,14 @@ import { useTheme } from '../../src/theme/ThemeProvider.jsx';
  * this screen exists for.
  */
 export default function Welcome() {
-  const { colors, branding, fonts } = useTheme();
+  /*
+   * `radius` is read below for both buttons. It was missing from this
+   * destructure, which made `radius || 14` a reference to an undeclared name —
+   * a ReferenceError that only stayed hidden because NativeWind drops function
+   * styles without ever calling them. Converting those to plain objects makes
+   * the expression evaluate on every render, so the binding has to exist.
+   */
+  const { colors, branding, fonts, radius } = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
@@ -106,7 +113,8 @@ export default function Welcome() {
               onPress={() => router.push('/(auth)/register')}
               accessibilityRole="button"
               accessibilityLabel="Create an account"
-              style={({ pressed }) => ({
+              className="active:opacity-90"
+              style={{
                 backgroundColor: colors.primary || '#06B6D4',
                 paddingVertical: 16,
                 paddingHorizontal: 20,
@@ -118,9 +126,7 @@ export default function Welcome() {
                 shadowOpacity: 0.28,
                 shadowRadius: 10,
                 elevation: 4,
-                transform: [{ scale: pressed ? 0.985 : 1 }],
-                opacity: pressed ? 0.9 : 1,
-              })}
+              }}
             >
               <Text
                 style={{
@@ -138,7 +144,8 @@ export default function Welcome() {
               onPress={() => router.push('/(auth)/login')}
               accessibilityRole="button"
               accessibilityLabel="I already have an account"
-              style={({ pressed }) => ({
+              className="active:opacity-85"
+              style={{
                 backgroundColor: colors.surfaceAlt || '#ECFAFC',
                 borderWidth: 1.5,
                 borderColor: colors.border || '#D7EEF3',
@@ -147,9 +154,7 @@ export default function Welcome() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: radius || 14,
-                transform: [{ scale: pressed ? 0.985 : 1 }],
-                opacity: pressed ? 0.85 : 1,
-              })}
+              }}
             >
               <Text
                 style={{

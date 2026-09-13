@@ -66,15 +66,23 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={typeof buttonLabel === 'string' ? buttonLabel : 'Button'}
       accessibilityState={{ disabled: isDisabled, busy: isBusy }}
-      className={`flex-row items-center justify-center gap-2 ${sizing} ${className}`}
-      style={({ pressed }) => [
+      className={`flex-row items-center justify-center gap-2 active:opacity-80 ${sizing} ${className}`}
+      /*
+       * An array of plain styles, never `({ pressed }) => …`.
+       *
+       * NativeWind's interop wraps every Pressable and reads `props.style` as
+       * an object it can walk. Given a function it silently drops the lot, so
+       * a button loses its fill and radius and renders as bare text — and this
+       * primitive backs most of the app's buttons, so it fails everywhere at
+       * once. Press feedback is expressed as an `active:` class instead.
+       */
+      style={[
         {
           backgroundColor: palette.background,
           borderRadius: radius,
           borderWidth: variant === 'outline' ? 1 : 0,
           borderColor: palette.border,
-          opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1,
-          transform: [{ scale: pressed && !isDisabled ? 0.985 : 1 }],
+          opacity: isDisabled ? 0.5 : 1,
         },
         style,
       ]}
@@ -124,8 +132,8 @@ export function GradientButton({ title, onPress, isLoading, disabled, className 
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={title}
-      className={className}
-      style={({ pressed }) => ({ opacity: isDisabled ? 0.5 : pressed ? 0.9 : 1 })}
+      className={`active:opacity-90 ${className}`}
+      style={{ opacity: isDisabled ? 0.5 : 1 }}
     >
       <Gradient
         colors={fill}

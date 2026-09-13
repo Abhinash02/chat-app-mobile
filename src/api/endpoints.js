@@ -26,7 +26,25 @@ export const usersApi = {
       data: formData,
     }),
 
+  /**
+   * Kept for builds already on people's phones, and no longer a deletion.
+   *
+   * The server turns this into a review request like any other rather than
+   * closing the account, so nothing here deletes anything on its own. New code
+   * should call `accountDeletionApi.submit`, which can carry a reason.
+   */
   deleteAccount: () => request({ method: 'DELETE', url: '/users/me' }),
+};
+
+/**
+ * Closing an account is a request an administrator reviews, not something the
+ * app carries out — so there are three things to do with one: open it, read
+ * where it got to, and withdraw it while it is still waiting.
+ */
+export const accountDeletionApi = {
+  myRequest: () => request({ method: 'GET', url: '/account-deletion/my' }),
+  submit: (data) => request({ method: 'POST', url: '/account-deletion/request', data }),
+  cancel: () => request({ method: 'POST', url: '/account-deletion/my/cancel' }),
 };
 
 export const chatApi = {
