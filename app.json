@@ -7,7 +7,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/cd917c17-10f7-4b1a-bd44-c2da4457edd9"
+      "url": "https://u.expo.dev/40ffd5c3-8c22-4dd4-a03d-e1dfcc50074d"
     },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -44,15 +44,15 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "RECORD_AUDIO",
-        "VIBRATE",
-        "POST_NOTIFICATIONS",
-        "CAMERA",
-        "MODIFY_AUDIO_SETTINGS",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "web": {
@@ -100,9 +100,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "cd917c17-10f7-4b1a-bd44-c2da4457edd9"
+        "projectId": "40ffd5c3-8c22-4dd4-a03d-e1dfcc50074d"
       }
     },
-    "owner": "avinash_99"
+    "owner": "abhinash99"
   }
 }
