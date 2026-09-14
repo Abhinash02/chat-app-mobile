@@ -76,19 +76,23 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signIn = useCallback(async ({ email, password }) => {
-    const pushToken = await registerForPushNotifications().catch(() => null);
+    // Send login request immediately without blocking on device push token generation
     const result = await request({ method: 'POST', url: '/auth/login', data: { email, password } });
     await storage.setSession({ tokens: result.tokens, user: result.user });
     setUser(result.user);
 
-    // Save device info in DeviceToken table linked with user ID
-    const tokenToRegister = pushToken || `ExponentPushToken[app-${Platform.OS}-auto]`;
-    deviceApi.register({
-      token: tokenToRegister,
-      platform: Platform.OS === 'web' ? 'web' : Platform.OS,
-      deviceName: 'Mobile Device',
-      appVersion: '1.0.0',
-    }).catch(() => undefined);
+    // Register push token in the background AFTER login succeeds so user experiences zero delay
+    registerForPushNotifications()
+      .then((pushToken) => {
+        const tokenToRegister = pushToken || `ExponentPushToken[app-${Platform.OS}-auto]`;
+        deviceApi.register({
+          token: tokenToRegister,
+          platform: Platform.OS === 'web' ? 'web' : Platform.OS,
+          deviceName: 'Mobile Device',
+          appVersion: '1.0.0',
+        }).catch(() => undefined);
+      })
+      .catch(() => undefined);
 
     return result.user;
   }, []);
