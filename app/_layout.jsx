@@ -20,6 +20,7 @@ import { ToastProvider } from '../src/components/Toast.jsx';
 import { usePushNotifications } from '../src/hooks/usePushNotifications.js';
 import { markFontsReady } from '../src/lib/app-font.js';
 import { initializeMobileAds } from '../src/services/ads';
+import * as Updates from 'expo-updates';
 import '../global.css';
 
 const queryClient = new QueryClient({
@@ -53,6 +54,22 @@ function AppShell() {
 
   useEffect(() => {
     initializeMobileAds();
+  }, []);
+
+  useEffect(() => {
+    async function checkOta() {
+      if (__DEV__) return;
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch (err) {
+        // silent
+      }
+    }
+    checkOta();
   }, []);
 
   useEffect(() => {
