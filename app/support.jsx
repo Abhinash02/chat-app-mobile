@@ -695,105 +695,133 @@ export default function CustomerSupportScreen() {
               borderTopColor: colors.border,
             }}
           >
-            {/* Attachment Button */}
-            <Pressable
-              onPress={handlePickAndUploadImage}
-              disabled={isUploadingImage}
-              accessibilityRole="button"
-              accessibilityLabel="Attach image"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: colors.surfaceAlt,
-                borderWidth: 1,
-                borderColor: colors.border,
-                flexShrink: 0,
-                marginRight: 8,
-              }}
-            >
-              {isUploadingImage ? (
-                <ActivityIndicator size="small" color={colors.primary || '#0084FF'} />
-              ) : (
-                <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
-              )}
-            </Pressable>
-
-            {/* Input Pill */}
-            <View
-              style={{
-                flex: 1,
-                flexBasis: 0,
-                minWidth: 0,
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 12,
-                paddingVertical: 4,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: colors.border,
-                backgroundColor: colors.background,
-                minHeight: 40,
-              }}
-            >
-              <TextInput
-                value={replyMessage}
-                onChangeText={setReplyMessage}
-                placeholder="Type message to support admin..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-                style={{
-                  flex: 1,
-                  flexBasis: 0,
-                  minWidth: 0,
-                  paddingVertical: 4,
-                  fontSize: 13,
-                  color: colors.textPrimary,
-                  maxHeight: 90,
-                }}
-              />
-            </View>
-
-            {/* Send Button: FIXED in EVERY situation, Blue / Admin Theme Color */}
+            {/* Unified Capsule: TextInput + Camera + Divider + Send */}
             {(() => {
-              const brandBlue = (colors.primary && colors.primary.toLowerCase() !== '#ffffff' && colors.primary.toLowerCase() !== '#fff')
-                ? colors.primary
-                : '#0084FF';
+              const brandBlue =
+                colors.primary &&
+                colors.primary.toLowerCase() !== '#ffffff' &&
+                colors.primary.toLowerCase() !== '#fff'
+                  ? colors.primary
+                  : '#0084FF';
 
               return (
-                <Pressable
-                  onPress={() => {
-                    const hasContent = Boolean(replyMessage.trim() || attachedImageUrl);
-                    if (hasContent && !sendMessageMutation.isPending) {
-                      handleSendReply();
-                    }
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Send support reply"
-                  style={({ pressed }) => ({
-                    width: 44,
-                    height: 44,
-                    minWidth: 44,
-                    maxWidth: 44,
-                    borderRadius: 22,
+                <View
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    marginLeft: 8,
-                    backgroundColor: brandBlue,
-                    opacity: pressed ? 0.75 : 1,
-                    flexShrink: 0,
-                    overflow: 'hidden',
-                  })}
+                    paddingLeft: 12,
+                    paddingRight: 6,
+                    paddingVertical: 4,
+                    borderRadius: 22,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surfaceAlt,
+                    minHeight: 46,
+                  }}
                 >
-                  <Ionicons
-                    name="send"
-                    size={17}
-                    color="#FFFFFF"
-                    style={{ marginLeft: 2 }}
+                  <TextInput
+                    value={replyMessage}
+                    onChangeText={(val) => {
+                      if (val.includes('\n')) {
+                        const clean = val.replace(/\n/g, '').trim();
+                        if (clean && !sendMessageMutation.isPending) {
+                          setReplyMessage(clean);
+                          handleSendReply();
+                        }
+                        return;
+                      }
+                      setReplyMessage(val);
+                    }}
+                    placeholder="Type message to support admin..."
+                    placeholderTextColor={colors.textMuted}
+                    multiline={Platform.OS !== 'web'}
+                    returnKeyType="send"
+                    enterKeyHint="send"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => {
+                      const hasContent = Boolean(replyMessage.trim() || attachedImageUrl);
+                      if (hasContent && !sendMessageMutation.isPending) {
+                        handleSendReply();
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      flexBasis: 0,
+                      minWidth: 0,
+                      paddingHorizontal: 4,
+                      paddingVertical: 6,
+                      fontSize: 14,
+                      color: colors.textPrimary,
+                      maxHeight: 90,
+                      textAlignVertical: 'center',
+                    }}
                   />
-                </Pressable>
+
+                  {/* Actions inside box */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                    {/* Attachment Button */}
+                    <Pressable
+                      onPress={handlePickAndUploadImage}
+                      disabled={isUploadingImage}
+                      accessibilityRole="button"
+                      accessibilityLabel="Attach image"
+                      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                      style={{
+                        width: 34,
+                        height: 34,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {isUploadingImage ? (
+                        <ActivityIndicator size="small" color={brandBlue} />
+                      ) : (
+                        <Ionicons name="camera-outline" size={22} color={colors.textSecondary} />
+                      )}
+                    </Pressable>
+
+                    {/* Vertical Divider */}
+                    <View
+                      style={{
+                        width: 1,
+                        height: 20,
+                        backgroundColor: colors.border,
+                        marginHorizontal: 3,
+                      }}
+                    />
+
+                    {/* Send Button */}
+                    <Pressable
+                      onPress={() => {
+                        const hasContent = Boolean(replyMessage.trim() || attachedImageUrl);
+                        if (hasContent && !sendMessageMutation.isPending) {
+                          handleSendReply();
+                        }
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Send support reply"
+                      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                      style={({ pressed }) => ({
+                        width: 34,
+                        height: 34,
+                        borderRadius: 17,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: brandBlue,
+                        opacity: pressed ? 0.75 : 1,
+                        flexShrink: 0,
+                      })}
+                    >
+                      <Ionicons
+                        name="send"
+                        size={15}
+                        color="#FFFFFF"
+                        style={{ marginLeft: 2 }}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
               );
             })()}
           </View>

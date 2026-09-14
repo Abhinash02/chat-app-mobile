@@ -593,6 +593,15 @@ export default function ChatScreen() {
 
   const handleTyping = useCallback(
     (value) => {
+      // If Enter key was pressed (contains newline), send immediately
+      if (value.includes('\n')) {
+        const textToSend = value.replace(/\n/g, '').trim();
+        if (textToSend) {
+          send(textToSend);
+        }
+        return;
+      }
+
       setDraft(value);
 
       if (!isTypingActiveRef.current) {
@@ -902,7 +911,7 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
-      {/* Professional Chat Input Composer Bar */}
+      {/* Professional Unified Chat Input Composer Bar matching screenshot */}
       <View
         style={{
           width: '100%',
@@ -916,143 +925,161 @@ export default function ChatScreen() {
           borderTopColor: colors.border,
         }}
       >
-        {/* Seamless Combined Pill: Emoji + TextInput + Camera */}
-        <View
-          style={{
-            flex: 1,
-            flexBasis: 0,
-            minWidth: 0,
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 24,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.surfaceAlt,
-            minHeight: 44,
-          }}
-        >
-          {/* Emoji Toggle Button inside box */}
-          <Pressable
-            onPress={() => {
-              if (!showEmoji) {
-                Keyboard.dismiss();
-              }
-              setShowEmoji((open) => !open);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={showEmoji ? 'Hide emoji' : 'Show emoji'}
-            style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-          >
-            <Ionicons
-              name={showEmoji ? 'keypad' : 'happy-outline'}
-              size={22}
-              color={showEmoji ? (colors.primary || '#0084FF') : colors.textSecondary}
-            />
-          </Pressable>
-
-          {/* Text Input */}
-          <TextInput
-            value={draft}
-            onChangeText={handleTyping}
-            placeholder="Type a message…"
-            placeholderTextColor={colors.textMuted}
-            multiline={Platform.OS !== 'web'}
-            returnKeyType="send"
-            blurOnSubmit={false}
-            disableFullscreenUI={true}
-            onFocus={() => {
-              setShowEmoji(false);
-              if (messages.length > 0) {
-                setTimeout(() => {
-                  try {
-                    listRef.current?.scrollToEnd({ animated: true });
-                  } catch {}
-                }, 150);
-              }
-            }}
-            onSubmitEditing={() => {
-              if (draft.trim()) send(draft);
-            }}
-            onKeyPress={Platform.OS === 'web' ? (e) => {
-              if (e.nativeEvent?.key === 'Enter' && !e.nativeEvent?.shiftKey) {
-                e.preventDefault?.();
-                if (draft.trim()) send(draft);
-              }
-            } : undefined}
-            maxLength={1000}
-            style={{
-              flex: 1,
-              flexBasis: 0,
-              minWidth: 0,
-              paddingHorizontal: 8,
-              paddingVertical: 6,
-              fontSize: 15,
-              color: colors.textPrimary,
-              maxHeight: 110,
-              textAlignVertical: 'center',
-            }}
-          />
-
-          {/* Camera / Photo Attachment Button inside box */}
-          <Pressable
-            onPress={choosePhoto}
-            disabled={isUploading}
-            accessibilityRole="button"
-            accessibilityLabel="Send a photo"
-            style={({ pressed }) => ({
-              width: 32,
-              height: 32,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: isUploading ? 0.4 : pressed ? 0.6 : 1,
-              flexShrink: 0,
-            })}
-          >
-            <Ionicons name="camera-outline" size={21} color={colors.textSecondary} />
-          </Pressable>
-        </View>
-
-        {/* Floating Circular Send Action Button: FIXED in EVERY situation, Blue / Admin Theme Color */}
+        {/* Unified Capsule: Text + Emoji + Camera + Divider + Send Button */}
         {(() => {
-          const brandBlue = (colors.primary && colors.primary.toLowerCase() !== '#ffffff' && colors.primary.toLowerCase() !== '#fff')
-            ? colors.primary
-            : '#0084FF';
+          const brandBlue =
+            colors.primary &&
+            colors.primary.toLowerCase() !== '#ffffff' &&
+            colors.primary.toLowerCase() !== '#fff'
+              ? colors.primary
+              : '#0084FF';
 
           return (
-            <Pressable
-              onPress={() => {
-                if (draft && draft.trim()) send(draft);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Send message"
-              style={({ pressed }) => ({
-                width: 44,
-                height: 44,
-                minWidth: 44,
-                maxWidth: 44,
-                borderRadius: 22,
+            <View
+              style={{
+                flex: 1,
+                flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'center',
-                marginLeft: 8,
-                backgroundColor: brandBlue,
-                opacity: pressed ? 0.75 : 1,
-                flexShrink: 0,
-                overflow: 'hidden',
-              })}
+                paddingLeft: 12,
+                paddingRight: 6,
+                paddingVertical: 4,
+                borderRadius: 22,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.surfaceAlt,
+                minHeight: 46,
+              }}
             >
-              {isUploading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Ionicons
-                  name="send"
-                  size={18}
-                  color="#FFFFFF"
-                  style={{ marginLeft: 2 }}
+              {/* Text Input */}
+              <TextInput
+                value={draft}
+                onChangeText={handleTyping}
+                placeholder="Type a message…"
+                placeholderTextColor={colors.textMuted}
+                multiline={Platform.OS !== 'web'}
+                returnKeyType="send"
+                enterKeyHint="send"
+                blurOnSubmit={false}
+                disableFullscreenUI={true}
+                onFocus={() => {
+                  setShowEmoji(false);
+                  if (messages.length > 0) {
+                    setTimeout(() => {
+                      try {
+                        listRef.current?.scrollToEnd({ animated: true });
+                      } catch {}
+                    }, 150);
+                  }
+                }}
+                onSubmitEditing={() => {
+                  if (draft && draft.trim()) send(draft);
+                }}
+                onKeyPress={
+                  Platform.OS === 'web'
+                    ? (e) => {
+                        if (e.nativeEvent?.key === 'Enter' && !e.nativeEvent?.shiftKey) {
+                          e.preventDefault?.();
+                          if (draft && draft.trim()) send(draft);
+                        }
+                      }
+                    : undefined
+                }
+                maxLength={1000}
+                style={{
+                  flex: 1,
+                  flexBasis: 0,
+                  minWidth: 0,
+                  paddingHorizontal: 6,
+                  paddingVertical: 6,
+                  fontSize: 15,
+                  color: colors.textPrimary,
+                  maxHeight: 110,
+                  textAlignVertical: 'center',
+                }}
+              />
+
+              {/* Action Icons Row: Emoji + Camera + Divider + Send */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                {/* Emoji Toggle Button inside box */}
+                <Pressable
+                  onPress={() => {
+                    if (!showEmoji) {
+                      Keyboard.dismiss();
+                    }
+                    setShowEmoji((open) => !open);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={showEmoji ? 'Hide emoji' : 'Show emoji'}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons
+                    name={showEmoji ? 'keypad' : 'happy-outline'}
+                    size={22}
+                    color={showEmoji ? brandBlue : colors.textSecondary}
+                  />
+                </Pressable>
+
+                {/* Camera / Photo Attachment Button inside box */}
+                <Pressable
+                  onPress={choosePhoto}
+                  disabled={isUploading}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send a photo"
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  style={({ pressed }) => ({
+                    width: 34,
+                    height: 34,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: isUploading ? 0.4 : pressed ? 0.6 : 1,
+                  })}
+                >
+                  <Ionicons name="camera-outline" size={22} color={colors.textSecondary} />
+                </Pressable>
+
+                {/* Sleek Vertical Divider (|) */}
+                <View
+                  style={{
+                    width: 1,
+                    height: 20,
+                    backgroundColor: colors.border,
+                    marginHorizontal: 3,
+                  }}
                 />
-              )}
-            </Pressable>
+
+                {/* Inside Send Button: Blue / Admin Theme Color, Permanently Fixed, Never Invisible */}
+                <Pressable
+                  onPress={() => {
+                    if (draft && draft.trim()) send(draft);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send message"
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  style={({ pressed }) => ({
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: brandBlue,
+                    opacity: pressed ? 0.75 : 1,
+                    flexShrink: 0,
+                  })}
+                >
+                  {isUploading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons
+                      name="send"
+                      size={15}
+                      color="#FFFFFF"
+                      style={{ marginLeft: 2 }}
+                    />
+                  )}
+                </Pressable>
+              </View>
+            </View>
           );
         })()}
       </View>
