@@ -731,10 +731,25 @@ export default function CustomerSupportScreen() {
             <Pressable
               onPress={handleSendReply}
               disabled={(!replyMessage.trim() && !attachedImageUrl) || sendMessageMutation.isPending}
-              className="h-10 w-10 rounded-full items-center justify-center shadow-sm active:scale-95 transition"
-              style={{
-                backgroundColor: (replyMessage.trim() || attachedImageUrl) ? colors.primary : colors.surfaceAlt,
-                boxShadow: (replyMessage.trim() || attachedImageUrl) ? `0 4px 12px ${colors.primary}50` : 'none',
+              accessibilityRole="button"
+              accessibilityLabel="Send support reply"
+              style={({ pressed }) => {
+                const hasContent = Boolean(replyMessage.trim() || attachedImageUrl);
+                return {
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: hasContent ? colors.primary : colors.surfaceAlt,
+                  elevation: hasContent ? 2 : 0,
+                  shadowColor: hasContent ? colors.primary : '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: hasContent ? 0.25 : 0.05,
+                  shadowRadius: 3,
+                  opacity: pressed ? 0.8 : 1,
+                  flexShrink: 0,
+                };
               }}
             >
               <Ionicons

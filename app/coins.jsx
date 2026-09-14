@@ -648,11 +648,16 @@ function GirlsEarningsCard({ wallet: propWallet }) {
                 onPress={() => setModalOpen(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Withdraw cash to UPI or Bank"
-                className="px-5 py-3 rounded-2xl flex-row items-center gap-2 shadow-md active:scale-95 transition shrink-0"
-                style={{
+                className="px-5 py-3 rounded-2xl flex-row items-center gap-2 shrink-0"
+                style={({ pressed }) => ({
                   backgroundColor: colors.primary,
-                  boxShadow: `0 4px 14px ${colors.primary}60`,
-                }}
+                  elevation: 4,
+                  shadowColor: colors.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.35,
+                  shadowRadius: 7,
+                  opacity: pressed ? 0.85 : 1,
+                })}
               >
                 <Ionicons name="cash-outline" size={17} color="#FFFFFF" />
                 <Text className="text-sm font-black text-white">Withdraw 💸</Text>

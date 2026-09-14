@@ -556,14 +556,25 @@ export default function ChatScreen() {
 
   // ----- Sending ------------------------------------------------------------
 
+  const isTypingActiveRef = useRef(false);
+
   const handleTyping = useCallback(
     (value) => {
       setDraft(value);
 
-      emit(SOCKET_EVENT.TYPING_START, { conversationId });
+      if (!isTypingActiveRef.current) {
+        isTypingActiveRef.current = true;
+        try {
+          emit(SOCKET_EVENT.TYPING_START, { conversationId });
+        } catch {}
+      }
+
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
-        emit(SOCKET_EVENT.TYPING_STOP, { conversationId });
+        isTypingActiveRef.current = false;
+        try {
+          emit(SOCKET_EVENT.TYPING_STOP, { conversationId });
+        } catch {}
       }, 1800);
     },
     [conversationId, emit],
@@ -572,6 +583,12 @@ export default function ChatScreen() {
   async function send(text) {
     const trimmed = text.trim();
     if (!trimmed) return;
+
+    isTypingActiveRef.current = false;
+    clearTimeout(typingTimeoutRef.current);
+    try {
+      emit(SOCKET_EVENT.TYPING_STOP, { conversationId });
+    } catch {}
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const optimisticMessage = {
@@ -591,7 +608,6 @@ export default function ChatScreen() {
     setMessages((current) => [...current, optimisticMessage]);
     setDraft('');
     playSent();
-    emit(SOCKET_EVENT.TYPING_STOP, { conversationId });
 
     try {
       const result = await chatApi.send(conversationId, { text: trimmed });
@@ -719,18 +735,19 @@ export default function ChatScreen() {
       <FlatList
         ref={listRef}
         data={groupedMessages}
-        keyExtractor={(item) => item.id}
-        /* Virtualisation tuning. React Native's defaults keep roughly ten
-           screens of rows mounted, which is fine on a flagship and is what
-           makes long lists stutter on the mid-range Android phones most of
-           these users are on. Smaller batches and a tighter window cost a
-           little more work while flinging fast and a lot less memory. */
-        removeClippedSubviews={Platform.OS === 'android'}
+        keyExtractor={(item, index) => String(item?.id || item?._id || index)}
+        removeClippedSubviews={false}
         initialNumToRender={15}
         maxToRenderPerBatch={10}
         windowSize={11}
         contentContainerStyle={{ paddingVertical: 12, flexGrow: 1, justifyContent: 'flex-end' }}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => {
+          if (groupedMessages.length > 0) {
+            try {
+              listRef.current?.scrollToEnd({ animated: true });
+            } catch {}
+          }
+        }}
         renderItem={({ item }) => (
           <MessageBubble
             message={item}
@@ -893,21 +910,23 @@ export default function ChatScreen() {
             multiline={Platform.OS !== 'web'}
             returnKeyType="send"
             blurOnSubmit={false}
+            disableFullscreenUI={true}
             onSubmitEditing={() => {
               if (draft.trim()) send(draft);
             }}
-            onKeyPress={(e) => {
-              if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+            onKeyPress={Platform.OS === 'web' ? (e) => {
+              if (e.nativeEvent?.key === 'Enter' && !e.nativeEvent?.shiftKey) {
                 e.preventDefault?.();
                 if (draft.trim()) send(draft);
               }
-            }}
+            } : undefined}
             maxLength={1000}
             className="flex-1 px-2.5 py-1.5 text-[15px]"
             style={{
               color: colors.textPrimary,
               maxHeight: 110,
               minWidth: 0,
+              textAlignVertical: 'center',
             }}
           />
 
@@ -917,8 +936,11 @@ export default function ChatScreen() {
             disabled={isUploading}
             accessibilityRole="button"
             accessibilityLabel="Send a photo"
-            className="h-8 w-8 items-center justify-center rounded-full active:scale-90"
-            style={{ opacity: isUploading ? 0.4 : 1, flexShrink: 0 }}
+            className="h-8 w-8 items-center justify-center rounded-full"
+            style={({ pressed }) => ({
+              opacity: isUploading ? 0.4 : pressed ? 0.6 : 1,
+              flexShrink: 0,
+            })}
           >
             <Ionicons name="camera-outline" size={21} color={colors.textSecondary} />
           </Pressable>
@@ -930,12 +952,22 @@ export default function ChatScreen() {
           disabled={!draft.trim()}
           accessibilityRole="button"
           accessibilityLabel="Send message"
-          className="h-10 w-10 items-center justify-center rounded-full shadow-md active:scale-95 transition ml-2"
-          style={{
+          style={({ pressed }) => ({
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginLeft: 8,
             backgroundColor: draft.trim() ? colors.primary : colors.surfaceAlt,
-            boxShadow: draft.trim() ? `0 4px 14px ${colors.primary}60` : 'none',
+            elevation: draft.trim() ? 3 : 0,
+            shadowColor: draft.trim() ? colors.primary : '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: draft.trim() ? 0.28 : 0.05,
+            shadowRadius: 4,
+            opacity: pressed ? 0.8 : 1,
             flexShrink: 0,
-          }}
+          })}
         >
           {isUploading ? (
             <ActivityIndicator size="small" color={colors.primary} />

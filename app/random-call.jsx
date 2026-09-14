@@ -1009,11 +1009,18 @@ export default function RandomCallScreen() {
               {/* Next / Skip Friend Button (Vibrant Pill with Flash & Glow) */}
               <Pressable
                 onPress={handleNext}
-                className="flex-row items-center gap-2 px-6 py-3 rounded-full shadow-lg active:scale-95"
-                style={{
+                accessibilityRole="button"
+                accessibilityLabel="Next friend"
+                className="flex-row items-center gap-2 px-6 py-3 rounded-full"
+                style={({ pressed }) => ({
                   backgroundColor: colors.primary,
-                  boxShadow: `0 6px 20px -2px ${colors.primary}60`,
-                }}
+                  elevation: 5,
+                  shadowColor: colors.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.38,
+                  shadowRadius: 8,
+                  opacity: pressed ? 0.85 : 1,
+                })}
               >
                 <Ionicons name="flash" size={15} color={colors.onPrimary || '#FFFFFF'} />
                 <Text
