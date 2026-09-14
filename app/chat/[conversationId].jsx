@@ -904,8 +904,12 @@ export default function ChatScreen() {
 
       {/* Professional Chat Input Composer Bar */}
       <View
-        className="flex-row items-center px-3 pt-2"
         style={{
+          width: '100%',
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 12,
+          paddingTop: 8,
           paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom, 10),
           backgroundColor: colors.surface,
           borderTopWidth: 1,
@@ -914,12 +918,18 @@ export default function ChatScreen() {
       >
         {/* Seamless Combined Pill: Emoji + TextInput + Camera */}
         <View
-          className="flex-1 flex-row items-center px-2 py-1 rounded-3xl border"
           style={{
             flex: 1,
-            flexShrink: 1,
-            backgroundColor: colors.surfaceAlt,
+            flexBasis: 0,
+            minWidth: 0,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 24,
+            borderWidth: 1,
             borderColor: colors.border,
+            backgroundColor: colors.surfaceAlt,
             minHeight: 44,
           }}
         >
@@ -933,13 +943,12 @@ export default function ChatScreen() {
             }}
             accessibilityRole="button"
             accessibilityLabel={showEmoji ? 'Hide emoji' : 'Show emoji'}
-            className="h-8 w-8 items-center justify-center rounded-full active:scale-90"
-            style={{ flexShrink: 0 }}
+            style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
             <Ionicons
               name={showEmoji ? 'keypad' : 'happy-outline'}
               size={22}
-              color={showEmoji ? (colors.primary || '#FF4E88') : colors.textSecondary}
+              color={showEmoji ? (colors.primary || '#0084FF') : colors.textSecondary}
             />
           </Pressable>
 
@@ -973,13 +982,15 @@ export default function ChatScreen() {
               }
             } : undefined}
             maxLength={1000}
-            className="flex-1 px-2.5 py-1.5 text-[15px]"
             style={{
               flex: 1,
-              flexShrink: 1,
+              flexBasis: 0,
+              minWidth: 0,
+              paddingHorizontal: 8,
+              paddingVertical: 6,
+              fontSize: 15,
               color: colors.textPrimary,
               maxHeight: 110,
-              minWidth: 0,
               textAlignVertical: 'center',
             }}
           />
@@ -990,8 +1001,11 @@ export default function ChatScreen() {
             disabled={isUploading}
             accessibilityRole="button"
             accessibilityLabel="Send a photo"
-            className="h-8 w-8 items-center justify-center rounded-full"
             style={({ pressed }) => ({
+              width: 32,
+              height: 32,
+              alignItems: 'center',
+              justifyContent: 'center',
               opacity: isUploading ? 0.4 : pressed ? 0.6 : 1,
               flexShrink: 0,
             })}
@@ -1000,20 +1014,16 @@ export default function ChatScreen() {
           </Pressable>
         </View>
 
-        {/* Floating Circular Send Action Button */}
+        {/* Floating Circular Send Action Button: FIXED in EVERY situation, Blue / Admin Theme Color */}
         {(() => {
-          const hasDraft = Boolean(draft && draft.trim().length > 0);
-          const primaryColor = (colors.primary && colors.primary.toLowerCase() !== '#ffffff' && colors.primary.toLowerCase() !== '#fff')
+          const brandBlue = (colors.primary && colors.primary.toLowerCase() !== '#ffffff' && colors.primary.toLowerCase() !== '#fff')
             ? colors.primary
-            : '#FF4E88';
-          const iconColor = hasDraft ? '#FFFFFF' : (colors.textMuted || '#9CA3AF');
-          const bgColor = hasDraft ? primaryColor : (colors.surfaceAlt || '#F3F4F6');
-          const borderColor = hasDraft ? (colors.primaryDark || primaryColor) : (colors.border || '#E5E7EB');
+            : '#0084FF';
 
           return (
             <Pressable
               onPress={() => {
-                if (hasDraft) send(draft);
+                if (draft && draft.trim()) send(draft);
               }}
               accessibilityRole="button"
               accessibilityLabel="Send message"
@@ -1026,9 +1036,7 @@ export default function ChatScreen() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginLeft: 8,
-                backgroundColor: bgColor,
-                borderWidth: 1,
-                borderColor: borderColor,
+                backgroundColor: brandBlue,
                 opacity: pressed ? 0.75 : 1,
                 flexShrink: 0,
                 overflow: 'hidden',
@@ -1040,7 +1048,7 @@ export default function ChatScreen() {
                 <Ionicons
                   name="send"
                   size={18}
-                  color={iconColor}
+                  color="#FFFFFF"
                   style={{ marginLeft: 2 }}
                 />
               )}

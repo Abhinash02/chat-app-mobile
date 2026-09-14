@@ -683,22 +683,39 @@ export default function CustomerSupportScreen() {
 
           {/* Reply Message Input */}
           <View
-            className="px-3 py-2.5 border-t flex-row items-center gap-2"
             style={{
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
+              width: '100%',
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 12,
+              paddingTop: 8,
               paddingBottom: Math.max(insets.bottom, 12),
+              backgroundColor: colors.surface,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
             }}
           >
             {/* Attachment Button */}
             <Pressable
               onPress={handlePickAndUploadImage}
               disabled={isUploadingImage}
-              className="h-10 w-10 rounded-full items-center justify-center border shadow-sm active:scale-95 transition"
-              style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.border }}
+              accessibilityRole="button"
+              accessibilityLabel="Attach image"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.surfaceAlt,
+                borderWidth: 1,
+                borderColor: colors.border,
+                flexShrink: 0,
+                marginRight: 8,
+              }}
             >
               {isUploadingImage ? (
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.primary || '#0084FF'} />
               ) : (
                 <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
               )}
@@ -706,10 +723,18 @@ export default function CustomerSupportScreen() {
 
             {/* Input Pill */}
             <View
-              className="flex-1 flex-row items-center px-3.5 py-1 rounded-2xl border shadow-sm"
               style={{
-                backgroundColor: colors.background,
+                flex: 1,
+                flexBasis: 0,
+                minWidth: 0,
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 20,
+                borderWidth: 1,
                 borderColor: colors.border,
+                backgroundColor: colors.background,
                 minHeight: 40,
               }}
             >
@@ -719,27 +744,28 @@ export default function CustomerSupportScreen() {
                 placeholder="Type message to support admin..."
                 placeholderTextColor={colors.textMuted}
                 multiline
-                className="flex-1 py-1 text-xs"
                 style={{
+                  flex: 1,
+                  flexBasis: 0,
+                  minWidth: 0,
+                  paddingVertical: 4,
+                  fontSize: 13,
                   color: colors.textPrimary,
                   maxHeight: 90,
                 }}
               />
             </View>
 
-            {/* Send Button */}
+            {/* Send Button: FIXED in EVERY situation, Blue / Admin Theme Color */}
             {(() => {
-              const hasContent = Boolean(replyMessage.trim() || attachedImageUrl);
-              const primaryColor = (colors.primary && colors.primary.toLowerCase() !== '#ffffff' && colors.primary.toLowerCase() !== '#fff')
+              const brandBlue = (colors.primary && colors.primary.toLowerCase() !== '#ffffff' && colors.primary.toLowerCase() !== '#fff')
                 ? colors.primary
-                : '#FF4E88';
-              const iconColor = hasContent ? '#FFFFFF' : (colors.textMuted || '#9CA3AF');
-              const bgColor = hasContent ? primaryColor : (colors.surfaceAlt || '#F3F4F6');
-              const borderColor = hasContent ? (colors.primaryDark || primaryColor) : (colors.border || '#E5E7EB');
+                : '#0084FF';
 
               return (
                 <Pressable
                   onPress={() => {
+                    const hasContent = Boolean(replyMessage.trim() || attachedImageUrl);
                     if (hasContent && !sendMessageMutation.isPending) {
                       handleSendReply();
                     }
@@ -754,9 +780,8 @@ export default function CustomerSupportScreen() {
                     borderRadius: 22,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: bgColor,
-                    borderWidth: 1,
-                    borderColor: borderColor,
+                    marginLeft: 8,
+                    backgroundColor: brandBlue,
                     opacity: pressed ? 0.75 : 1,
                     flexShrink: 0,
                     overflow: 'hidden',
@@ -765,7 +790,7 @@ export default function CustomerSupportScreen() {
                   <Ionicons
                     name="send"
                     size={17}
-                    color={iconColor}
+                    color="#FFFFFF"
                     style={{ marginLeft: 2 }}
                   />
                 </Pressable>
