@@ -914,7 +914,7 @@ export default function ChatScreen() {
       >
         {/* Seamless Combined Pill: Emoji + TextInput + Camera */}
         <View
-          className="flex-1 flex-row items-center px-2 py-1 rounded-3xl border shadow-sm"
+          className="flex-1 flex-row items-center px-2 py-1 rounded-3xl border"
           style={{
             flex: 1,
             flexShrink: 1,
@@ -1002,13 +1002,19 @@ export default function ChatScreen() {
 
         {/* Floating Circular Send Action Button */}
         {(() => {
-          const hasDraft = Boolean(draft && draft.trim());
-          const activeBg = colors.primary || '#FF4E88';
-          const activeText = colors.onPrimary || '#FFFFFF';
+          const hasDraft = Boolean(draft && draft.trim().length > 0);
+          const primaryColor = (colors.primary && colors.primary.toLowerCase() !== '#ffffff' && colors.primary.toLowerCase() !== '#fff')
+            ? colors.primary
+            : '#FF4E88';
+          const iconColor = hasDraft ? '#FFFFFF' : (colors.textMuted || '#9CA3AF');
+          const bgColor = hasDraft ? primaryColor : (colors.surfaceAlt || '#F3F4F6');
+          const borderColor = hasDraft ? (colors.primaryDark || primaryColor) : (colors.border || '#E5E7EB');
+
           return (
             <Pressable
-              onPress={() => send(draft)}
-              disabled={!hasDraft}
+              onPress={() => {
+                if (hasDraft) send(draft);
+              }}
               accessibilityRole="button"
               accessibilityLabel="Send message"
               style={({ pressed }) => ({
@@ -1020,25 +1026,21 @@ export default function ChatScreen() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginLeft: 8,
-                backgroundColor: hasDraft ? activeBg : (colors.surfaceAlt || '#F3F4F6'),
+                backgroundColor: bgColor,
                 borderWidth: 1,
-                borderColor: hasDraft ? (colors.primaryDark || activeBg) : (colors.border || '#E5E7EB'),
-                elevation: hasDraft ? 4 : 0,
-                shadowColor: hasDraft ? activeBg : '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: hasDraft ? 0.3 : 0.05,
-                shadowRadius: 4,
-                opacity: pressed ? 0.8 : 1,
+                borderColor: borderColor,
+                opacity: pressed ? 0.75 : 1,
                 flexShrink: 0,
+                overflow: 'hidden',
               })}
             >
               {isUploading ? (
-                <ActivityIndicator size="small" color={hasDraft ? activeText : activeBg} />
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Ionicons
                   name="send"
                   size={18}
-                  color={hasDraft ? activeText : (colors.textMuted || '#9CA3AF')}
+                  color={iconColor}
                   style={{ marginLeft: 2 }}
                 />
               )}

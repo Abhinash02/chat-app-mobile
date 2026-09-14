@@ -730,12 +730,20 @@ export default function CustomerSupportScreen() {
             {/* Send Button */}
             {(() => {
               const hasContent = Boolean(replyMessage.trim() || attachedImageUrl);
-              const activeBg = colors.primary || '#FF4E88';
-              const activeText = colors.onPrimary || '#FFFFFF';
+              const primaryColor = (colors.primary && colors.primary.toLowerCase() !== '#ffffff' && colors.primary.toLowerCase() !== '#fff')
+                ? colors.primary
+                : '#FF4E88';
+              const iconColor = hasContent ? '#FFFFFF' : (colors.textMuted || '#9CA3AF');
+              const bgColor = hasContent ? primaryColor : (colors.surfaceAlt || '#F3F4F6');
+              const borderColor = hasContent ? (colors.primaryDark || primaryColor) : (colors.border || '#E5E7EB');
+
               return (
                 <Pressable
-                  onPress={handleSendReply}
-                  disabled={!hasContent || sendMessageMutation.isPending}
+                  onPress={() => {
+                    if (hasContent && !sendMessageMutation.isPending) {
+                      handleSendReply();
+                    }
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel="Send support reply"
                   style={({ pressed }) => ({
@@ -746,22 +754,18 @@ export default function CustomerSupportScreen() {
                     borderRadius: 22,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: hasContent ? activeBg : (colors.surfaceAlt || '#F3F4F6'),
+                    backgroundColor: bgColor,
                     borderWidth: 1,
-                    borderColor: hasContent ? (colors.primaryDark || activeBg) : (colors.border || '#E5E7EB'),
-                    elevation: hasContent ? 4 : 0,
-                    shadowColor: hasContent ? activeBg : '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: hasContent ? 0.3 : 0.05,
-                    shadowRadius: 4,
-                    opacity: pressed ? 0.8 : 1,
+                    borderColor: borderColor,
+                    opacity: pressed ? 0.75 : 1,
                     flexShrink: 0,
+                    overflow: 'hidden',
                   })}
                 >
                   <Ionicons
                     name="send"
                     size={17}
-                    color={hasContent ? activeText : (colors.textMuted || '#9CA3AF')}
+                    color={iconColor}
                     style={{ marginLeft: 2 }}
                   />
                 </Pressable>
