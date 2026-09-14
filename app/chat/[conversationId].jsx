@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -214,9 +215,41 @@ export default function ChatScreen() {
   const [showEmoji, setShowEmoji] = useState(false);
   const [activeEmojiCategory, setActiveEmojiCategory] = useState('smileys');
   const [partnerTyping, setPartnerTyping] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const listRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setIsKeyboardVisible(true);
+      },
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+      },
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isKeyboardVisible && messages.length > 0) {
+      const timer = setTimeout(() => {
+        try {
+          listRef.current?.scrollToEnd({ animated: true });
+        } catch {}
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [isKeyboardVisible, messages.length]);
 
   /*
    * The chat list already holds everything the header needs — partner name,
@@ -654,8 +687,8 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       className="flex-1"
       style={{ backgroundColor: colors.background }}
     >
@@ -737,6 +770,8 @@ export default function ChatScreen() {
         data={groupedMessages}
         keyExtractor={(item, index) => String(item?.id || item?._id || index)}
         removeClippedSubviews={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         initialNumToRender={15}
         maxToRenderPerBatch={10}
         windowSize={11}
@@ -871,7 +906,7 @@ export default function ChatScreen() {
       <View
         className="flex-row items-center px-3 pt-2"
         style={{
-          paddingBottom: Math.max(insets.bottom, 10),
+          paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom, 10),
           backgroundColor: colors.surface,
           borderTopWidth: 1,
           borderTopColor: colors.border,
@@ -881,6 +916,8 @@ export default function ChatScreen() {
         <View
           className="flex-1 flex-row items-center px-2 py-1 rounded-3xl border shadow-sm"
           style={{
+            flex: 1,
+            flexShrink: 1,
             backgroundColor: colors.surfaceAlt,
             borderColor: colors.border,
             minHeight: 44,
@@ -888,7 +925,12 @@ export default function ChatScreen() {
         >
           {/* Emoji Toggle Button inside box */}
           <Pressable
-            onPress={() => setShowEmoji((open) => !open)}
+            onPress={() => {
+              if (!showEmoji) {
+                Keyboard.dismiss();
+              }
+              setShowEmoji((open) => !open);
+            }}
             accessibilityRole="button"
             accessibilityLabel={showEmoji ? 'Hide emoji' : 'Show emoji'}
             className="h-8 w-8 items-center justify-center rounded-full active:scale-90"
@@ -897,7 +939,7 @@ export default function ChatScreen() {
             <Ionicons
               name={showEmoji ? 'keypad' : 'happy-outline'}
               size={22}
-              color={showEmoji ? colors.primary : colors.textSecondary}
+              color={showEmoji ? (colors.primary || '#FF4E88') : colors.textSecondary}
             />
           </Pressable>
 
@@ -911,6 +953,16 @@ export default function ChatScreen() {
             returnKeyType="send"
             blurOnSubmit={false}
             disableFullscreenUI={true}
+            onFocus={() => {
+              setShowEmoji(false);
+              if (messages.length > 0) {
+                setTimeout(() => {
+                  try {
+                    listRef.current?.scrollToEnd({ animated: true });
+                  } catch {}
+                }, 150);
+              }
+            }}
             onSubmitEditing={() => {
               if (draft.trim()) send(draft);
             }}
@@ -923,6 +975,8 @@ export default function ChatScreen() {
             maxLength={1000}
             className="flex-1 px-2.5 py-1.5 text-[15px]"
             style={{
+              flex: 1,
+              flexShrink: 1,
               color: colors.textPrimary,
               maxHeight: 110,
               minWidth: 0,
@@ -947,39 +1001,50 @@ export default function ChatScreen() {
         </View>
 
         {/* Floating Circular Send Action Button */}
-        <Pressable
-          onPress={() => send(draft)}
-          disabled={!draft.trim()}
-          accessibilityRole="button"
-          accessibilityLabel="Send message"
-          style={({ pressed }) => ({
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginLeft: 8,
-            backgroundColor: draft.trim() ? colors.primary : colors.surfaceAlt,
-            elevation: draft.trim() ? 3 : 0,
-            shadowColor: draft.trim() ? colors.primary : '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: draft.trim() ? 0.28 : 0.05,
-            shadowRadius: 4,
-            opacity: pressed ? 0.8 : 1,
-            flexShrink: 0,
-          })}
-        >
-          {isUploading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <Ionicons
-              name="send"
-              size={17}
-              color={draft.trim() ? (colors.onPrimary || '#FFFFFF') : colors.textMuted}
-              style={{ marginLeft: 2 }}
-            />
-          )}
-        </Pressable>
+        {(() => {
+          const hasDraft = Boolean(draft && draft.trim());
+          const activeBg = colors.primary || '#FF4E88';
+          const activeText = colors.onPrimary || '#FFFFFF';
+          return (
+            <Pressable
+              onPress={() => send(draft)}
+              disabled={!hasDraft}
+              accessibilityRole="button"
+              accessibilityLabel="Send message"
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                minWidth: 44,
+                maxWidth: 44,
+                borderRadius: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginLeft: 8,
+                backgroundColor: hasDraft ? activeBg : (colors.surfaceAlt || '#F3F4F6'),
+                borderWidth: 1,
+                borderColor: hasDraft ? (colors.primaryDark || activeBg) : (colors.border || '#E5E7EB'),
+                elevation: hasDraft ? 4 : 0,
+                shadowColor: hasDraft ? activeBg : '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: hasDraft ? 0.3 : 0.05,
+                shadowRadius: 4,
+                opacity: pressed ? 0.8 : 1,
+                flexShrink: 0,
+              })}
+            >
+              {isUploading ? (
+                <ActivityIndicator size="small" color={hasDraft ? activeText : activeBg} />
+              ) : (
+                <Ionicons
+                  name="send"
+                  size={18}
+                  color={hasDraft ? activeText : (colors.textMuted || '#9CA3AF')}
+                  style={{ marginLeft: 2 }}
+                />
+              )}
+            </Pressable>
+          );
+        })()}
       </View>
     </KeyboardAvoidingView>
   );

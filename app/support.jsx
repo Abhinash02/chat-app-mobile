@@ -265,7 +265,7 @@ export default function CustomerSupportScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
       {/* Top Navigation Header (Dynamic Admin Theme Colors) */}
       <View
@@ -728,37 +728,45 @@ export default function CustomerSupportScreen() {
             </View>
 
             {/* Send Button */}
-            <Pressable
-              onPress={handleSendReply}
-              disabled={(!replyMessage.trim() && !attachedImageUrl) || sendMessageMutation.isPending}
-              accessibilityRole="button"
-              accessibilityLabel="Send support reply"
-              style={({ pressed }) => {
-                const hasContent = Boolean(replyMessage.trim() || attachedImageUrl);
-                return {
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: hasContent ? colors.primary : colors.surfaceAlt,
-                  elevation: hasContent ? 2 : 0,
-                  shadowColor: hasContent ? colors.primary : '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: hasContent ? 0.25 : 0.05,
-                  shadowRadius: 3,
-                  opacity: pressed ? 0.8 : 1,
-                  flexShrink: 0,
-                };
-              }}
-            >
-              <Ionicons
-                name="send"
-                size={16}
-                color={(replyMessage.trim() || attachedImageUrl) ? (colors.onPrimary || '#FFFFFF') : colors.textMuted}
-                style={{ marginLeft: 2 }}
-              />
-            </Pressable>
+            {(() => {
+              const hasContent = Boolean(replyMessage.trim() || attachedImageUrl);
+              const activeBg = colors.primary || '#FF4E88';
+              const activeText = colors.onPrimary || '#FFFFFF';
+              return (
+                <Pressable
+                  onPress={handleSendReply}
+                  disabled={!hasContent || sendMessageMutation.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send support reply"
+                  style={({ pressed }) => ({
+                    width: 44,
+                    height: 44,
+                    minWidth: 44,
+                    maxWidth: 44,
+                    borderRadius: 22,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: hasContent ? activeBg : (colors.surfaceAlt || '#F3F4F6'),
+                    borderWidth: 1,
+                    borderColor: hasContent ? (colors.primaryDark || activeBg) : (colors.border || '#E5E7EB'),
+                    elevation: hasContent ? 4 : 0,
+                    shadowColor: hasContent ? activeBg : '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: hasContent ? 0.3 : 0.05,
+                    shadowRadius: 4,
+                    opacity: pressed ? 0.8 : 1,
+                    flexShrink: 0,
+                  })}
+                >
+                  <Ionicons
+                    name="send"
+                    size={17}
+                    color={hasContent ? activeText : (colors.textMuted || '#9CA3AF')}
+                    style={{ marginLeft: 2 }}
+                  />
+                </Pressable>
+              );
+            })()}
           </View>
         </View>
       )}
