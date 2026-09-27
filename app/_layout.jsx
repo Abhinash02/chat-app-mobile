@@ -14,6 +14,7 @@ import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider.jsx';
 import { LanguageProvider } from '../src/i18n/LanguageProvider.jsx';
 import { ActionSheetProvider } from '../src/components/ActionSheet.jsx';
 import { AppUpdateModal } from '../src/components/AppUpdateModal.jsx';
+import { ErrorBoundary } from '../src/components/ErrorBoundary.jsx';
 import { DailyBonusModal } from '../src/components/DailyBonusModal.jsx';
 import { InAppNotificationBanner } from '../src/components/InAppNotificationBanner.jsx';
 import { ToastProvider } from '../src/components/Toast.jsx';
@@ -112,25 +113,30 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <LanguageProvider>
-            <ThemeProvider fontsLoaded={fontsLoaded}>
-              <ToastProvider>
-                <ActionSheetProvider>
-                  <SoundProvider>
-                    <AuthProvider>
-                      <SocketProvider>
-                        <AppShell />
-                      </SocketProvider>
-                    </AuthProvider>
-                  </SoundProvider>
-                </ActionSheetProvider>
-              </ToastProvider>
-            </ThemeProvider>
-          </LanguageProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
+      {/* Outside every provider on purpose. A boundary nested inside them
+          cannot catch a provider's own render error, which is exactly the
+          failure that takes the whole app to a blank screen. */}
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <LanguageProvider>
+              <ThemeProvider fontsLoaded={fontsLoaded}>
+                <ToastProvider>
+                  <ActionSheetProvider>
+                    <SoundProvider>
+                      <AuthProvider>
+                        <SocketProvider>
+                          <AppShell />
+                        </SocketProvider>
+                      </AuthProvider>
+                    </SoundProvider>
+                  </ActionSheetProvider>
+                </ToastProvider>
+              </ThemeProvider>
+            </LanguageProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

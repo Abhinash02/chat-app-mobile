@@ -41,6 +41,16 @@ export const usersApi = {
  * app carries out — so there are three things to do with one: open it, read
  * where it got to, and withdraw it while it is still waiting.
  */
+/**
+ * Privacy, terms and refunds, served from the admin panel.
+ *
+ * Public — no session required, because these screens are reachable before
+ * anyone has signed in, and a policy behind a login is not a published policy.
+ */
+export const legalApi = {
+  doc: (slug) => request({ method: 'GET', url: `/site/legal/${slug}` }),
+};
+
 export const accountDeletionApi = {
   myRequest: () => request({ method: 'GET', url: '/account-deletion/my' }),
   submit: (data) => request({ method: 'POST', url: '/account-deletion/request', data }),

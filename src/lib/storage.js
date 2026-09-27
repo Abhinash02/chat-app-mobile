@@ -6,6 +6,7 @@ const REFRESH_TOKEN_KEY = 'vibe.refreshToken';
 const USER_KEY = 'vibe.user';
 const LOCATION_ASKED_KEY = 'vibe.locationAsked';
 const THEME_KEY = 'vibe.theme';
+const LEGAL_KEY_PREFIX = 'vibe.legal.';
 
 /**
  * Session storage.
@@ -115,6 +116,29 @@ export const storage = {
 
   async setCachedTheme(theme) {
     await write(THEME_KEY, theme ? JSON.stringify(theme) : null);
+  },
+
+  /*
+   * The last copy of a policy this device downloaded.
+   *
+   * Policies have to be readable — an app store requires it, and so does
+   * anyone deciding whether to delete their account on a train with no signal.
+   * The document now lives on the server so one edit updates the app and the
+   * website together, which means the screen has to survive the server being
+   * unreachable. This is what it falls back to.
+   */
+  async getCachedLegalDoc(slug) {
+    const raw = await read(`${LEGAL_KEY_PREFIX}${slug}`);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  },
+
+  async setCachedLegalDoc(slug, doc) {
+    await write(`${LEGAL_KEY_PREFIX}${slug}`, doc ? JSON.stringify(doc) : null);
   },
 
   async getLanguage() {

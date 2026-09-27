@@ -19,6 +19,20 @@ const ROWS = 2;
 /* A multiple of ROWS, so a page never ends with a half-empty column. */
 const PAGE_SIZE = 10;
 
+/**
+ * A hard ceiling on how many cards this row will ever mount.
+ *
+ * The comment below says the window "is capped at a page at a time, so there is
+ * nothing for virtualization to save". It was not capped: `visibleCount` only
+ * ever grew, and the parent kept appending pages, so a ScrollView with no
+ * recycling ended up holding every person the user had scrolled past. Each card
+ * is roughly 25-30 native views, so a few minutes of browsing reached several
+ * thousand and the app was killed for memory rather than merely being slow.
+ *
+ * A multiple of ROWS so the last column is never half empty.
+ */
+const MAX_VISIBLE = 60;
+
 /** The height the row occupies: two cards plus the gap between them. */
 const ROW_HEIGHT = CARD_HEIGHT * ROWS + CARD_GAP * (ROWS - 1);
 
@@ -97,8 +111,10 @@ export function BrowseRow({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const safePeople = Array.isArray(people) ? people : [];
-  const shown = safePeople.slice(0, visibleCount);
-  const allLocalLoaded = visibleCount >= safePeople.length;
+  const cappedCount = Math.min(visibleCount, MAX_VISIBLE);
+  const shown = safePeople.slice(0, cappedCount);
+  const isAtCeiling = cappedCount >= MAX_VISIBLE;
+  const allLocalLoaded = cappedCount >= safePeople.length;
   const hasMoreRemote = total != null ? safePeople.length < total : false;
 
   // Reveals the next page as the row nears its end. Reading the scroll frame
@@ -110,10 +126,13 @@ export function BrowseRow({
       if (remaining > 240) return;
 
       if (isLoadingMore) return;
-      if (!allLocalLoaded) setVisibleCount((count) => count + PAGE_SIZE);
+      // At the ceiling the row stops growing and stops asking the server for
+      // more: fetching pages it will never mount is pure cost.
+      if (isAtCeiling) return;
+      if (!allLocalLoaded) setVisibleCount((count) => Math.min(count + PAGE_SIZE, MAX_VISIBLE));
       else if (hasMoreRemote && onLoadMore) onLoadMore();
     },
-    [allLocalLoaded, hasMoreRemote, isLoadingMore, onLoadMore],
+    [allLocalLoaded, hasMoreRemote, isAtCeiling, isLoadingMore, onLoadMore],
   );
 
   if (isLoading) {

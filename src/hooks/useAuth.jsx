@@ -29,10 +29,24 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // Show the cached profile immediately so the app does not sit on a
-      // spinner while the network catches up.
+      /*
+       * Show the cached profile immediately, and open the launch gate with it.
+       *
+       * Setting the user here was never enough on its own: `isRestoring` stayed
+       * true until `/auth/me` settled, and `app/index.jsx` renders a spinner for
+       * the whole of that window. With a 15s request timeout, a refresh retry
+       * behind it and a backend that cold-starts, a returning user could watch a
+       * loading screen for the better part of a minute while a complete profile
+       * sat in storage unused.
+       *
+       * The fetch below still runs and still corrects the profile — and still
+       * signs the user out on a 401 — it just no longer holds up first paint.
+       */
       const cached = await storage.getUser();
-      if (cached && !isCancelled) setUser(cached);
+      if (cached && !isCancelled) {
+        setUser(cached);
+        setIsRestoring(false);
+      }
 
       try {
         const fresh = await request({ method: 'GET', url: '/auth/me' });

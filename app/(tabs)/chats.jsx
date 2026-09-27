@@ -16,7 +16,16 @@ import { useTheme } from '../../src/theme/ThemeProvider.jsx';
 function ConversationRow({ conversation, presence, onPress }) {
   const { colors } = useTheme();
 
-  const { partner, lastMessage, unreadCount } = conversation;
+  /*
+   * `partner` can be null — a conversation outlives the account on the other
+   * side of it. Destructuring straight through it threw during render and took
+   * the entire Chats tab white, with no error boundary to catch it. The
+   * grouping code further down this file already guarded with `partner?.id`;
+   * the row that draws it did not.
+   */
+  const { partner, lastMessage, unreadCount } = conversation ?? {};
+  if (!partner) return null;
+
   const isOnline = presence?.[partner.id]?.isOnline ?? partner.isOnline;
   const hasUnread = unreadCount > 0;
 
